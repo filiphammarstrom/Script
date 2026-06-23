@@ -204,17 +204,97 @@ class WatchedFolderTranscriber:
                     pass
 
 
+def _attr_or_key(obj, key):
+    """Hämta `key` från ett objekt (attribut) eller en dict – tål båda formerna."""
+    if isinstance(obj, dict):
+        return obj.get(key)
+    return getattr(obj, key, None)
+
+
+def _norm_speaker(speaker) -> str:
+    """Normalisera talar-etikett: 'speaker_0'/'SPEAKER 1' -> '0'/'1' (annars oförändrad)."""
+    if speaker is None:
+        return ""
+    s = str(speaker).strip()
+    low = s.lower()
+    for prefix in ("speaker_", "speaker ", "speaker"):
+        if low.startswith(prefix):
+            return s[len(prefix):].strip() or s
+    return s
+
+
+def openai_response_to_text(resp) -> str:
+    """Formatera OpenAI:s transkriberingssvar till text.
+
+    Diariserade segment blir rader 'Speaker X: ...' (samma format som AssemblyAI och som
+    analyspipelinen känner igen); intilliggande segment från samma talare slås ihop.
+    Saknas segment används svarets råa `text`.
+    """
+    segments = _attr_or_key(resp, "segments")
+    if segments:
+        rows: list[list[str]] = []  # [speaker, text]
+        for seg in segments:
+            speaker = _norm_speaker(_attr_or_key(seg, "speaker"))
+            text = (_attr_or_key(seg, "text") or "").strip()
+            if not text:
+                continue
+            if rows and rows[-1][0] == speaker:
+                rows[-1][1] += " " + text
+            else:
+                rows.append([speaker, text])
+        if rows:
+            return "\n".join(
+                (f"Speaker {sp}: {tx}" if sp else tx) for sp, tx in rows
+            )
+    return (_attr_or_key(resp, "text") or "").strip()
+
+
+class OpenAITranscriber:
+    """Molntranskribering via OpenAI:s ljud-API – default med diarisering.
+
+    Env:
+      OPENAI_API_KEY          – (krävs) API-nyckel.
+      OPENAI_TRANSCRIBE_MODEL – modell, default 'gpt-4o-transcribe-diarize' (talar-etiketter).
+                                Sätt t.ex. 'gpt-4o-mini-transcribe' för billigare utan diarisering.
+    """
+
+    def __init__(self) -> None:
+        api_key = os.environ.get("OPENAI_API_KEY")
+        if not api_key:
+            raise RuntimeError("OPENAI_API_KEY saknas i miljön.")
+        from openai import OpenAI  # lazy import
+
+        self._client = OpenAI(api_key=api_key)
+        self._model = os.environ.get("OPENAI_TRANSCRIBE_MODEL", "gpt-4o-transcribe-diarize")
+
+    def transcribe(self, path: str, language: str | None = None) -> str:
+        kwargs: dict = {"model": self._model}
+        if language:
+            kwargs["language"] = language
+        if "diarize" in self._model:
+            kwargs["response_format"] = "diarized_json"
+        with open(path, "rb") as fh:
+            resp = self._client.audio.transcriptions.create(file=fh, **kwargs)
+        text = openai_response_to_text(resp)
+        if not text:
+            raise RuntimeError("OpenAI-transkribering gav ingen text.")
+        return text
+
+
 def get_transcriber(backend: str | None = None) -> Transcriber:
     """Välj transkriberingsmotor.
 
     `backend` väljs per anrop (UI), annars env TRANSCRIBE_BACKEND, annars 'assemblyai'.
       'assemblyai' = moln med diarisering (kostar per minut, valbar reserv).
+      'openai' = moln med diarisering via OpenAI (gpt-4o-transcribe-diarize).
       'local'/'whisper' = lokal Whisper-CLI på din dator (gratis).
       'watch' = helautomatiskt via en GUI-apps bevakade mapp (MacWhisper m.fl.).
     """
     backend = (backend or os.environ.get("TRANSCRIBE_BACKEND", "assemblyai")).lower()
     if backend == "assemblyai":
         return AssemblyAITranscriber()
+    if backend in ("openai", "gpt-4o", "gpt4o", "openai_diarize"):
+        return OpenAITranscriber()
     if backend in ("local", "whisper", "whisper_cli"):
         return LocalWhisperTranscriber()
     if backend in ("watch", "watched", "watched_folder", "macwhisper"):

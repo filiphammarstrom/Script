@@ -51,6 +51,7 @@ Modell: default `claude-sonnet-4-6`. Sätt `SCRIPT_MODEL=claude-opus-4-8` för s
 `TRANSCRIBE_BACKEND` väljer motor:
 
 - `assemblyai` (default) – moln med diarisering (talar-etiketter). Kräver `ASSEMBLYAI_API_KEY`. Kostar per minut.
+- `openai` – moln med diarisering via OpenAI (`gpt-4o-transcribe-diarize`, ~$0,006/min). Kräver `OPENAI_API_KEY`. Sätt `OPENAI_TRANSCRIBE_MODEL=gpt-4o-mini-transcribe` för billigare utan diarisering.
 - `local` – lokal **Whisper-CLI** på din egen dator. Gratis, ingen moln-API (ingen diarisering – AI:n attribuerar talare från sammanhang).
 
 Lokalt läge, standard (openai-whisper):
@@ -81,7 +82,7 @@ export WATCH_OUT_EXT=.txt                     # eller .srt (tidskoder rensas)
 
 Ställ in transkriberingsappen att bevaka `WATCH_IN_DIR` och spara transkript (samma filnamn) till `WATCH_OUT_DIR`.
 
-I appen kan du även **välja motor per uppladdning** (Lokalt / Bevakad mapp / Moln) och **importera ett färdigt transkript** (`.txt/.srt/.vtt`) från en valfri app – tidskoder i SRT/VTT rensas automatiskt.
+I appen kan du även **välja motor per uppladdning** (Lokalt / Bevakad mapp / Moln: OpenAI / Moln: AssemblyAI) och **importera ett färdigt transkript** (`.txt/.srt/.vtt`) från en valfri app – tidskoder i SRT/VTT rensas automatiskt.
 
 Ger din app **talar-etiketter** (t.ex. "Talare 1/2" eller "Speaker A/B" – många, som Whisper Transcription, gör det) behåller Script dem: AI:n knyter varje platshållare till rätt karaktär utifrån kontext och story-bibel och skriver ut det riktiga namnet (frågar om kopplingen är oklar).
 

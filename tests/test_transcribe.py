@@ -8,6 +8,7 @@ from app.transcribe import (
     LocalWhisperTranscriber,
     WatchedFolderTranscriber,
     get_transcriber,
+    openai_response_to_text,
     transcript_to_text,
     utterances_to_text,
 )
@@ -60,6 +61,24 @@ def test_vtt_stripped_and_plain_text_passthrough():
     vtt = "WEBVTT\n\n00:00:01.000 --> 00:00:02.000\nHallå.\n"
     assert transcript_to_text("klipp.vtt", vtt) == "Hallå."
     assert transcript_to_text("anteckning.txt", "  bara text  ") == "bara text"
+
+
+def test_openai_diarized_segments_become_speaker_lines():
+    resp = {
+        "segments": [
+            {"speaker": "speaker_0", "text": "Hej."},
+            {"speaker": "speaker_0", "text": "Hur är läget?"},
+            {"speaker": "speaker_1", "text": "Bra tack."},
+            {"speaker": "speaker_0", "text": "Skönt."},
+        ]
+    }
+    assert openai_response_to_text(resp) == (
+        "Speaker 0: Hej. Hur är läget?\nSpeaker 1: Bra tack.\nSpeaker 0: Skönt."
+    )
+
+
+def test_openai_plain_text_fallback_without_segments():
+    assert openai_response_to_text({"text": "  bara text  "}) == "bara text"
 
 
 def test_watched_folder_drops_audio_and_reads_transcript(tmp_path, monkeypatch):
