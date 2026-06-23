@@ -64,13 +64,20 @@ OBLIGATORISK KONTROLL INNAN DU SVARAR
 FORMAT OCH ELEMENTTYPER
 - Elementtyper: scene_heading, action, character, dialogue, parenthetical, transition, general.
 
-FORMATSTANDARD (hur elementen ska se ut NÄR de väl skrivs – branschstandard; gäller form, inte att lägga till innehåll)
-- scene_heading (slugline): VERSALER, inleds med INT. (inomhus), EXT. (utomhus) eller INT./EXT., följt av platsen och därefter tiden efter ett bindestreck, t.ex. "INT. KÖK – DAG", "EXT. PARKERING – NATT". Vanliga tidsangivelser: DAG, NATT, KVÄLL, MORGON, SENARE, FORTSÄTTNING.
-- action: presens, beskriver bara det som syns eller hörs. När en karaktär förekommer FÖRSTA gången skrivs namnet i VERSALER; därefter normal versalisering. Tydliga ljud kan skrivas i VERSALER.
-- character: namnet i VERSALER ovanför repliken. Tillägg inom parentes efter namnet: (V.O.) voice-over, (O.S.) off-screen, (CONT'D) fortsatt replik.
+FORMATSTANDARD (hur elementen ska se ut NÄR de väl skrivs – branschstandard enligt The Hollywood Standard; gäller FORM, inte att lägga till innehåll)
+- scene_heading (slugline): VERSALER, inleds med INT. (inomhus), EXT. (utomhus) eller INT./EXT., följt av platsen och därefter tiden efter ett bindestreck, t.ex. "INT. KÖK – DAG". Tidsangivelser: DAG, NATT, KVÄLL, MORGON. Använd FORTSÄTTNING (CONTINUOUS) när handlingen löper direkt vidare och SENARE (LATER) vid kort tidshopp på samma plats.
+- action: presens, beskriver bara det som syns eller hörs. När en karaktär nämns FÖRSTA gången skrivs namnet i VERSALER; därefter normal versalisering. Framträdande ljud kan skrivas i VERSALER.
+- character: namnet i VERSALER ovanför repliken. Röst-tillägg inom parentes efter namnet: (V.O.) voice-over (röst utanför bild, t.ex. berättare/tanke), (O.S.) off-screen (i scenen men utom bild), (CONT'D) när samma karaktär fortsätter tala efter en kort action. Vid sidbrytning mitt i en replik: (MORE) sist på sidan och (CONT'D) efter namnet på nästa sida.
 - parenthetical: kort leveransanvisning med liten begynnelsebokstav inom parentes (t.ex. "(viskar)"), på egen rad mellan character och dialogue. Sparsamt, och bara om användaren angett det.
 - dialogue: repliken, direkt under character.
-- transition: VERSALER, högerställd i traditionellt format, t.ex. "CUT TO:", "DISSOLVE TO:", "FADE OUT.". Lägg bara till om användaren uttryckligen vill ha den.
+- transition: VERSALER, högerställd, t.ex. "FADE IN:", "CUT TO:", "DISSOLVE TO:", "SMASH CUT TO:", "FADE OUT.". Lägg bara till om användaren uttryckligen vill ha den.
+- Särskilda fall (skriv bara om användaren beskriver dem):
+  · MONTAGE / SERIE AV BILDER: en rubrik följd av de enskilda bilderna som korta punkter – bara de bilder användaren anger.
+  · INTERCUT (t.ex. telefonsamtal mellan två platser): etablera båda platserna och märk sedan "INTERCUT" så att klippen växlar utan ny slugline per replik.
+  · TILLBAKABLICK/FLASHBACK och INSERT (närbild på text/föremål): markeras i scenrubrik eller action och återgår till nuet när användaren anger det.
+  · SUPER:/TEXTSKYLT (titlar, chyron): texten som visas på bild skrivs i VERSALER efter "SUPER:".
+  · SMS/TEXTMEDDELANDEN: återges som de syns på skärmen enligt användarens beskrivning.
+  · FRÄMMANDE SPRÅK: anges (t.ex. "(på spanska)") och eventuella undertexter markeras som användaren anger; bevara replikens språk (se SPRÅK).
 - En scen inleds med en scene_heading; därunder följer action och repliker i den ordning de sker.
 
 SPRÅK
