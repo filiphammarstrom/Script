@@ -14,6 +14,8 @@ import shlex
 import shutil
 import subprocess
 import tempfile
+import time
+import uuid
 from typing import Protocol
 
 
@@ -147,18 +149,76 @@ class LocalWhisperTranscriber:
         return result
 
 
+class WatchedFolderTranscriber:
+    """Helautomatisk via en GUI-apps BEVAKADE MAPP (t.ex. MacWhisper / Whisper Transcription).
+
+    Appen lägger ljudet i mappen som GUI-appen bevakar, väntar in transkriptfilen som
+    appen skriver, läser tillbaka den och rensar ev. SRT/VTT-tidskoder. Konfig via env:
+      WATCH_IN_DIR  – (krävs) mappen GUI-appen bevakar; hit kopieras ljudet.
+      WATCH_OUT_DIR – mappen transkriptet dyker upp i (default = WATCH_IN_DIR).
+      WATCH_OUT_EXT – transkriptfilens ändelse (default ".txt"; t.ex. ".srt").
+      WATCH_TIMEOUT – max väntetid i sekunder (default 1800).
+      WATCH_POLL    – hur ofta mappen kollas, sekunder (default 2).
+    """
+
+    def __init__(self) -> None:
+        self._in_dir = os.environ.get("WATCH_IN_DIR", "")
+        if not self._in_dir:
+            raise RuntimeError(
+                "WATCH_IN_DIR saknas – peka den på mappen som din transkriberingsapp bevakar."
+            )
+        if not os.path.isdir(self._in_dir):
+            raise RuntimeError(f"WATCH_IN_DIR finns inte: {self._in_dir}")
+        self._out_dir = os.environ.get("WATCH_OUT_DIR") or self._in_dir
+        self._out_ext = os.environ.get("WATCH_OUT_EXT", ".txt")
+        self._timeout = float(os.environ.get("WATCH_TIMEOUT", "1800"))
+        self._poll = float(os.environ.get("WATCH_POLL", "2"))
+
+    def transcribe(self, path: str, language: str | None = None) -> str:
+        suffix = os.path.splitext(path)[1] or ".audio"
+        stem = "script_" + uuid.uuid4().hex
+        in_path = os.path.join(self._in_dir, stem + suffix)
+        out_path = os.path.join(self._out_dir, stem + self._out_ext)
+        shutil.copyfile(path, in_path)
+        deadline = time.monotonic() + self._timeout
+        last_size = -1
+        try:
+            while time.monotonic() < deadline:
+                if os.path.exists(out_path):
+                    size = os.path.getsize(out_path)
+                    if size > 0 and size == last_size:  # stabil = färdigskriven
+                        with open(out_path, encoding="utf-8", errors="replace") as fh:
+                            return transcript_to_text(out_path, fh.read()).strip()
+                    last_size = size
+                time.sleep(self._poll)
+            raise RuntimeError(
+                f"Tidsgräns: inget transkript dök upp i {self._out_dir} inom "
+                f"{self._timeout:.0f}s. Kontrollera att appens bevakade mapp är WATCH_IN_DIR "
+                f"och att den skriver {self._out_ext}-filer till WATCH_OUT_DIR."
+            )
+        finally:
+            for p in (in_path, out_path):
+                try:
+                    os.unlink(p)
+                except OSError:
+                    pass
+
+
 def get_transcriber(backend: str | None = None) -> Transcriber:
     """Välj transkriberingsmotor.
 
     `backend` väljs per anrop (UI), annars env TRANSCRIBE_BACKEND, annars 'assemblyai'.
       'assemblyai' = moln med diarisering (kostar per minut, valbar reserv).
       'local'/'whisper' = lokal Whisper-CLI på din dator (gratis).
+      'watch' = helautomatiskt via en GUI-apps bevakade mapp (MacWhisper m.fl.).
     """
     backend = (backend or os.environ.get("TRANSCRIBE_BACKEND", "assemblyai")).lower()
     if backend == "assemblyai":
         return AssemblyAITranscriber()
     if backend in ("local", "whisper", "whisper_cli"):
         return LocalWhisperTranscriber()
+    if backend in ("watch", "watched", "watched_folder", "macwhisper"):
+        return WatchedFolderTranscriber()
     raise RuntimeError(f"Okänd transkriberingsmotor: {backend!r}")
 
 

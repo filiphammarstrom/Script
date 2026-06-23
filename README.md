@@ -70,7 +70,18 @@ export WHISPER_CMD="whisper-cli -m ~/models/ggml-small.bin -f {input} -otxt -of 
 
 Mallen ska skriva transkriptet till `{output}.txt` (annars läses CLI:ns stdout). Samma mekanism kan peka mot en bevakad mapp/skript för appar som MacWhisper.
 
-I appen kan du även **välja motor per uppladdning** (Lokalt / Moln) och **importera ett färdigt transkript** (`.txt/.srt/.vtt`) från en valfri app – tidskoder i SRT/VTT rensas automatiskt.
+**Helautomatiskt via en GUI-apps bevakade mapp** (t.ex. MacWhisper / Whisper Transcription) – appen lägger ljudet i mappen och väntar in transkriptet:
+
+```bash
+export TRANSCRIBE_BACKEND=watch
+export WATCH_IN_DIR="$HOME/ScriptInbox"     # mappen appen bevakar
+export WATCH_OUT_DIR="$HOME/ScriptInbox"    # där transkriptet dyker upp (default = IN_DIR)
+export WATCH_OUT_EXT=.txt                     # eller .srt (tidskoder rensas)
+```
+
+Ställ in transkriberingsappen att bevaka `WATCH_IN_DIR` och spara transkript (samma filnamn) till `WATCH_OUT_DIR`.
+
+I appen kan du även **välja motor per uppladdning** (Lokalt / MacWhisper-mapp / Moln) och **importera ett färdigt transkript** (`.txt/.srt/.vtt`) från en valfri app – tidskoder i SRT/VTT rensas automatiskt.
 
 ## Tester
 
