@@ -14,17 +14,20 @@ diariseras i molnet (default AssemblyAI) och sedan matar samma pipeline.
   växer för varje diktering så att namn och platser hålls konsekventa över sessioner.
 - **Tre lager av regler/instruktioner till AI:n:**
   1. **Inbyggda grundregler** (`SYSTEM_RULES` i `app/analyze.py`) – alltid på.
-  2. **Bas-AI (globala regler)** – dina egna regler för *alla* projekt. Klistra in eller ladda
-     upp en regelfil i appen; cachas så att en stor regeluppsättning blir billig per anrop.
+  2. **Bas-AI (globala regler)** – dina egna regler för *alla* projekt (t.ex. en formatbok).
+     Klistra in eller ladda upp en **PDF/TXT/MD** i appen (texten extraheras automatiskt);
+     cachas så att en stor regeluppsättning blir billig per anrop.
   3. **Projektinstruktioner** – regler för ett enskilt manus, uppdateras när som helst.
 - **Granskning:** lättviktig och frivillig. AI:n flaggar bara det den var osäker på som
   konkreta frågor – du kan svara eller exportera FDX direkt.
 
-### AI:ns regler (urval)
-Visa-berätta-inte (inga inre tillstånd i action), korrekt scenrubriksformat, attribuering av
-repliker, igenkänning av dikteringskommandon och staklingar, fyll luckor utan att fabulera
-(markeras `[LUCKA: ...]`), bevara/flerspråk och styrd översättning, samt flagga om en replik är
-på ett språk som krockar med vad karaktären brukar tala (möjlig feldiktering).
+### AI:ns regler – manussekreterarläge (urval)
+AI:n är **manussekreterare, inte medförfattare**: skriver bara det användaren dikterar och
+lägger inte till dialog, handlingar, känslor, blickar, reaktioner, tolkningar, övergångar eller
+scenrubriker som inte sagts. Slår ihop på varandra följande repliker från samma talare till en,
+behandlar "nej, gör om"/"stryk det" som instruktioner, frågar vid oklar talare/handling i stället
+för att gissa, bevarar språk (flerspråk + styrd översättning), flaggar repliker som krockar med en
+karaktärs språk, och ger inga kommentarer efter scenen. Den stora formatboken laddas in i Bas-AI.
 
 ## Komma igång
 
