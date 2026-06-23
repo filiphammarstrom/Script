@@ -2,8 +2,9 @@
 
 Webbapp som omvandlar en **dikterad/transkriberad text** till ett **filmmanus i FDX-format**
 (Final Draft XML). En AI (Claude) läser texten, förstår sammanhanget, avgör vem som säger
-vad, tillämpar manushantverkets regler och bygger upp manuset. Den här versionen tar in text
-(ljudfil-input kommer senare).
+vad, tillämpar manushantverkets regler och bygger upp manuset. Indata kan vara **text**
+(klistra in/transkriberad i annan tjänst) eller en **ljudfil** som transkriberas och
+diariseras i molnet (default AssemblyAI) och sedan matar samma pipeline.
 
 ## Idé och upplägg
 
@@ -32,7 +33,7 @@ python3 -m venv .venv
 . .venv/bin/activate
 pip install -r requirements.txt
 
-cp .env.example .env   # fyll i ANTHROPIC_API_KEY
+cp .env.example .env   # fyll i ANTHROPIC_API_KEY (och ASSEMBLYAI_API_KEY för ljud)
 export $(grep -v '^#' .env | xargs)   # eller sätt ANTHROPIC_API_KEY på annat sätt
 
 uvicorn app.main:app --reload
@@ -54,13 +55,13 @@ pytest tests/test_fdx.py
 
 1. (Valfritt) Klistra in/ladda upp dina globala regler i **Bas-AI** och spara.
 2. Skapa ett projekt, fyll i synopsis/kontext och ev. projektinstruktioner.
-3. Klistra in transkriberad text och tryck **Analysera**. AI:n bygger på manuset och
-   uppdaterar story-bibeln.
+3. Klistra in transkriberad text — **eller** ladda upp en ljudfil och tryck **Transkribera**
+   (talar-märkt text fylls i rutan) — och tryck sedan **Analysera**. AI:n bygger på manuset
+   och uppdaterar story-bibeln.
 4. Svara ev. på AI:ns frågor (frivilligt) eller redigera elementen direkt.
 5. **Exportera FDX** och öppna `.fdx`-filen i Final Draft.
 
 ## Status / nästa steg
 
-- Ljudfil-input (transkribering + diarisering) som matar samma pipeline.
-- Chunkning av mycket långa transkriptioner.
+- Async/bakgrundsjobb + statuspoll för lång ljudtranskribering; chunkning av mycket långa transkriptioner.
 - Titelsida och avancerade FDX-element.

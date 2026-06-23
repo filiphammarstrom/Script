@@ -115,6 +115,34 @@ function renderBible() {
     `<div><strong>Anteckningar:</strong> ${esc(b.notes.join("; ") || "–")}</div>`;
 }
 
+// ---- ljudtranskribering ----
+$("audioFile").onchange = () => {
+  const f = $("audioFile").files[0];
+  $("audioName").textContent = f ? f.name : "";
+};
+$("transcribeBtn").onclick = async () => {
+  const f = $("audioFile").files[0];
+  if (!f) {
+    setStatus("Välj en ljudfil först.");
+    return;
+  }
+  setStatus("Transkriberar ljud (kan ta en stund) ...", true);
+  try {
+    const fd = new FormData();
+    fd.append("file", f);
+    const res = await fetch(`/api/projects/${project.id}/transcribe`, { method: "POST", body: fd });
+    if (!res.ok) throw new Error((await res.text()) || res.status);
+    const data = await res.json();
+    const existing = $("inputText").value.trim();
+    $("inputText").value = existing ? existing + "\n\n" + data.text : data.text;
+    $("audioFile").value = "";
+    $("audioName").textContent = "";
+    setStatus("Transkribering klar – granska och tryck Analysera.");
+  } catch (e) {
+    setStatus("Fel vid transkribering: " + e.message);
+  }
+};
+
 // ---- analys ----
 $("analyzeBtn").onclick = async () => {
   const text = $("inputText").value.trim();

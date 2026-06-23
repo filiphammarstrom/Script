@@ -1,15 +1,18 @@
 """FastAPI-app: projekt-/regelhantering, AI-analys (Claude) och FDX-export."""
 from __future__ import annotations
 
+import os
+import tempfile
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from app import analyze as analyze_mod
 from app import store
+from app import transcribe as transcribe_mod
 from app.fdx import to_fdx
 from app.models import GlobalSettings, Project, ScreenplayElement, StoryBible
 
@@ -93,6 +96,37 @@ def analyze_project(project_id: str, body: AnalyzeIn) -> dict:
     project = store.merge_analyze_result(project, result)
     store.save_project(project)
     return {"project": project, "clarifications": result.clarifications}
+
+
+@app.post("/api/projects/{project_id}/transcribe")
+def transcribe_audio(
+    project_id: str, file: UploadFile = File(...), language: str | None = None
+) -> dict:
+    """Ladda upp ljud → transkribera (med diarisering) → returnera talar-märkt text.
+
+    Statslös: lägger inte till i manuset. Användaren granskar texten och trycker
+    sedan Analysera (befintligt flöde).
+    """
+    if store.load_project(project_id) is None:
+        raise HTTPException(404, "Projektet finns inte")
+    suffix = os.path.splitext(file.filename or "")[1] or ".audio"
+    try:
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+            tmp.write(file.file.read())
+            tmp_path = tmp.name
+    finally:
+        file.file.close()
+    try:
+        transcriber = transcribe_mod.get_transcriber()
+        text = transcriber.transcribe(tmp_path, language=language)
+    except Exception as exc:  # saknad nyckel, nätverksfel, transkriberingsfel ...
+        raise HTTPException(502, f"Transkriberingen misslyckades: {exc}")
+    finally:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+    return {"text": text}
 
 
 @app.post("/api/projects/{project_id}/export")

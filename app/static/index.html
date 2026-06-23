@@ -49,7 +49,14 @@
 
       <section class="panel">
         <h2>Diktering / transkription</h2>
-        <textarea id="inputText" rows="8" placeholder="Klistra in transkriberad text ..."></textarea>
+        <div class="row">
+          <label class="filelabel">Välj ljudfil
+            <input type="file" id="audioFile" accept="audio/*" hidden>
+          </label>
+          <button id="transcribeBtn">Transkribera</button>
+          <span id="audioName" class="status"></span>
+        </div>
+        <textarea id="inputText" rows="8" placeholder="Klistra in transkriberad text – eller transkribera en ljudfil ovan ..."></textarea>
         <div class="row">
           <button id="analyzeBtn" class="primary">Analysera</button>
           <span id="status" class="status"></span>
