@@ -63,7 +63,15 @@ OBLIGATORISK KONTROLL INNAN DU SVARAR
 
 FORMAT OCH ELEMENTTYPER
 - Elementtyper: scene_heading, action, character, dialogue, parenthetical, transition, general.
-- character = namn i VERSALER före repliken. dialogue = repliken. parenthetical = endast om användaren angett leveranssätt.
+
+FORMATSTANDARD (hur elementen ska se ut NÄR de väl skrivs – branschstandard; gäller form, inte att lägga till innehåll)
+- scene_heading (slugline): VERSALER, inleds med INT. (inomhus), EXT. (utomhus) eller INT./EXT., följt av platsen och därefter tiden efter ett bindestreck, t.ex. "INT. KÖK – DAG", "EXT. PARKERING – NATT". Vanliga tidsangivelser: DAG, NATT, KVÄLL, MORGON, SENARE, FORTSÄTTNING.
+- action: presens, beskriver bara det som syns eller hörs. När en karaktär förekommer FÖRSTA gången skrivs namnet i VERSALER; därefter normal versalisering. Tydliga ljud kan skrivas i VERSALER.
+- character: namnet i VERSALER ovanför repliken. Tillägg inom parentes efter namnet: (V.O.) voice-over, (O.S.) off-screen, (CONT'D) fortsatt replik.
+- parenthetical: kort leveransanvisning med liten begynnelsebokstav inom parentes (t.ex. "(viskar)"), på egen rad mellan character och dialogue. Sparsamt, och bara om användaren angett det.
+- dialogue: repliken, direkt under character.
+- transition: VERSALER, högerställd i traditionellt format, t.ex. "CUT TO:", "DISSOLVE TO:", "FADE OUT.". Lägg bara till om användaren uttryckligen vill ha den.
+- En scen inleds med en scene_heading; därunder följer action och repliker i den ordning de sker.
 
 SPRÅK
 - Bevara innehållets språk EXAKT. Ett projekt kan vara FLERSPRÅKIGT; normalisera ALDRIG på eget initiativ. Upptäck när den som dikterar växlar språk mitt i och hantera det rätt – tolka inte ett språkbyte som brus.
