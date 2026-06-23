@@ -147,15 +147,33 @@ class LocalWhisperTranscriber:
         return result
 
 
-def get_transcriber() -> Transcriber:
-    """Välj backend via env TRANSCRIBE_BACKEND (default 'assemblyai').
+def get_transcriber(backend: str | None = None) -> Transcriber:
+    """Välj transkriberingsmotor.
 
-    'assemblyai' = moln med diarisering (kostar per minut).
-    'local'/'whisper' = lokal Whisper-CLI på din dator (gratis).
+    `backend` väljs per anrop (UI), annars env TRANSCRIBE_BACKEND, annars 'assemblyai'.
+      'assemblyai' = moln med diarisering (kostar per minut, valbar reserv).
+      'local'/'whisper' = lokal Whisper-CLI på din dator (gratis).
     """
-    backend = os.environ.get("TRANSCRIBE_BACKEND", "assemblyai").lower()
+    backend = (backend or os.environ.get("TRANSCRIBE_BACKEND", "assemblyai")).lower()
     if backend == "assemblyai":
         return AssemblyAITranscriber()
     if backend in ("local", "whisper", "whisper_cli"):
         return LocalWhisperTranscriber()
-    raise RuntimeError(f"Okänd TRANSCRIBE_BACKEND: {backend!r}")
+    raise RuntimeError(f"Okänd transkriberingsmotor: {backend!r}")
+
+
+def transcript_to_text(filename: str, text: str) -> str:
+    """Gör om ett färdigt transkript (.txt/.srt/.vtt) från en lokal app till ren text.
+
+    SRT/VTT: indexrader, tidskoder och cue-formatering tas bort så att bara dialogen blir kvar.
+    """
+    name = (filename or "").lower()
+    if name.endswith(".srt") or name.endswith(".vtt"):
+        lines: list[str] = []
+        for raw in text.splitlines():
+            s = raw.strip()
+            if not s or s == "WEBVTT" or s.startswith("NOTE") or "-->" in s or s.isdigit():
+                continue
+            lines.append(s)
+        return "\n".join(lines).strip()
+    return text.strip()

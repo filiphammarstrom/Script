@@ -124,11 +124,13 @@ def analyze_project(project_id: str, body: AnalyzeIn) -> dict:
     return {"project": project, "clarifications": result.clarifications}
 
 
-def _run_transcription(job_id: str, tmp_path: str, language: str | None) -> None:
+def _run_transcription(
+    job_id: str, tmp_path: str, language: str | None, backend: str | None
+) -> None:
     """Körs i en bakgrundstråd: transkriberar och uppdaterar jobbet."""
     jobs_mod.update_job(job_id, status="running")
     try:
-        transcriber = transcribe_mod.get_transcriber()
+        transcriber = transcribe_mod.get_transcriber(backend)
         text = transcriber.transcribe(tmp_path, language=language)
         jobs_mod.update_job(job_id, status="done", text=text)
     except Exception as exc:  # saknad nyckel, nätverksfel, transkriberingsfel ...
@@ -142,10 +144,14 @@ def _run_transcription(job_id: str, tmp_path: str, language: str | None) -> None
 
 @app.post("/api/projects/{project_id}/transcribe", status_code=202)
 def transcribe_audio(
-    project_id: str, file: UploadFile = File(...), language: str | None = None
+    project_id: str,
+    file: UploadFile = File(...),
+    language: str | None = None,
+    backend: str | None = None,
 ) -> dict:
     """Ladda upp ljud → starta ett transkriberingsjobb i bakgrunden → returnera job_id.
 
+    `backend` väljer motor per anrop ('local' = gratis lokalt, 'assemblyai' = moln).
     Lång audio håller inte uppe requesten; klienten pollar status via
     GET /api/transcribe-jobs/{job_id}. Statslöst – lägger inte till i manuset.
     """
@@ -160,9 +166,23 @@ def transcribe_audio(
         file.file.close()
     job = jobs_mod.create_job()
     threading.Thread(
-        target=_run_transcription, args=(job.id, tmp_path, language), daemon=True
+        target=_run_transcription,
+        args=(job.id, tmp_path, language, backend),
+        daemon=True,
     ).start()
     return {"job_id": job.id, "status": job.status}
+
+
+@app.post("/api/import-transcript")
+def import_transcript(file: UploadFile = File(...)) -> dict:
+    """Ta ett färdigt transkript (.txt/.srt/.vtt) från en lokal app → ren text."""
+    data = file.file.read()
+    file.file.close()
+    try:
+        text = data.decode("utf-8")
+    except UnicodeDecodeError:
+        text = data.decode("latin-1", errors="replace")
+    return {"text": transcribe_mod.transcript_to_text(file.filename or "", text)}
 
 
 @app.get("/api/transcribe-jobs/{job_id}")

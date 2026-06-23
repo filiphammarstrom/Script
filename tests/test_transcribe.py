@@ -1,7 +1,12 @@
 """Enhetstest för transkriberingens formateringsfunktion. Kräver inget nätverk/SDK."""
 from dataclasses import dataclass
 
-from app.transcribe import LocalWhisperTranscriber, get_transcriber, utterances_to_text
+from app.transcribe import (
+    LocalWhisperTranscriber,
+    get_transcriber,
+    transcript_to_text,
+    utterances_to_text,
+)
 
 
 @dataclass
@@ -31,3 +36,23 @@ def test_get_transcriber_selects_local_backend(monkeypatch):
     monkeypatch.setenv("TRANSCRIBE_BACKEND", "local")
     monkeypatch.setenv("WHISPER_CMD", "printf '' > {output}.txt")  # undvik PATH-koll
     assert isinstance(get_transcriber(), LocalWhisperTranscriber)
+
+
+def test_get_transcriber_backend_arg_overrides_env(monkeypatch):
+    monkeypatch.setenv("TRANSCRIBE_BACKEND", "assemblyai")
+    monkeypatch.setenv("WHISPER_CMD", "printf '' > {output}.txt")
+    assert isinstance(get_transcriber("local"), LocalWhisperTranscriber)
+
+
+def test_srt_stripped_to_plain_text():
+    srt = (
+        "1\n00:00:01,000 --> 00:00:04,000\nHej där.\n\n"
+        "2\n00:00:04,000 --> 00:00:06,000\nHur mår du?\n"
+    )
+    assert transcript_to_text("klipp.srt", srt) == "Hej där.\nHur mår du?"
+
+
+def test_vtt_stripped_and_plain_text_passthrough():
+    vtt = "WEBVTT\n\n00:00:01.000 --> 00:00:02.000\nHallå.\n"
+    assert transcript_to_text("klipp.vtt", vtt) == "Hallå."
+    assert transcript_to_text("anteckning.txt", "  bara text  ") == "bara text"

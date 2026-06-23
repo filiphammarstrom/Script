@@ -136,7 +136,9 @@ $("transcribeBtn").onclick = async () => {
   try {
     const fd = new FormData();
     fd.append("file", f);
-    const res = await fetch(`/api/projects/${project.id}/transcribe`, { method: "POST", body: fd });
+    const engine = $("transcribeEngine").value;
+    const url = `/api/projects/${project.id}/transcribe` + (engine ? `?backend=${engine}` : "");
+    const res = await fetch(url, { method: "POST", body: fd });
     if (!res.ok) throw new Error((await res.text()) || res.status);
     const { job_id } = await res.json();
     $("audioFile").value = "";
@@ -167,6 +169,25 @@ function pollTranscription(jobId) {
   };
   tick();
 }
+
+$("transcriptFile").onchange = async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  setStatus(`Importerar ${file.name} ...`, true);
+  try {
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await fetch("/api/import-transcript", { method: "POST", body: fd });
+    if (!res.ok) throw new Error((await res.text()) || res.status);
+    const { text } = await res.json();
+    const existing = $("inputText").value.trim();
+    $("inputText").value = existing ? existing + "\n\n" + text : text;
+    setStatus(`Importerade ${file.name} – granska och tryck Analysera.`);
+  } catch (err) {
+    setStatus("Kunde inte importera: " + err.message);
+  }
+  e.target.value = "";
+};
 
 // ---- analys ----
 $("analyzeBtn").onclick = async () => {

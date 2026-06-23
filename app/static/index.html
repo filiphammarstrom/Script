@@ -53,10 +53,18 @@
           <label class="filelabel">Välj ljudfil
             <input type="file" id="audioFile" accept="audio/*" hidden>
           </label>
+          <select id="transcribeEngine" title="Transkriberingsmotor">
+            <option value="">Motor: standard</option>
+            <option value="local">Lokalt (gratis)</option>
+            <option value="assemblyai">Moln (diarisering)</option>
+          </select>
           <button id="transcribeBtn">Transkribera</button>
+          <label class="filelabel">Importera transkript
+            <input type="file" id="transcriptFile" accept=".txt,.srt,.vtt,.text" hidden>
+          </label>
           <span id="audioName" class="status"></span>
         </div>
-        <textarea id="inputText" rows="8" placeholder="Klistra in transkriberad text – eller transkribera en ljudfil ovan ..."></textarea>
+        <textarea id="inputText" rows="8" placeholder="Klistra in transkriberad text – eller transkribera/importera ovan ..."></textarea>
         <div class="row">
           <button id="analyzeBtn" class="primary">Analysera</button>
           <span id="status" class="status"></span>
