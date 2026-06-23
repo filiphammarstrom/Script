@@ -8,7 +8,12 @@ formateringsfunktionen – kan användas utan att SDK:t är installerat.
 """
 from __future__ import annotations
 
+import glob
 import os
+import shlex
+import shutil
+import subprocess
+import tempfile
 from typing import Protocol
 
 
@@ -57,9 +62,100 @@ class AssemblyAITranscriber:
         return (transcript.text or "").strip()
 
 
+class LocalWhisperTranscriber:
+    """Lokal transkribering via en Whisper-CLI på din egen dator – gratis, ingen moln-API.
+
+    Konfigureras via miljövariabler så att den funkar med olika CLI:er:
+      WHISPER_CMD   – (valfritt) kommandomall för en annan CLI än standard. Stödjer
+                      platshållarna {input}, {output}, {outdir}, {model}, {language}.
+                      Ex. whisper.cpp:
+                        "whisper-cli -m ~/models/ggml-small.bin -f {input} -otxt -of {output}"
+                      Skriv transkriptet till {output}.txt, annars läses CLI:ns stdout.
+      WHISPER_BIN   – binär för standardläget (openai-whisper), default "whisper".
+      WHISPER_MODEL – modellnamn/sökväg, default "small".
+
+    Ger ingen diarisering (talar-etiketter); AI:n attribuerar talare från sammanhang.
+    """
+
+    def __init__(self) -> None:
+        self._cmd_template = os.environ.get("WHISPER_CMD")
+        self._model = os.environ.get("WHISPER_MODEL", "small")
+        self._bin = os.environ.get("WHISPER_BIN", "whisper")
+        if not self._cmd_template and shutil.which(self._bin) is None:
+            raise RuntimeError(
+                f"Lokal Whisper-CLI '{self._bin}' hittades inte i PATH. Installera t.ex. "
+                "openai-whisper (pip install -U openai-whisper) eller sätt WHISPER_CMD "
+                "för en annan CLI (t.ex. whisper.cpp)."
+            )
+
+    def transcribe(self, path: str, language: str | None = None) -> str:
+        with tempfile.TemporaryDirectory() as outdir:
+            if self._cmd_template:
+                text = self._run_template(path, outdir, language)
+            else:
+                text = self._run_default(path, outdir, language)
+        text = text.strip()
+        if not text:
+            raise RuntimeError("Lokal transkribering gav ingen text.")
+        return text
+
+    def _run_default(self, path: str, outdir: str, language: str | None) -> str:
+        cmd = [
+            self._bin, path, "--model", self._model,
+            "--output_format", "txt", "--output_dir", outdir, "--fp16", "False",
+        ]
+        if language:
+            cmd += ["--language", language]
+        self._run(cmd)
+        stem = os.path.splitext(os.path.basename(path))[0]
+        out_txt = os.path.join(outdir, stem + ".txt")
+        produced = [out_txt] if os.path.exists(out_txt) else glob.glob(os.path.join(outdir, "*.txt"))
+        if not produced:
+            raise RuntimeError("Lokal transkribering producerade ingen txt-fil.")
+        with open(produced[0], encoding="utf-8") as fh:
+            return fh.read()
+
+    def _run_template(self, path: str, outdir: str, language: str | None) -> str:
+        out_base = os.path.join(outdir, "transcript")
+        cmd = self._cmd_template.format(
+            input=shlex.quote(path),
+            output=shlex.quote(out_base),
+            outdir=shlex.quote(outdir),
+            model=shlex.quote(self._model),
+            language=shlex.quote(language or ""),
+        )
+        result = self._run(cmd, shell=True)
+        for cand in (out_base + ".txt", out_base):
+            if os.path.exists(cand):
+                with open(cand, encoding="utf-8") as fh:
+                    return fh.read()
+        return result.stdout or ""
+
+    @staticmethod
+    def _run(cmd, shell: bool = False) -> subprocess.CompletedProcess:
+        try:
+            result = subprocess.run(
+                cmd, shell=shell, capture_output=True, text=True, timeout=3600
+            )
+        except FileNotFoundError as exc:
+            raise RuntimeError(f"Kunde inte starta lokal transkribering: {exc}")
+        if result.returncode != 0:
+            detail = (result.stderr or result.stdout or "").strip()[-500:]
+            raise RuntimeError(
+                f"Lokal transkribering misslyckades (kod {result.returncode}): {detail}"
+            )
+        return result
+
+
 def get_transcriber() -> Transcriber:
-    """Välj backend via env TRANSCRIBE_BACKEND (default 'assemblyai')."""
+    """Välj backend via env TRANSCRIBE_BACKEND (default 'assemblyai').
+
+    'assemblyai' = moln med diarisering (kostar per minut).
+    'local'/'whisper' = lokal Whisper-CLI på din dator (gratis).
+    """
     backend = os.environ.get("TRANSCRIBE_BACKEND", "assemblyai").lower()
     if backend == "assemblyai":
         return AssemblyAITranscriber()
+    if backend in ("local", "whisper", "whisper_cli"):
+        return LocalWhisperTranscriber()
     raise RuntimeError(f"Okänd TRANSCRIBE_BACKEND: {backend!r}")

@@ -46,6 +46,30 @@ uvicorn app.main:app --reload
 
 Modell: default `claude-sonnet-4-6`. Sätt `SCRIPT_MODEL=claude-opus-4-8` för svårare fall.
 
+### Transkribering: moln eller lokalt (gratis)
+
+`TRANSCRIBE_BACKEND` väljer motor:
+
+- `assemblyai` (default) – moln med diarisering (talar-etiketter). Kräver `ASSEMBLYAI_API_KEY`. Kostar per minut.
+- `local` – lokal **Whisper-CLI** på din egen dator. Gratis, ingen moln-API (ingen diarisering – AI:n attribuerar talare från sammanhang).
+
+Lokalt läge, standard (openai-whisper):
+
+```bash
+pip install -U openai-whisper        # ger CLI:n `whisper`
+export TRANSCRIBE_BACKEND=local
+export WHISPER_MODEL=small           # tiny/base/small/medium/large
+```
+
+Annan CLI (t.ex. whisper.cpp) – sätt en kommandomall med platshållarna `{input} {output} {outdir} {model} {language}`:
+
+```bash
+export TRANSCRIBE_BACKEND=local
+export WHISPER_CMD="whisper-cli -m ~/models/ggml-small.bin -f {input} -otxt -of {output}"
+```
+
+Mallen ska skriva transkriptet till `{output}.txt` (annars läses CLI:ns stdout). Samma mekanism kan peka mot en bevakad mapp/skript för appar som MacWhisper.
+
 ## Tester
 
 FDX-generatorn testas utan API-nyckel:
