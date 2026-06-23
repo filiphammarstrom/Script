@@ -126,6 +126,10 @@ $("audioFile").onchange = () => {
   const f = $("audioFile").files[0];
   $("audioName").textContent = f ? f.name : "";
 };
+$("transcribeEngine").onchange = () => {
+  // Modellvalet är bara relevant för OpenAI-motorn.
+  $("transcribeModel").hidden = $("transcribeEngine").value !== "openai";
+};
 $("transcribeBtn").onclick = async () => {
   const f = $("audioFile").files[0];
   if (!f) {
@@ -137,7 +141,11 @@ $("transcribeBtn").onclick = async () => {
     const fd = new FormData();
     fd.append("file", f);
     const engine = $("transcribeEngine").value;
-    const url = `/api/projects/${project.id}/transcribe` + (engine ? `?backend=${engine}` : "");
+    const params = new URLSearchParams();
+    if (engine) params.set("backend", engine);
+    if (engine === "openai") params.set("model", $("transcribeModel").value);
+    const qs = params.toString();
+    const url = `/api/projects/${project.id}/transcribe` + (qs ? `?${qs}` : "");
     const res = await fetch(url, { method: "POST", body: fd });
     if (!res.ok) throw new Error((await res.text()) || res.status);
     const { job_id } = await res.json();

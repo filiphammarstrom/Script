@@ -57,8 +57,13 @@
             <option value="">Motor: standard</option>
             <option value="local">Lokalt (gratis)</option>
             <option value="watch">Bevakad mapp (auto)</option>
-            <option value="openai">Moln: OpenAI (diarisering)</option>
+            <option value="openai">Moln: OpenAI</option>
             <option value="assemblyai">Moln: AssemblyAI (diarisering)</option>
+          </select>
+          <select id="transcribeModel" title="OpenAI-modell" hidden>
+            <option value="gpt-4o-mini-transcribe">Diktering – 1 röst (billigast)</option>
+            <option value="gpt-4o-transcribe">1 röst (hög kvalitet)</option>
+            <option value="gpt-4o-transcribe-diarize">Flera talare (diarisering)</option>
           </select>
           <button id="transcribeBtn">Transkribera</button>
           <label class="filelabel">Importera transkript

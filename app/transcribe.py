@@ -258,14 +258,18 @@ class OpenAITranscriber:
                                 Sätt t.ex. 'gpt-4o-mini-transcribe' för billigare utan diarisering.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, model: str | None = None) -> None:
         api_key = os.environ.get("OPENAI_API_KEY")
         if not api_key:
             raise RuntimeError("OPENAI_API_KEY saknas i miljön.")
         from openai import OpenAI  # lazy import
 
         self._client = OpenAI(api_key=api_key)
-        self._model = os.environ.get("OPENAI_TRANSCRIBE_MODEL", "gpt-4o-transcribe-diarize")
+        self._model = (
+            model
+            or os.environ.get("OPENAI_TRANSCRIBE_MODEL")
+            or "gpt-4o-transcribe-diarize"
+        )
 
     def transcribe(self, path: str, language: str | None = None) -> str:
         kwargs: dict = {"model": self._model}
@@ -281,12 +285,13 @@ class OpenAITranscriber:
         return text
 
 
-def get_transcriber(backend: str | None = None) -> Transcriber:
+def get_transcriber(backend: str | None = None, model: str | None = None) -> Transcriber:
     """Välj transkriberingsmotor.
 
     `backend` väljs per anrop (UI), annars env TRANSCRIBE_BACKEND, annars 'assemblyai'.
+    `model` väljer modell per anrop (används av openai-motorn, t.ex. diarisering vs billig 1-röst).
       'assemblyai' = moln med diarisering (kostar per minut, valbar reserv).
-      'openai' = moln med diarisering via OpenAI (gpt-4o-transcribe-diarize).
+      'openai' = moln via OpenAI; modell väljs med `model` (diarize / mini / standard).
       'local'/'whisper' = lokal Whisper-CLI på din dator (gratis).
       'watch' = helautomatiskt via en GUI-apps bevakade mapp (MacWhisper m.fl.).
     """
@@ -294,7 +299,7 @@ def get_transcriber(backend: str | None = None) -> Transcriber:
     if backend == "assemblyai":
         return AssemblyAITranscriber()
     if backend in ("openai", "gpt-4o", "gpt4o", "openai_diarize"):
-        return OpenAITranscriber()
+        return OpenAITranscriber(model=model)
     if backend in ("local", "whisper", "whisper_cli"):
         return LocalWhisperTranscriber()
     if backend in ("watch", "watched", "watched_folder", "macwhisper"):

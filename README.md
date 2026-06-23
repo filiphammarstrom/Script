@@ -51,7 +51,7 @@ Modell: default `claude-sonnet-4-6`. Sätt `SCRIPT_MODEL=claude-opus-4-8` för s
 `TRANSCRIBE_BACKEND` väljer motor:
 
 - `assemblyai` (default) – moln med diarisering (talar-etiketter). Kräver `ASSEMBLYAI_API_KEY`. Kostar per minut.
-- `openai` – moln med diarisering via OpenAI (`gpt-4o-transcribe-diarize`, ~$0,006/min). Kräver `OPENAI_API_KEY`. Sätt `OPENAI_TRANSCRIBE_MODEL=gpt-4o-mini-transcribe` för billigare utan diarisering.
+- `openai` – moln via OpenAI. Kräver `OPENAI_API_KEY`. Modell väljs i appen per uppladdning (eller med `OPENAI_TRANSCRIBE_MODEL`): `gpt-4o-mini-transcribe` (billigast, 1 röst – när bara du dikterar), `gpt-4o-transcribe` (1 röst, hög kvalitet) eller `gpt-4o-transcribe-diarize` (flera talare, ~$0,006/min).
 - `local` – lokal **Whisper-CLI** på din egen dator. Gratis, ingen moln-API (ingen diarisering – AI:n attribuerar talare från sammanhang).
 
 Lokalt läge, standard (openai-whisper):

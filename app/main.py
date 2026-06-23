@@ -125,12 +125,16 @@ def analyze_project(project_id: str, body: AnalyzeIn) -> dict:
 
 
 def _run_transcription(
-    job_id: str, tmp_path: str, language: str | None, backend: str | None
+    job_id: str,
+    tmp_path: str,
+    language: str | None,
+    backend: str | None,
+    model: str | None,
 ) -> None:
     """Körs i en bakgrundstråd: transkriberar och uppdaterar jobbet."""
     jobs_mod.update_job(job_id, status="running")
     try:
-        transcriber = transcribe_mod.get_transcriber(backend)
+        transcriber = transcribe_mod.get_transcriber(backend, model)
         text = transcriber.transcribe(tmp_path, language=language)
         jobs_mod.update_job(job_id, status="done", text=text)
     except Exception as exc:  # saknad nyckel, nätverksfel, transkriberingsfel ...
@@ -148,10 +152,12 @@ def transcribe_audio(
     file: UploadFile = File(...),
     language: str | None = None,
     backend: str | None = None,
+    model: str | None = None,
 ) -> dict:
     """Ladda upp ljud → starta ett transkriberingsjobb i bakgrunden → returnera job_id.
 
-    `backend` väljer motor per anrop ('local' = gratis lokalt, 'assemblyai' = moln).
+    `backend` väljer motor per anrop ('local' = gratis lokalt, 'openai'/'assemblyai' = moln).
+    `model` väljer modell per anrop (openai-motorn: diarisering vs billig 1-röst).
     Lång audio håller inte uppe requesten; klienten pollar status via
     GET /api/transcribe-jobs/{job_id}. Statslöst – lägger inte till i manuset.
     """
@@ -167,7 +173,7 @@ def transcribe_audio(
     job = jobs_mod.create_job()
     threading.Thread(
         target=_run_transcription,
-        args=(job.id, tmp_path, language, backend),
+        args=(job.id, tmp_path, language, backend, model),
         daemon=True,
     ).start()
     return {"job_id": job.id, "status": job.status}
