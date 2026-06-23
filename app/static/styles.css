@@ -1,0 +1,77 @@
+:root {
+  --bg: #14161a;
+  --panel: #1d2026;
+  --ink: #e8e8ea;
+  --muted: #9aa0aa;
+  --accent: #6ea8fe;
+  --line: #2c303a;
+  --flash: #3a4a2e;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font: 15px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+}
+header {
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  background: var(--bg);
+  z-index: 10;
+}
+h1 { font-size: 20px; margin: 0 0 10px; }
+h2 { font-size: 15px; margin: 0 0 8px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+main { max-width: 880px; margin: 0 auto; padding: 24px; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; margin-bottom: 18px; }
+.hint { color: var(--muted); font-size: 13px; margin: 0 0 8px; }
+label { display: block; margin-bottom: 10px; color: var(--muted); font-size: 13px; }
+input, textarea, select {
+  width: 100%;
+  background: #0f1116;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font: inherit;
+}
+textarea { resize: vertical; }
+.project-bar { display: flex; gap: 8px; }
+.project-bar select { flex: 1; }
+.project-bar input { flex: 1; }
+button {
+  background: #2a2f3a;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px 14px;
+  cursor: pointer;
+}
+button:hover { border-color: var(--accent); }
+button.primary { background: var(--accent); color: #0b0d11; border-color: var(--accent); font-weight: 600; }
+.row { display: flex; gap: 10px; align-items: center; margin-top: 10px; }
+.status { color: var(--muted); font-size: 13px; }
+.status.busy { color: var(--accent); }
+.filelabel { display: inline-block; margin: 0; padding: 8px 14px; background: #2a2f3a; border: 1px solid var(--line); border-radius: 6px; cursor: pointer; color: var(--ink); font-size: 15px; width: auto; }
+.filelabel:hover { border-color: var(--accent); }
+
+.bible div { margin-bottom: 4px; }
+.bible em { color: var(--muted); font-style: normal; }
+
+.elements { display: flex; flex-direction: column; gap: 6px; }
+.el { display: flex; gap: 8px; align-items: flex-start; padding: 4px; border-radius: 6px; }
+.el select { width: 130px; flex: 0 0 auto; }
+.el textarea { flex: 1; }
+.el-scene_heading textarea { text-transform: uppercase; font-weight: 600; }
+.el-character textarea { text-transform: uppercase; }
+.el.low-conf { background: #2a2516; }
+.el .gap { color: #d8b24a; font-weight: 600; font-size: 12px; align-self: center; }
+.el.flash { background: var(--flash); transition: background .3s; }
+
+.clar { border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; margin-bottom: 8px; cursor: pointer; }
+.clar:hover { border-color: var(--accent); }
+.clar .q { font-weight: 500; }
+.clar .opts { margin-top: 6px; }
+.chip { display: inline-block; background: #2a2f3a; border-radius: 12px; padding: 2px 10px; font-size: 12px; margin-right: 4px; }

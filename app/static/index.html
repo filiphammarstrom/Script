@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Transkription → Manus (FDX)</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header>
+    <h1>Transkription → Manus (FDX)</h1>
+    <div class="project-bar">
+      <select id="projectSelect"><option value="">– välj projekt –</option></select>
+      <input id="newTitle" placeholder="Nytt manus: titel">
+      <button id="newProjectBtn">Skapa</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="panel">
+      <h2>Bas-AI (globala regler)</h2>
+      <p class="hint">Dina egna regler som gäller <em>alla</em> projekt. Här lär du upp AI:n generellt. Uppdateras när som helst.</p>
+      <textarea id="globalDirectives" rows="4" placeholder="Klistra in dina manusregler – eller ladda upp en fil nedan ..."></textarea>
+      <div class="row">
+        <button id="saveGlobalBtn">Spara bas-AI</button>
+        <label class="filelabel">Ladda upp regelfil
+          <input type="file" id="rulesFile" accept=".txt,.md,.text" hidden>
+        </label>
+      </div>
+    </section>
+
+    <div id="projectArea" hidden>
+      <section class="panel">
+        <h2>Projekt</h2>
+        <label>Titel <input id="projTitle"></label>
+        <label>Synopsis / kontext
+          <textarea id="projContext" rows="4" placeholder="Vad handlar det om? Karaktärer, värld, ton ..."></textarea>
+        </label>
+        <label>Projektets instruktioner till AI:n (kan uppdateras när som helst)
+          <textarea id="projDirectives" rows="3" placeholder="T.ex. 'Karaktären stavas Mikael', 'tonen är mörk', 'översätt action till engelska' ..."></textarea>
+        </label>
+        <button id="saveProjectBtn">Spara projekt</button>
+      </section>
+
+      <section class="panel">
+        <h2>Story-bibel <span class="hint">(AI:ns minne – växer med projektet)</span></h2>
+        <div id="storyBible" class="bible"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Diktering / transkription</h2>
+        <textarea id="inputText" rows="8" placeholder="Klistra in transkriberad text ..."></textarea>
+        <div class="row">
+          <button id="analyzeBtn" class="primary">Analysera</button>
+          <span id="status" class="status"></span>
+        </div>
+      </section>
+
+      <section class="panel" id="clarPanel" hidden>
+        <h2>Otydligt – AI:n undrar</h2>
+        <p class="hint">Frivilligt. Klicka på en fråga för att hoppa till elementet. Du kan exportera ändå.</p>
+        <div id="clarifications"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Manus</h2>
+        <div id="elements" class="elements"></div>
+        <div class="row">
+          <button id="saveElementsBtn">Spara ändringar</button>
+          <button id="exportBtn" class="primary">Exportera FDX</button>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
