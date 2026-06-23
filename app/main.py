@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import os
 import tempfile
+import threading
 from pathlib import Path
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
@@ -11,6 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from app import analyze as analyze_mod
+from app import jobs as jobs_mod
 from app import store
 from app import transcribe as transcribe_mod
 from app.fdx import to_fdx
@@ -52,6 +54,30 @@ def get_settings() -> GlobalSettings:
 @app.put("/api/settings")
 def put_settings(body: SettingsIn) -> GlobalSettings:
     return store.save_global_settings(GlobalSettings(directives=body.directives))
+
+
+@app.post("/api/extract-text")
+def extract_text(file: UploadFile = File(...)) -> dict:
+    """Extrahera text ur en uppladdad regel-/formatbok (PDF, TXT, MD) för bas-AI."""
+    data = file.file.read()
+    file.file.close()
+    name = (file.filename or "").lower()
+    if name.endswith(".pdf"):
+        import io
+
+        from pypdf import PdfReader  # lazy import
+
+        try:
+            reader = PdfReader(io.BytesIO(data))
+            text = "\n".join((page.extract_text() or "") for page in reader.pages)
+        except Exception as exc:
+            raise HTTPException(400, f"Kunde inte läsa PDF: {exc}")
+    else:
+        try:
+            text = data.decode("utf-8")
+        except UnicodeDecodeError:
+            text = data.decode("latin-1", errors="replace")
+    return {"text": text.strip()}
 
 
 # ---- projekt ----
@@ -98,14 +124,42 @@ def analyze_project(project_id: str, body: AnalyzeIn) -> dict:
     return {"project": project, "clarifications": result.clarifications}
 
 
-@app.post("/api/projects/{project_id}/transcribe")
-def transcribe_audio(
-    project_id: str, file: UploadFile = File(...), language: str | None = None
-) -> dict:
-    """Ladda upp ljud → transkribera (med diarisering) → returnera talar-märkt text.
+def _run_transcription(
+    job_id: str,
+    tmp_path: str,
+    language: str | None,
+    backend: str | None,
+    model: str | None,
+) -> None:
+    """Körs i en bakgrundstråd: transkriberar och uppdaterar jobbet."""
+    jobs_mod.update_job(job_id, status="running")
+    try:
+        transcriber = transcribe_mod.get_transcriber(backend, model)
+        text = transcriber.transcribe(tmp_path, language=language)
+        jobs_mod.update_job(job_id, status="done", text=text)
+    except Exception as exc:  # saknad nyckel, nätverksfel, transkriberingsfel ...
+        jobs_mod.update_job(job_id, status="error", error=str(exc))
+    finally:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
 
-    Statslös: lägger inte till i manuset. Användaren granskar texten och trycker
-    sedan Analysera (befintligt flöde).
+
+@app.post("/api/projects/{project_id}/transcribe", status_code=202)
+def transcribe_audio(
+    project_id: str,
+    file: UploadFile = File(...),
+    language: str | None = None,
+    backend: str | None = None,
+    model: str | None = None,
+) -> dict:
+    """Ladda upp ljud → starta ett transkriberingsjobb i bakgrunden → returnera job_id.
+
+    `backend` väljer motor per anrop ('local' = gratis lokalt, 'openai'/'assemblyai' = moln).
+    `model` väljer modell per anrop (openai-motorn: diarisering vs billig 1-röst).
+    Lång audio håller inte uppe requesten; klienten pollar status via
+    GET /api/transcribe-jobs/{job_id}. Statslöst – lägger inte till i manuset.
     """
     if store.load_project(project_id) is None:
         raise HTTPException(404, "Projektet finns inte")
@@ -116,17 +170,33 @@ def transcribe_audio(
             tmp_path = tmp.name
     finally:
         file.file.close()
+    job = jobs_mod.create_job()
+    threading.Thread(
+        target=_run_transcription,
+        args=(job.id, tmp_path, language, backend, model),
+        daemon=True,
+    ).start()
+    return {"job_id": job.id, "status": job.status}
+
+
+@app.post("/api/import-transcript")
+def import_transcript(file: UploadFile = File(...)) -> dict:
+    """Ta ett färdigt transkript (.txt/.srt/.vtt) från en lokal app → ren text."""
+    data = file.file.read()
+    file.file.close()
     try:
-        transcriber = transcribe_mod.get_transcriber()
-        text = transcriber.transcribe(tmp_path, language=language)
-    except Exception as exc:  # saknad nyckel, nätverksfel, transkriberingsfel ...
-        raise HTTPException(502, f"Transkriberingen misslyckades: {exc}")
-    finally:
-        try:
-            os.unlink(tmp_path)
-        except OSError:
-            pass
-    return {"text": text}
+        text = data.decode("utf-8")
+    except UnicodeDecodeError:
+        text = data.decode("latin-1", errors="replace")
+    return {"text": transcribe_mod.transcript_to_text(file.filename or "", text)}
+
+
+@app.get("/api/transcribe-jobs/{job_id}")
+def transcribe_job_status(job_id: str) -> dict:
+    job = jobs_mod.get_job(job_id)
+    if job is None:
+        raise HTTPException(404, "Jobbet finns inte")
+    return {"job_id": job.id, "status": job.status, "text": job.text, "error": job.error}
 
 
 @app.post("/api/projects/{project_id}/export")

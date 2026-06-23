@@ -23,8 +23,8 @@
       <textarea id="globalDirectives" rows="4" placeholder="Klistra in dina manusregler – eller ladda upp en fil nedan ..."></textarea>
       <div class="row">
         <button id="saveGlobalBtn">Spara bas-AI</button>
-        <label class="filelabel">Ladda upp regelfil
-          <input type="file" id="rulesFile" accept=".txt,.md,.text" hidden>
+        <label class="filelabel">Ladda upp regel-/formatbok
+          <input type="file" id="rulesFile" accept=".pdf,.txt,.md,.text" hidden>
         </label>
       </div>
     </section>
@@ -53,10 +53,25 @@
           <label class="filelabel">Välj ljudfil
             <input type="file" id="audioFile" accept="audio/*" hidden>
           </label>
+          <select id="transcribeEngine" title="Transkriberingsmotor">
+            <option value="">Motor: standard</option>
+            <option value="local">Lokalt (gratis)</option>
+            <option value="watch">Bevakad mapp (auto)</option>
+            <option value="openai">Moln: OpenAI</option>
+            <option value="assemblyai">Moln: AssemblyAI (diarisering)</option>
+          </select>
+          <select id="transcribeModel" title="OpenAI-modell" hidden>
+            <option value="gpt-4o-mini-transcribe">Diktering – 1 röst (billigast)</option>
+            <option value="gpt-4o-transcribe">1 röst (hög kvalitet)</option>
+            <option value="gpt-4o-transcribe-diarize">Flera talare (diarisering)</option>
+          </select>
           <button id="transcribeBtn">Transkribera</button>
+          <label class="filelabel">Importera transkript
+            <input type="file" id="transcriptFile" accept=".txt,.srt,.vtt,.text" hidden>
+          </label>
           <span id="audioName" class="status"></span>
         </div>
-        <textarea id="inputText" rows="8" placeholder="Klistra in transkriberad text – eller transkribera en ljudfil ovan ..."></textarea>
+        <textarea id="inputText" rows="8" placeholder="Klistra in transkriberad text – eller transkribera/importera ovan ..."></textarea>
         <div class="row">
           <button id="analyzeBtn" class="primary">Analysera</button>
           <span id="status" class="status"></span>

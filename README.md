@@ -14,17 +14,20 @@ diariseras i molnet (default AssemblyAI) och sedan matar samma pipeline.
   växer för varje diktering så att namn och platser hålls konsekventa över sessioner.
 - **Tre lager av regler/instruktioner till AI:n:**
   1. **Inbyggda grundregler** (`SYSTEM_RULES` i `app/analyze.py`) – alltid på.
-  2. **Bas-AI (globala regler)** – dina egna regler för *alla* projekt. Klistra in eller ladda
-     upp en regelfil i appen; cachas så att en stor regeluppsättning blir billig per anrop.
+  2. **Bas-AI (globala regler)** – dina egna regler för *alla* projekt (t.ex. en formatbok).
+     Klistra in eller ladda upp en **PDF/TXT/MD** i appen (texten extraheras automatiskt);
+     cachas så att en stor regeluppsättning blir billig per anrop.
   3. **Projektinstruktioner** – regler för ett enskilt manus, uppdateras när som helst.
 - **Granskning:** lättviktig och frivillig. AI:n flaggar bara det den var osäker på som
   konkreta frågor – du kan svara eller exportera FDX direkt.
 
-### AI:ns regler (urval)
-Visa-berätta-inte (inga inre tillstånd i action), korrekt scenrubriksformat, attribuering av
-repliker, igenkänning av dikteringskommandon och staklingar, fyll luckor utan att fabulera
-(markeras `[LUCKA: ...]`), bevara/flerspråk och styrd översättning, samt flagga om en replik är
-på ett språk som krockar med vad karaktären brukar tala (möjlig feldiktering).
+### AI:ns regler – manussekreterarläge (urval)
+AI:n är **manussekreterare, inte medförfattare**: skriver bara det användaren dikterar och
+lägger inte till dialog, handlingar, känslor, blickar, reaktioner, tolkningar, övergångar eller
+scenrubriker som inte sagts. Slår ihop på varandra följande repliker från samma talare till en,
+behandlar "nej, gör om"/"stryk det" som instruktioner, frågar vid oklar talare/handling i stället
+för att gissa, bevarar språk (flerspråk + styrd översättning), flaggar repliker som krockar med en
+karaktärs språk, och ger inga kommentarer efter scenen. Den stora formatboken laddas in i Bas-AI.
 
 ## Komma igång
 
@@ -42,6 +45,46 @@ uvicorn app.main:app --reload
 Öppna http://localhost:8000.
 
 Modell: default `claude-sonnet-4-6`. Sätt `SCRIPT_MODEL=claude-opus-4-8` för svårare fall.
+
+### Transkribering: moln eller lokalt (gratis)
+
+`TRANSCRIBE_BACKEND` väljer motor:
+
+- `assemblyai` (default) – moln med diarisering (talar-etiketter). Kräver `ASSEMBLYAI_API_KEY`. Kostar per minut.
+- `openai` – moln via OpenAI. Kräver `OPENAI_API_KEY`. Modell väljs i appen per uppladdning (eller med `OPENAI_TRANSCRIBE_MODEL`): `gpt-4o-mini-transcribe` (billigast, 1 röst – när bara du dikterar), `gpt-4o-transcribe` (1 röst, hög kvalitet) eller `gpt-4o-transcribe-diarize` (flera talare, ~$0,006/min).
+- `local` – lokal **Whisper-CLI** på din egen dator. Gratis, ingen moln-API (ingen diarisering – AI:n attribuerar talare från sammanhang).
+
+Lokalt läge, standard (openai-whisper):
+
+```bash
+pip install -U openai-whisper        # ger CLI:n `whisper`
+export TRANSCRIBE_BACKEND=local
+export WHISPER_MODEL=small           # tiny/base/small/medium/large
+```
+
+Annan CLI (t.ex. whisper.cpp) – sätt en kommandomall med platshållarna `{input} {output} {outdir} {model} {language}`:
+
+```bash
+export TRANSCRIBE_BACKEND=local
+export WHISPER_CMD="whisper-cli -m ~/models/ggml-small.bin -f {input} -otxt -of {output}"
+```
+
+Mallen ska skriva transkriptet till `{output}.txt` (annars läses CLI:ns stdout). Samma mekanism kan peka mot en bevakad mapp/skript för appar som MacWhisper.
+
+**Helautomatiskt via en GUI-apps bevakade mapp** (t.ex. MacWhisper / Whisper Transcription) – appen lägger ljudet i mappen och väntar in transkriptet:
+
+```bash
+export TRANSCRIBE_BACKEND=watch
+export WATCH_IN_DIR="$HOME/ScriptInbox"     # mappen appen bevakar
+export WATCH_OUT_DIR="$HOME/ScriptInbox"    # där transkriptet dyker upp (default = IN_DIR)
+export WATCH_OUT_EXT=.txt                     # eller .srt (tidskoder rensas)
+```
+
+Ställ in transkriberingsappen att bevaka `WATCH_IN_DIR` och spara transkript (samma filnamn) till `WATCH_OUT_DIR`.
+
+I appen kan du även **välja motor per uppladdning** (Lokalt / Bevakad mapp / Moln: OpenAI / Moln: AssemblyAI) och **importera ett färdigt transkript** (`.txt/.srt/.vtt`) från en valfri app – tidskoder i SRT/VTT rensas automatiskt.
+
+Ger din app **talar-etiketter** (t.ex. "Talare 1/2" eller "Speaker A/B" – många, som Whisper Transcription, gör det) behåller Script dem: AI:n knyter varje platshållare till rätt karaktär utifrån kontext och story-bibel och skriver ut det riktiga namnet (frågar om kopplingen är oklar).
 
 ## Tester
 

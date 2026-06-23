@@ -32,16 +32,22 @@ $("saveGlobalBtn").onclick = async () => {
   await api("PUT", "/api/settings", { directives: $("globalDirectives").value });
   setStatus("Bas-AI sparad.");
 };
-$("rulesFile").onchange = (e) => {
+$("rulesFile").onchange = async (e) => {
   const file = e.target.files[0];
   if (!file) return;
-  const reader = new FileReader();
-  reader.onload = () => {
+  setStatus(`Läser in ${file.name} ...`, true);
+  try {
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await fetch("/api/extract-text", { method: "POST", body: fd });
+    if (!res.ok) throw new Error((await res.text()) || res.status);
+    const { text } = await res.json();
     const existing = $("globalDirectives").value.trim();
-    $("globalDirectives").value = existing ? existing + "\n\n" + reader.result : reader.result;
+    $("globalDirectives").value = existing ? existing + "\n\n" + text : text;
     setStatus(`Läste in ${file.name} – tryck "Spara bas-AI".`);
-  };
-  reader.readAsText(file);
+  } catch (err) {
+    setStatus("Kunde inte läsa filen: " + err.message);
+  }
   e.target.value = "";
 };
 
@@ -120,27 +126,75 @@ $("audioFile").onchange = () => {
   const f = $("audioFile").files[0];
   $("audioName").textContent = f ? f.name : "";
 };
+$("transcribeEngine").onchange = () => {
+  // Modellvalet är bara relevant för OpenAI-motorn.
+  $("transcribeModel").hidden = $("transcribeEngine").value !== "openai";
+};
 $("transcribeBtn").onclick = async () => {
   const f = $("audioFile").files[0];
   if (!f) {
     setStatus("Välj en ljudfil först.");
     return;
   }
-  setStatus("Transkriberar ljud (kan ta en stund) ...", true);
+  setStatus("Laddar upp ljud ...", true);
   try {
     const fd = new FormData();
     fd.append("file", f);
-    const res = await fetch(`/api/projects/${project.id}/transcribe`, { method: "POST", body: fd });
+    const engine = $("transcribeEngine").value;
+    const params = new URLSearchParams();
+    if (engine) params.set("backend", engine);
+    if (engine === "openai") params.set("model", $("transcribeModel").value);
+    const qs = params.toString();
+    const url = `/api/projects/${project.id}/transcribe` + (qs ? `?${qs}` : "");
+    const res = await fetch(url, { method: "POST", body: fd });
     if (!res.ok) throw new Error((await res.text()) || res.status);
-    const data = await res.json();
-    const existing = $("inputText").value.trim();
-    $("inputText").value = existing ? existing + "\n\n" + data.text : data.text;
+    const { job_id } = await res.json();
     $("audioFile").value = "";
     $("audioName").textContent = "";
-    setStatus("Transkribering klar – granska och tryck Analysera.");
+    pollTranscription(job_id);
   } catch (e) {
-    setStatus("Fel vid transkribering: " + e.message);
+    setStatus("Fel vid uppladdning: " + e.message);
   }
+};
+
+function pollTranscription(jobId) {
+  setStatus("Transkriberar ljud (kan ta en stund) ...", true);
+  const tick = async () => {
+    try {
+      const job = await api("GET", `/api/transcribe-jobs/${jobId}`);
+      if (job.status === "done") {
+        const existing = $("inputText").value.trim();
+        $("inputText").value = existing ? existing + "\n\n" + job.text : job.text;
+        setStatus("Transkribering klar – granska och tryck Analysera.");
+      } else if (job.status === "error") {
+        setStatus("Fel vid transkribering: " + job.error);
+      } else {
+        setTimeout(tick, 3000);
+      }
+    } catch (e) {
+      setStatus("Fel vid statuskoll: " + e.message);
+    }
+  };
+  tick();
+}
+
+$("transcriptFile").onchange = async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  setStatus(`Importerar ${file.name} ...`, true);
+  try {
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await fetch("/api/import-transcript", { method: "POST", body: fd });
+    if (!res.ok) throw new Error((await res.text()) || res.status);
+    const { text } = await res.json();
+    const existing = $("inputText").value.trim();
+    $("inputText").value = existing ? existing + "\n\n" + text : text;
+    setStatus(`Importerade ${file.name} – granska och tryck Analysera.`);
+  } catch (err) {
+    setStatus("Kunde inte importera: " + err.message);
+  }
+  e.target.value = "";
 };
 
 // ---- analys ----
