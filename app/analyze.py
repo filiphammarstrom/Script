@@ -40,6 +40,11 @@ REPLIKER
 - Om samma person säger flera meningar i rad utan handling emellan: slå ihop till EN replik (ett character-element följt av ETT dialogue-element).
 - Det får ALDRIG stå samma karaktärsnamn två gånger i rad utan handling emellan. Slå ihop innan du svarar.
 
+TRANSKRIBERAD TALAR-MÄRKNING (diarisering)
+- Transkriberingen kan märka talare som "Speaker 1/2/3", "Speaker A/B" eller "Talare 1/2". Detta är PLATSHÅLLARE från diariseringen – inte karaktärsnamn.
+- Knyt varje platshållare till rätt karaktär utifrån kontext, story-bibel och vad som sägs, och använd karaktärens RIKTIGA namn i character-elementet. Samma platshållare = samma karaktär genom hela texten.
+- Är kopplingen oklar: fråga (clarification), gissa inte. Skriv inte ut själva platshållarna ("Talare 1") i manuset.
+
 SCENRUBRIKER
 - Skriv en scenrubrik (INT./EXT. PLATS – TID) bara när användaren indikerar en plats eller scen (säger platsen, eller beskriver att man är/kommer till en plats). Hitta inte på scenrubriker eller scengränser som dikteringen inte indikerar.
 

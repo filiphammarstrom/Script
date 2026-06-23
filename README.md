@@ -81,7 +81,9 @@ export WATCH_OUT_EXT=.txt                     # eller .srt (tidskoder rensas)
 
 Ställ in transkriberingsappen att bevaka `WATCH_IN_DIR` och spara transkript (samma filnamn) till `WATCH_OUT_DIR`.
 
-I appen kan du även **välja motor per uppladdning** (Lokalt / MacWhisper-mapp / Moln) och **importera ett färdigt transkript** (`.txt/.srt/.vtt`) från en valfri app – tidskoder i SRT/VTT rensas automatiskt.
+I appen kan du även **välja motor per uppladdning** (Lokalt / Bevakad mapp / Moln) och **importera ett färdigt transkript** (`.txt/.srt/.vtt`) från en valfri app – tidskoder i SRT/VTT rensas automatiskt.
+
+Ger din app **talar-etiketter** (t.ex. "Talare 1/2" eller "Speaker A/B" – många, som Whisper Transcription, gör det) behåller Script dem: AI:n knyter varje platshållare till rätt karaktär utifrån kontext och story-bibel och skriver ut det riktiga namnet (frågar om kopplingen är oklar).
 
 ## Tester
 
