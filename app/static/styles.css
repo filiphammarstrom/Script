@@ -208,9 +208,19 @@ select { width: auto; min-width: 0; }
 .active-file strong { color: var(--ink); }
 .active-file em { color: var(--warn); font-style: normal; }
 
-/* ---- story-bibel ---- */
+/* ---- story-bibel (redigerbar) ---- */
 .bible div { margin-bottom: 5px; }
 .bible em { color: var(--muted); font-style: normal; }
+.bible-group { margin-bottom: 16px; }
+.bible-label { color: var(--muted); font-size: 13px; margin-bottom: 6px; }
+.bible-chars { display: flex; flex-direction: column; gap: 6px; margin-bottom: 6px; }
+.char-row { display: flex; gap: 6px; align-items: center; }
+.char-row input { margin-top: 0; }
+.char-row input:nth-child(1) { flex: 1.4; text-transform: uppercase; }
+.char-row input:nth-child(2) { flex: 1.2; }
+.char-row input:nth-child(3) { flex: .9; }
+.char-row input:nth-child(4) { flex: 1.6; }
+.addbtn { color: var(--accent); }
 
 /* ---- manus-editor ---- */
 .elements { display: flex; flex-direction: column; gap: 6px; }
