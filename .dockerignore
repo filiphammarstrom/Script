@@ -1,0 +1,11 @@
+.git/
+.venv/
+venv/
+__pycache__/
+*.pyc
+data/
+.env
+tests/
+scratchpad/
+*.md
+start.command

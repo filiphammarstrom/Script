@@ -117,7 +117,17 @@ export COOKIE_SECURE=true                 # när du kör bakom HTTPS
 - I molnläget är **bara moln-transkribering** (OpenAI/AssemblyAI) tillgänglig – lokal Whisper och bevakad mapp fungerar bara på din egen dator.
 - All användardata (projekt, bas-AI, nycklar) ligger under `data/users/<uid>/` och är gitignorerat.
 
-> Driftsättning (Dockerfile + deploy-guide) kommer i nästa steg.
+### Driftsätt i molnet (Render, ~10 min)
+
+Repot innehåller en `Dockerfile` och en `render.yaml` (Blueprint) så det blir några klick. Render ger automatisk HTTPS och en persistent disk för data.
+
+1. **Skapa ett Google OAuth-client-ID:** [Google Cloud Console](https://console.cloud.google.com/) → *APIs & Services → Credentials → Create credentials → OAuth client ID* → typ **Web application**. Under *Authorized JavaScript origins* lägger du till din app-URL (t.ex. `https://ditt-namn.onrender.com`) – och `http://localhost:8000` om du vill testa lokalt. Kopiera **client-ID:t** (inget secret behövs).
+2. **Deploya:** på [Render](https://render.com/) → *New → Blueprint* → välj detta repo. Render läser `render.yaml`, skapar webbtjänsten + disken och genererar `SECRET_KEY` åt dig.
+3. **Fyll i `GOOGLE_CLIENT_ID`** i tjänstens *Environment* och spara (utlöser en ny deploy).
+4. **Klart:** öppna URL:en, logga in med Google, och lägg in dina egna API-nycklar under **Inställningar → API-nycklar**.
+5. **Bjud in andra:** dela URL:en. Var och en loggar in med sitt Google-konto, lägger in sina egna nycklar, och får sin egen data.
+
+> **Viktigt:** den persistenta disken (i `render.yaml`) krävs för att projekt/nycklar ska överleva en omdeploy. Render Starter-plan (~$7/mån) krävs för disk. Samma upplägg funkar på Fly.io/Railway – peka bara en volym på `/app/data` och sätt samma miljövariabler (`AUTH_ENABLED`, `GOOGLE_CLIENT_ID`, `SECRET_KEY`, `COOKIE_SECURE`).
 
 ## Tester
 
