@@ -222,19 +222,46 @@ select { width: auto; min-width: 0; }
 .char-row input:nth-child(4) { flex: 1.6; }
 .addbtn { color: var(--accent); }
 
-/* ---- manus-editor ---- */
-.elements { display: flex; flex-direction: column; gap: 6px; }
-.el { display: flex; gap: 8px; align-items: flex-start; padding: 5px; border-radius: 8px; }
-.el select { width: 130px; flex: 0 0 auto; margin-top: 0; }
-.el textarea { flex: 1; margin-top: 0; }
-.el-actions { display: flex; gap: 3px; flex: 0 0 auto; }
+/* ---- manus-editor: scen-vy i manusformat ---- */
 .iconbtn { padding: 5px 9px; font-size: 13px; line-height: 1; background: var(--panel-2); color: var(--muted); }
 .iconbtn:hover { border-color: var(--accent); color: var(--ink); transform: none; }
-.el-scene_heading textarea { text-transform: uppercase; font-weight: 600; }
-.el-character textarea { text-transform: uppercase; }
-.el.low-conf { background: #2a2516; }
-.el .gap { color: var(--warn); font-weight: 600; font-size: 12px; align-self: center; }
-.el.flash { background: var(--flash); transition: background .3s; }
+
+.scenes-bar { display: flex; justify-content: flex-end; margin-bottom: 10px; }
+.scene { border: 1px solid var(--line); border-radius: 10px; margin-bottom: 10px; overflow: hidden; background: var(--panel-2); }
+.scene-head { display: flex; align-items: center; gap: 10px; padding: 12px 14px; cursor: pointer; user-select: none; }
+.scene-head:hover { background: rgba(110, 168, 254, .06); }
+.chev { color: var(--muted); width: 1em; flex: 0 0 auto; }
+.scene-title { font-weight: 600; text-transform: uppercase; letter-spacing: .02em; font-family: "Courier New", monospace; }
+.scene-count { margin-left: auto; color: var(--muted); font-size: 12px; flex: 0 0 auto; }
+.scene.collapsed .scene-body { display: none; }
+
+.scene-body { padding: 6px 18px 16px; background: #0c0e13; font-family: "Courier New", ui-monospace, monospace; }
+.fel { position: relative; display: flex; align-items: flex-start; }
+.fel-text {
+  flex: 1; background: transparent; border: 1px solid transparent; border-radius: 5px;
+  resize: none; overflow: hidden; font-family: "Courier New", ui-monospace, monospace;
+  color: var(--ink); padding: 4px 6px; margin: 1px 0; line-height: 1.45;
+}
+.fel-text:hover { border-color: var(--line); }
+.fel-text:focus { outline: none; border-color: var(--accent); background: #0c0e13; box-shadow: none; }
+/* manus-indrag per typ (web-approximation av Final Draft-layouten) */
+.fel-scene_heading .fel-text { text-transform: uppercase; font-weight: 700; }
+.fel-character .fel-text { text-transform: uppercase; margin-left: 3.4em; max-width: 20em; }
+.fel-dialogue .fel-text { margin-left: 1.6em; max-width: 26em; }
+.fel-parenthetical .fel-text { margin-left: 2.6em; max-width: 20em; font-style: italic; color: var(--muted); }
+.fel-transition .fel-text { text-transform: uppercase; text-align: right; }
+.fel.low-conf .fel-text { background: #2a2516; }
+.fel.flash .fel-text { background: var(--flash); transition: background .3s; }
+.fel .gap { align-self: center; margin-left: 8px; color: var(--warn); font-weight: 600; font-size: 11px; flex: 0 0 auto; }
+
+.fel-tools {
+  position: absolute; right: 4px; top: 2px; display: flex; gap: 3px; align-items: center;
+  opacity: .4; transition: opacity .12s ease; background: rgba(12, 14, 19, .92);
+  padding: 3px; border-radius: 7px; border: 1px solid var(--line);
+}
+.fel:hover .fel-tools, .fel-text:focus + .fel-tools { opacity: 1; }
+.fel-tools select { width: auto; font-size: 12px; padding: 3px 6px; margin: 0; }
+.fel-tools .iconbtn { padding: 3px 7px; }
 
 /* ---- clarifications ---- */
 .clar { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; cursor: pointer; transition: border-color .15s ease; }
