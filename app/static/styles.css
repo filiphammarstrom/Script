@@ -263,6 +263,16 @@ select { width: auto; min-width: 0; }
 .fel-tools select { width: auto; font-size: 12px; padding: 3px 6px; margin: 0; }
 .fel-tools .iconbtn { padding: 3px 7px; }
 
+/* ---- revidera i efterhand ---- */
+.revise-preview { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 14px; }
+.revise-summary { color: var(--ink); margin-bottom: 10px; }
+.revise-ops { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.revise-op { border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 8px; padding: 9px 12px; background: var(--panel-2); }
+.revise-op.op-delete { border-left-color: var(--warn); }
+.revise-op.op-insert_after { border-left-color: var(--good); }
+.revise-op-text { font-size: 14px; }
+.revise-reason { color: var(--muted); font-size: 12px; margin-top: 4px; }
+
 /* ---- clarifications ---- */
 .clar { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; cursor: pointer; transition: border-color .15s ease; }
 .clar:hover { border-color: var(--accent); }

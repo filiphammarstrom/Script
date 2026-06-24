@@ -106,6 +106,17 @@
             <button id="exportBtn" class="primary">Exportera FDX</button>
           </div>
         </section>
+
+        <section class="panel">
+          <h2>Revidera i efterhand</h2>
+          <p class="hint">Diktera/skriv en ändring av det <em>befintliga</em> manuset – t.ex. "fem scener tidigare borde Bobo ha sagt ... i stället". AI:n föreslår exakta ändringar som du godkänner innan något sparas.</p>
+          <textarea id="reviseText" rows="3" placeholder="Beskriv ändringen ..."></textarea>
+          <div class="row">
+            <button id="reviseBtn">Föreslå ändringar</button>
+            <span id="reviseStatus" class="status"></span>
+          </div>
+          <div id="revisePreview" class="revise-preview" hidden></div>
+        </section>
       </div>
 
       <!-- FLIK: Projektinställningar -->

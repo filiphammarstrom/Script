@@ -77,3 +77,23 @@ class AnalyzeResult(BaseModel):
     new_elements: list[ScreenplayElement] = Field(default_factory=list)
     story_bible_updates: StoryBible = Field(default_factory=StoryBible)
     clarifications: list[Clarification] = Field(default_factory=list)
+
+
+# --- Revideringsläge: föreslagna ändringar av BEFINTLIGT manus ---
+
+
+class EditOp(BaseModel):
+    """En enskild, exakt redigering av ett befintligt element (pekar på dess id)."""
+
+    op: Literal["replace", "delete", "insert_after"]
+    target_id: int | None = None  # element att ersätta/ta bort, eller infoga EFTER (null = först)
+    type: ElementType | None = None  # för replace (om typen ändras) och insert_after
+    text: str | None = None  # för replace och insert_after
+    reason: str = ""  # kort förklaring på svenska som visas för användaren
+
+
+class ReviseResult(BaseModel):
+    """AI:ns förslag på ändringar – tillämpas först efter användarens godkännande."""
+
+    operations: list[EditOp] = Field(default_factory=list)
+    summary: str = ""

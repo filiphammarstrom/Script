@@ -38,6 +38,7 @@ function mkStatus(id) {
 const setStatus = mkStatus("status");
 const setGlobalStatus = mkStatus("globalStatus");
 const setProjSetStatus = mkStatus("projSetStatus");
+const setReviseStatus = mkStatus("reviseStatus");
 
 // ---- vy-navigering ----
 function showView(name) {
@@ -544,6 +545,107 @@ $("exportBtn").onclick = async () => {
   a.click();
   URL.revokeObjectURL(a.href);
 };
+
+// ---- revidera i efterhand ----
+let pendingOps = null;
+$("reviseBtn").onclick = async () => {
+  const instruction = $("reviseText").value.trim();
+  if (!instruction) { setReviseStatus("Skriv en ändringsinstruktion först."); return; }
+  setReviseStatus("Tänker ...", true);
+  $("revisePreview").hidden = true;
+  try {
+    const data = await api("POST", `/api/projects/${project.id}/revise`, { instruction });
+    renderRevisePreview(data.operations || [], data.summary || "");
+  } catch (e) {
+    setReviseStatus("Fel: " + e.message);
+  }
+};
+
+function renderRevisePreview(ops, summary) {
+  pendingOps = ops;
+  const box = $("revisePreview");
+  box.hidden = false;
+  box.innerHTML = "";
+  const sum = document.createElement("div");
+  sum.className = "revise-summary";
+  sum.textContent = summary || (ops.length ? "Föreslagna ändringar:" : "Inga ändringar föreslogs.");
+  box.appendChild(sum);
+
+  if (!ops.length) {  // AI:n var osäker / behöver förtydligande
+    setReviseStatus("");
+    return;
+  }
+
+  const byId = {};
+  for (const el of project.elements) byId[el.id] = el;
+  const list = document.createElement("div");
+  list.className = "revise-ops";
+  for (const op of ops) {
+    const item = document.createElement("div");
+    item.className = "revise-op op-" + op.op;
+    let label = "";
+    if (op.op === "replace") {
+      const cur = byId[op.target_id];
+      label = `✏️ Ändra: ”${esc(cur ? cur.text : "?")}” → ”${esc(op.text || "")}”`;
+    } else if (op.op === "delete") {
+      const cur = byId[op.target_id];
+      label = `🗑️ Ta bort: ”${esc(cur ? cur.text : "?")}”`;
+    } else {
+      label = `➕ Infoga: ”${esc(op.text || "")}” (${TYPE_LABELS[op.type] || op.type || "?"})`;
+    }
+    item.innerHTML = `<div class="revise-op-text">${label}</div>` +
+      (op.reason ? `<div class="revise-reason">${esc(op.reason)}</div>` : "");
+    list.appendChild(item);
+  }
+  box.appendChild(list);
+
+  const actions = document.createElement("div");
+  actions.className = "row";
+  const ok = document.createElement("button");
+  ok.className = "primary";
+  ok.textContent = "Godkänn ändringar";
+  ok.onclick = applyRevise;
+  const cancel = document.createElement("button");
+  cancel.textContent = "Avbryt";
+  cancel.onclick = () => { pendingOps = null; box.hidden = true; setReviseStatus("Avbröts."); };
+  actions.append(ok, cancel);
+  box.appendChild(actions);
+  setReviseStatus(`${ops.length} föreslagen ändring – granska och godkänn.`);
+}
+
+async function applyRevise() {
+  if (!pendingOps) return;
+  const els = project.elements;
+  let nextId = els.reduce((m, e) => Math.max(m, e.id), -1) + 1;
+  for (const op of pendingOps) {
+    if (op.op === "replace") {
+      const el = els.find((e) => e.id === op.target_id);
+      if (el) { if (op.text != null) el.text = op.text; if (op.type) el.type = op.type; }
+    } else if (op.op === "delete") {
+      const i = els.findIndex((e) => e.id === op.target_id);
+      if (i >= 0) els.splice(i, 1);
+    } else if (op.op === "insert_after") {
+      const newEl = { id: nextId++, type: op.type || "action", text: op.text || "", confidence: "high", is_gap: false };
+      if (op.target_id == null) {
+        els.unshift(newEl);
+      } else {
+        const i = els.findIndex((e) => e.id === op.target_id);
+        if (i >= 0) els.splice(i + 1, 0, newEl); else els.push(newEl);
+      }
+    }
+  }
+  pendingOps = null;
+  $("revisePreview").hidden = true;
+  $("reviseText").value = "";
+  renderElements();
+  try {
+    project = await api("PUT", `/api/projects/${project.id}`, { elements: project.elements });
+    renderElements();
+    setReviseStatus("Ändringarna tillämpades och sparades ✓");
+  } catch (e) {
+    setReviseStatus("Tillämpat lokalt men kunde inte spara: " + e.message);
+  }
+}
 
 // ---- init ----
 showView("projects");

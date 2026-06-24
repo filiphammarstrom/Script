@@ -12,7 +12,7 @@ import os
 
 import anthropic
 
-from app.models import AnalyzeResult, GlobalSettings, Project
+from app.models import AnalyzeResult, GlobalSettings, Project, ReviseResult
 
 DEFAULT_MODEL = os.environ.get("SCRIPT_MODEL", "claude-sonnet-4-6")
 
@@ -161,3 +161,80 @@ def analyze(
         if block.type == "tool_use":
             return AnalyzeResult.model_validate(block.input)
     raise RuntimeError("Modellen returnerade ingen strukturerad output (inget tool_use).")
+
+
+# ---- revideringsläge: ändra befintligt manus i efterhand ----
+
+REVISE_RULES = """Du är MANUSSEKRETERARE i REVIDERINGSLÄGE. Användaren ger en instruktion om hur det BEFINTLIGA manuset ska ändras i efterhand (t.ex. "fem scener tidigare borde Bobo ha sagt X i stället för Y", "ta bort repliken där Potter säger Z", "byt scenrubriken i köket till natt").
+
+Din uppgift: föreslå EXAKTA, MINIMALA redigeringar via verktyget propose_edits.
+- Ändra BARA det instruktionen ber om. Rör inga andra element. Skriv inte om, "förbättra" eller omformulera rader som inte berörs.
+- Behåll sekreterarprincipen: hitta inte på dialog, handling, känslor eller övergångar utöver det instruktionen uttryckligen anger.
+- Varje operation pekar på elementens `id` i det nuvarande manuset:
+  · replace: ersätt ett elements text (och `type` bara om typen verkligen ändras). Ange `target_id` och `text`.
+  · delete: ta bort ett element. Ange `target_id`.
+  · insert_after: infoga ett NYTT element efter `target_id` (eller `target_id`=null för att infoga först). Ange `type` och `text`.
+- Slå inte ihop flera orelaterade ändringar; en operation per konkret ändring.
+- Ge varje operation en kort `reason` på svenska som förklarar ändringen för användaren.
+- Sätt en kort `summary` (svenska) som sammanfattar vad du föreslår.
+- OM du inte SÄKERT kan avgöra vilket element instruktionen avser (tvetydigt, flera möjliga rader): returnera INGA operationer och förklara i `summary` vad du behöver veta. Gissa aldrig vilket element som ska ändras.
+- Följ samma formatstandard som vid vanlig analys för text du skriver in (versaler i scenrubriker/karaktärsnamn osv.)."""
+
+_REVISE_TOOL = {
+    "name": "propose_edits",
+    "description": "Föreslå exakta, minimala redigeringar av det befintliga manuset utifrån användarens instruktion.",
+    "input_schema": ReviseResult.model_json_schema(),
+}
+
+
+def _revise_system_blocks(global_settings: GlobalSettings) -> list[dict]:
+    text = REVISE_RULES
+    if global_settings.directives.strip():
+        text += (
+            "\n\n# ANVÄNDARENS EGNA GLOBALA REGLER (bas-AI – t.ex. formatbok)\n"
+            + global_settings.directives.strip()
+        )
+    return [{"type": "text", "text": text, "cache_control": {"type": "ephemeral"}}]
+
+
+def _revise_user_content(project: Project, instruction: str) -> str:
+    parts: list[str] = []
+    if project.context.strip():
+        parts.append("# Projektkontext / synopsis\n" + project.context.strip())
+    if project.directives.strip():
+        parts.append("# Projektets instruktioner\n" + project.directives.strip())
+    parts.append(
+        "# Story-bibel\n" + project.story_bible.model_dump_json(indent=2)
+    )
+    parts.append(
+        "# Nuvarande manus (ALLA element med id – ändra via dessa id:n)\n"
+        + json.dumps([e.model_dump() for e in project.elements], ensure_ascii=False, indent=2)
+    )
+    parts.append("# Användarens ändringsinstruktion\n" + instruction)
+    return "\n\n".join(parts)
+
+
+def revise(
+    project: Project,
+    instruction: str,
+    global_settings: GlobalSettings,
+    model: str | None = None,
+) -> ReviseResult:
+    """Kör Claude och returnera FÖRESLAGNA ändringar av det befintliga manuset.
+
+    Tillämpar inget – anroparen visar förslagen för användaren och tillämpar först
+    efter godkännande. Kräver att ANTHROPIC_API_KEY finns i miljön.
+    """
+    client = anthropic.Anthropic()
+    response = client.messages.create(
+        model=model or DEFAULT_MODEL,
+        max_tokens=8000,
+        system=_revise_system_blocks(global_settings),
+        tools=[_REVISE_TOOL],
+        tool_choice={"type": "tool", "name": "propose_edits"},
+        messages=[{"role": "user", "content": _revise_user_content(project, instruction)}],
+    )
+    for block in response.content:
+        if block.type == "tool_use":
+            return ReviseResult.model_validate(block.input)
+    raise RuntimeError("Modellen returnerade inga förslag (inget tool_use).")
