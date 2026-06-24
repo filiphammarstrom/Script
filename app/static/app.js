@@ -155,8 +155,10 @@ $("saveProjectBtn").onclick = async () => {
       title: $("projTitle").value,
       context: $("projContext").value,
       directives: $("projDirectives").value,
+      story_bible: project.story_bible,
     });
     $("projHeadTitle").textContent = project.title;
+    renderBible();
     setProjSetStatus("Projekt sparat ✓");
   } catch (e) {
     setProjSetStatus("Kunde inte spara: " + e.message);
@@ -181,22 +183,81 @@ $("synopsisFile").onchange = async (e) => {
   e.target.value = "";
 };
 
-// ---- story-bibel ----
+// ---- story-bibel (redigerbar) ----
+function splitLines(s) { return s.split("\n").map((x) => x.trim()).filter(Boolean); }
+function splitCommas(s) { return s.split(",").map((x) => x.trim()).filter(Boolean); }
+function bibleInput(value, ph, oninput) {
+  const i = document.createElement("input");
+  i.value = value;
+  i.placeholder = ph;
+  i.oninput = () => oninput(i.value);
+  return i;
+}
+function bibleGroup(label, node) {
+  const w = document.createElement("div");
+  w.className = "bible-group";
+  const l = document.createElement("div");
+  l.className = "bible-label";
+  l.textContent = label;
+  w.append(l, node);
+  return w;
+}
 function renderBible() {
-  const b = project.story_bible || { characters: [], locations: [], notes: [] };
-  const chars =
-    b.characters
-      .map((c) => {
-        const extra = [c.aliases?.length ? c.aliases.join(", ") : null, c.languages?.length ? c.languages.join("/") : null]
-          .filter(Boolean)
-          .join("; ");
-        return esc(c.name) + (extra ? ` <em>(${esc(extra)})</em>` : "");
-      })
-      .join(", ") || "–";
-  $("storyBible").innerHTML =
-    `<div><strong>Karaktärer:</strong> ${chars}</div>` +
-    `<div><strong>Platser:</strong> ${esc(b.locations.join(", ") || "–")}</div>` +
-    `<div><strong>Anteckningar:</strong> ${esc(b.notes.join("; ") || "–")}</div>`;
+  const b = project.story_bible || (project.story_bible = {});
+  b.characters = b.characters || [];
+  b.locations = b.locations || [];
+  b.notes = b.notes || [];
+  const box = $("storyBible");
+  box.innerHTML = "";
+
+  // Karaktärer
+  const chars = document.createElement("div");
+  chars.className = "bible-chars";
+  for (const c of b.characters) {
+    const row = document.createElement("div");
+    row.className = "char-row";
+    row.append(
+      bibleInput(c.name || "", "Namn (VERSALER)", (v) => (c.name = v)),
+      bibleInput((c.aliases || []).join(", "), "Alias (komma)", (v) => (c.aliases = splitCommas(v))),
+      bibleInput((c.languages || []).join(", "), "Språk (komma)", (v) => (c.languages = splitCommas(v))),
+      bibleInput(c.description || "", "Beskrivning", (v) => (c.description = v)),
+    );
+    const rm = document.createElement("button");
+    rm.type = "button";
+    rm.className = "iconbtn";
+    rm.textContent = "✕";
+    rm.title = "Ta bort karaktär";
+    rm.onclick = () => {
+      const i = b.characters.indexOf(c);
+      if (i >= 0) { b.characters.splice(i, 1); renderBible(); }
+    };
+    row.append(rm);
+    chars.append(row);
+  }
+  const add = document.createElement("button");
+  add.type = "button";
+  add.className = "iconbtn addbtn";
+  add.textContent = "+ Karaktär";
+  add.onclick = () => { b.characters.push({ name: "", aliases: [], description: "", languages: [] }); renderBible(); };
+  const charsWrap = document.createElement("div");
+  charsWrap.append(chars, add);
+  box.append(bibleGroup("Karaktärer", charsWrap));
+
+  // Platser
+  const locs = document.createElement("textarea");
+  locs.rows = 3;
+  locs.value = b.locations.join("\n");
+  locs.placeholder = "En plats per rad ...";
+  locs.oninput = () => (b.locations = splitLines(locs.value));
+  box.append(bibleGroup("Platser (en per rad)", locs));
+
+  // Anteckningar
+  const notes = document.createElement("textarea");
+  notes.rows = 3;
+  notes.value = b.notes.join("\n");
+  notes.placeholder = "En anteckning per rad ...";
+  notes.oninput = () => (b.notes = splitLines(notes.value));
+  box.append(bibleGroup("Anteckningar (en per rad)", notes));
 }
 
 // ---- ljudtranskribering ----
