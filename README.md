@@ -101,6 +101,24 @@ I appen kan du även **välja motor per uppladdning** (Lokalt / Bevakad mapp / M
 
 Ger din app **talar-etiketter** (t.ex. "Talare 1/2" eller "Speaker A/B" – många, som Whisper Transcription, gör det) behåller Script dem: AI:n knyter varje platshållare till rätt karaktär utifrån kontext och story-bibel och skriver ut det riktiga namnet (frågar om kopplingen är oklar).
 
+## Flera användare (hostad webapp)
+
+Som standard körs appen i **lokalt enanvändarläge** (ingen inloggning) – perfekt på din egen dator. Sätt `AUTH_ENABLED=true` för att slå på **Google-inloggning** och ge varje konto sin egen data och egna API-nycklar:
+
+```bash
+export AUTH_ENABLED=true
+export GOOGLE_CLIENT_ID="<ditt-id>.apps.googleusercontent.com"   # från Google Cloud Console
+export SECRET_KEY="<lång slumpsträng>"   # signerar sessionskakan
+export COOKIE_SECURE=true                 # när du kör bakom HTTPS
+```
+
+- **Google-login** använder Googles "Sign in with Google" (ID-token) och kräver bara ett **client-ID** (inget secret). Skapa en OAuth 2.0-klient (typ: webbapp) i Google Cloud Console och lägg din domän under *Authorized JavaScript origins*.
+- **Egen nyckel per användare:** varje inloggad användare lägger in sina egna Anthropic/OpenAI/AssemblyAI-nycklar under **Inställningar → API-nycklar** (lagras på kontot, visas aldrig igen). Du som driftar betalar alltså inget för andras körningar.
+- I molnläget är **bara moln-transkribering** (OpenAI/AssemblyAI) tillgänglig – lokal Whisper och bevakad mapp fungerar bara på din egen dator.
+- All användardata (projekt, bas-AI, nycklar) ligger under `data/users/<uid>/` och är gitignorerat.
+
+> Driftsättning (Dockerfile + deploy-guide) kommer i nästa steg.
+
 ## Tester
 
 FDX-generatorn testas utan API-nyckel:

@@ -6,4 +6,5 @@ openai>=1.40
 pydantic>=2.6
 pypdf>=4.0
 python-multipart>=0.0.9
+itsdangerous>=2.1
 pytest>=8.0

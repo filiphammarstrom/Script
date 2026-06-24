@@ -7,11 +7,21 @@
   <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
+  <div id="loginOverlay" class="overlay" hidden>
+    <div class="overlay-card">
+      <h2 class="overlay-title">🎬 Transkription → Manus</h2>
+      <p class="hint">Logga in för att fortsätta.</p>
+      <div id="googleBtn"></div>
+      <p id="loginError" class="status"></p>
+    </div>
+  </div>
+
   <header>
     <h1>Transkription → Manus (FDX)</h1>
     <nav class="topnav">
       <button id="navProjects" class="navbtn">Projekt</button>
       <button id="navSettings" class="navbtn">Inställningar</button>
+      <span id="userArea" class="userarea" hidden></span>
     </nav>
   </header>
 
@@ -44,6 +54,24 @@
             <input type="file" id="rulesFile" accept=".pdf,.txt,.md,.text" hidden>
           </label>
           <span id="globalStatus" class="status"></span>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>API-nycklar (dina egna)</h2>
+        <p class="hint">Dina nycklar lagras på ditt konto och används bara för dina körningar. De visas aldrig igen – lämna fältet tomt för att behålla den befintliga.</p>
+        <label>Anthropic (Claude) – för Analysera / Revidera
+          <input id="keyAnthropic" type="password" autocomplete="off" placeholder="Inte satt">
+        </label>
+        <label>OpenAI – för moln-transkribering
+          <input id="keyOpenai" type="password" autocomplete="off" placeholder="Inte satt">
+        </label>
+        <label>AssemblyAI – för moln-transkribering
+          <input id="keyAssemblyai" type="password" autocomplete="off" placeholder="Inte satt">
+        </label>
+        <div class="row">
+          <button id="saveKeysBtn" class="primary">Spara nycklar</button>
+          <span id="keysStatus" class="status"></span>
         </div>
       </section>
     </section>
