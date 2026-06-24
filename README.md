@@ -31,6 +31,9 @@ karaktärs språk, och ger inga kommentarer efter scenen. Den stora formatboken 
 
 ## Komma igång
 
+**Enklast (macOS): dubbelklicka `start.command`** i projektmappen. Första gången sätts allt upp automatiskt (virtuell miljö + beroenden) och sedan öppnas appen i webbläsaren. Stäng terminalfönstret för att stänga av. Fyll i dina inställningar i `.env` (skapas automatiskt från mallen vid första körningen). Vill du ha en riktig app-ikon: se "App-ikon i Dock" nedan.
+
+Manuellt (alla plattformar):
 ```bash
 python3 -m venv .venv
 . .venv/bin/activate
@@ -43,6 +46,18 @@ uvicorn app.main:app --reload
 ```
 
 Öppna http://localhost:8000.
+
+### App-ikon i Dock (macOS, valfritt)
+
+Vill du starta från en riktig app-ikon i stället för att leta upp `start.command`:
+
+1. Öppna **Automator** → nytt dokument → **Program** (Application).
+2. Sök upp **"Kör Skalskript"** (Run Shell Script), dra in den.
+3. Klistra in (byt sökväg om mappen ligger någon annanstans):
+   `open "$HOME/Script/start.command"`
+4. **Spara** som `Script` i mappen Program. Dra ikonen till Dock.
+
+Nu startar ett klick på ikonen appen och öppnar den i webbläsaren.
 
 Modell: default `claude-sonnet-4-6`. Sätt `SCRIPT_MODEL=claude-opus-4-8` för svårare fall.
 
