@@ -1,61 +1,142 @@
-"""Enkel JSON-persistens för projekt och globala inställningar (ingen databas i V1).
+"""JSON-persistens, scoped per användare (ingen databas i V1).
 
-Varje projekt är en egen fil i data/projects/, så man kan ha flera manus parallellt
-och återuppta exakt där man var.
+Layout:
+  data/users/<uid>/profile.json    – konto (sub, e-post, namn)
+  data/users/<uid>/global.json     – bas-AI (globala regler) för användaren
+  data/users/<uid>/secrets.json    – användarens egna API-nycklar (gitignorerat under data/)
+  data/users/<uid>/projects/*.json – ett manus per fil
+
+I lokalt läge (AUTH_ENABLED=false) används uid "local", och eventuell äldre data
+(data/global.json, data/projects/) migreras dit en gång så inget går förlorat.
 """
 from __future__ import annotations
 
+import re
 import uuid
 from pathlib import Path
 
 from app.models import AnalyzeResult, GlobalSettings, Project, StoryBible
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
-PROJECTS_DIR = DATA_DIR / "projects"
-GLOBAL_FILE = DATA_DIR / "global.json"
+USERS_DIR = DATA_DIR / "users"
+LOCAL_UID = "local"
+
+# Äldre (enanvändar-)platser, för engångsmigrering till "local".
+_LEGACY_GLOBAL = DATA_DIR / "global.json"
+_LEGACY_PROJECTS = DATA_DIR / "projects"
 
 
-def _ensure_dirs() -> None:
-    PROJECTS_DIR.mkdir(parents=True, exist_ok=True)
+def _safe_uid(uid: str) -> str:
+    cleaned = re.sub(r"[^A-Za-z0-9_-]", "", uid or "")
+    return cleaned or LOCAL_UID
 
 
-# ---- globala inställningar (bas-AI) ----
-def load_global_settings() -> GlobalSettings:
-    if GLOBAL_FILE.exists():
-        return GlobalSettings.model_validate_json(GLOBAL_FILE.read_text("utf-8"))
+def _user_dir(uid: str) -> Path:
+    return USERS_DIR / _safe_uid(uid)
+
+
+def _projects_dir(uid: str) -> Path:
+    return _user_dir(uid) / "projects"
+
+
+def _ensure_user(uid: str) -> None:
+    _projects_dir(uid).mkdir(parents=True, exist_ok=True)
+
+
+# ---- konton ----
+def upsert_user(sub: str, email: str = "", name: str = "") -> str:
+    """Skapa/uppdatera ett konto utifrån Google-sub. Returnerar uid."""
+    uid = _safe_uid(sub)
+    _ensure_user(uid)
+    path = _user_dir(uid) / "profile.json"
+    profile = {"id": uid, "sub": sub, "email": email, "name": name}
+    if path.exists():
+        import json
+
+        old = json.loads(path.read_text("utf-8"))
+        profile = {**old, **{k: v for k, v in profile.items() if v}}
+    path.write_text(_dumps(profile), "utf-8")
+    return uid
+
+
+def load_user(uid: str) -> dict | None:
+    path = _user_dir(uid) / "profile.json"
+    if not path.exists():
+        return None
+    import json
+
+    return json.loads(path.read_text("utf-8"))
+
+
+# ---- globala inställningar (bas-AI) per användare ----
+def load_global_settings(uid: str) -> GlobalSettings:
+    path = _user_dir(uid) / "global.json"
+    if path.exists():
+        return GlobalSettings.model_validate_json(path.read_text("utf-8"))
     return GlobalSettings()
 
 
-def save_global_settings(settings: GlobalSettings) -> GlobalSettings:
-    _ensure_dirs()
-    GLOBAL_FILE.write_text(settings.model_dump_json(indent=2), "utf-8")
+def save_global_settings(uid: str, settings: GlobalSettings) -> GlobalSettings:
+    _ensure_user(uid)
+    (_user_dir(uid) / "global.json").write_text(settings.model_dump_json(indent=2), "utf-8")
     return settings
 
 
-# ---- projekt ----
-def create_project(title: str = "Namnlöst projekt") -> Project:
-    return save_project(Project(id=uuid.uuid4().hex[:12], title=title))
+# ---- användarens egna API-nycklar ----
+def load_secrets(uid: str) -> dict:
+    path = _user_dir(uid) / "secrets.json"
+    if not path.exists():
+        return {}
+    import json
+
+    return json.loads(path.read_text("utf-8"))
 
 
-def save_project(project: Project) -> Project:
-    _ensure_dirs()
-    (PROJECTS_DIR / f"{project.id}.json").write_text(
+def save_secrets(uid: str, updates: dict) -> dict:
+    """Slå ihop och spara nycklar. Tomma strängar tas bort (= rensa nyckeln)."""
+    _ensure_user(uid)
+    secrets = load_secrets(uid)
+    for key, value in updates.items():
+        if value:
+            secrets[key] = value
+        else:
+            secrets.pop(key, None)
+    (_user_dir(uid) / "secrets.json").write_text(_dumps(secrets), "utf-8")
+    return secrets
+
+
+# ---- projekt per användare ----
+def create_project(uid: str, title: str = "Namnlöst projekt") -> Project:
+    return save_project(uid, Project(id=uuid.uuid4().hex[:12], title=title))
+
+
+def save_project(uid: str, project: Project) -> Project:
+    _ensure_user(uid)
+    (_projects_dir(uid) / f"{project.id}.json").write_text(
         project.model_dump_json(indent=2), "utf-8"
     )
     return project
 
 
-def load_project(project_id: str) -> Project | None:
-    path = PROJECTS_DIR / f"{project_id}.json"
+def load_project(uid: str, project_id: str) -> Project | None:
+    path = _projects_dir(uid) / f"{_safe_uid(project_id)}.json"
     if not path.exists():
         return None
     return Project.model_validate_json(path.read_text("utf-8"))
 
 
-def list_projects() -> list[dict]:
-    _ensure_dirs()
+def delete_project(uid: str, project_id: str) -> bool:
+    path = _projects_dir(uid) / f"{_safe_uid(project_id)}.json"
+    if not path.exists():
+        return False
+    path.unlink()
+    return True
+
+
+def list_projects(uid: str) -> list[dict]:
+    _ensure_user(uid)
     out: list[dict] = []
-    for path in sorted(PROJECTS_DIR.glob("*.json")):
+    for path in sorted(_projects_dir(uid).glob("*.json")):
         try:
             proj = Project.model_validate_json(path.read_text("utf-8"))
         except Exception:
@@ -63,6 +144,27 @@ def list_projects() -> list[dict]:
         scenes = sum(1 for e in proj.elements if e.type == "scene_heading")
         out.append({"id": proj.id, "title": proj.title, "scenes": scenes})
     return out
+
+
+# ---- engångsmigrering av äldre enanvändardata till "local" ----
+def migrate_legacy() -> None:
+    target = _user_dir(LOCAL_UID)
+    if target.exists():
+        return  # redan migrerat / lokal användare finns
+    if not _LEGACY_GLOBAL.exists() and not _LEGACY_PROJECTS.exists():
+        return  # inget gammalt att flytta
+    _ensure_user(LOCAL_UID)
+    if _LEGACY_GLOBAL.exists():
+        (target / "global.json").write_text(_LEGACY_GLOBAL.read_text("utf-8"), "utf-8")
+    if _LEGACY_PROJECTS.exists():
+        for path in _LEGACY_PROJECTS.glob("*.json"):
+            (_projects_dir(LOCAL_UID) / path.name).write_text(path.read_text("utf-8"), "utf-8")
+
+
+def _dumps(obj) -> str:
+    import json
+
+    return json.dumps(obj, ensure_ascii=False, indent=2)
 
 
 # ---- sammanfoga AI-resultat in i projektet ----

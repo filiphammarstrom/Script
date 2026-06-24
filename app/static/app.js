@@ -39,6 +39,7 @@ const setStatus = mkStatus("status");
 const setGlobalStatus = mkStatus("globalStatus");
 const setProjSetStatus = mkStatus("projSetStatus");
 const setReviseStatus = mkStatus("reviseStatus");
+const setKeysStatus = mkStatus("keysStatus");
 
 // ---- vy-navigering ----
 function showView(name) {
@@ -647,7 +648,92 @@ async function applyRevise() {
   }
 }
 
+// ---- API-nycklar (per användare) ----
+function setKeyPlaceholder(id, isSet) {
+  $(id).value = "";
+  $(id).placeholder = isSet ? "✓ Satt (lämna tomt för att behålla)" : "Inte satt";
+}
+async function loadSecrets() {
+  try {
+    const s = await api("GET", "/api/secrets");
+    setKeyPlaceholder("keyAnthropic", s.anthropic);
+    setKeyPlaceholder("keyOpenai", s.openai);
+    setKeyPlaceholder("keyAssemblyai", s.assemblyai);
+  } catch (e) { /* ignoreras */ }
+}
+$("saveKeysBtn").onclick = async () => {
+  setKeysStatus("Sparar ...", true);
+  try {
+    await api("PUT", "/api/secrets", {
+      anthropic_key: $("keyAnthropic").value || null,
+      openai_key: $("keyOpenai").value || null,
+      assemblyai_key: $("keyAssemblyai").value || null,
+    });
+    await loadSecrets();
+    setKeysStatus("Nycklar sparade ✓");
+  } catch (e) { setKeysStatus("Kunde inte spara: " + e.message); }
+};
+
+// ---- inloggning / uppstart ----
+let appConfig = {};
+async function boot() {
+  try { appConfig = await api("GET", "/api/config"); } catch (e) { appConfig = {}; }
+  if (appConfig.auth_enabled) {
+    // I molnläget funkar bara moln-transkribering.
+    for (const v of ["local", "watch"]) {
+      const o = $("transcribeEngine").querySelector(`option[value="${v}"]`);
+      if (o) o.remove();
+    }
+  }
+  try {
+    const me = await api("GET", "/api/me");
+    onLoggedIn(me);
+  } catch (e) {
+    showLogin();  // 401 i molnläget = inte inloggad
+  }
+}
+function onLoggedIn(me) {
+  $("loginOverlay").hidden = true;
+  renderUserArea(me);
+  showView("projects");
+  loadGlobal();
+  loadProjectList();
+  loadSecrets();
+}
+function renderUserArea(me) {
+  const ua = $("userArea");
+  if (!me.auth_enabled) { ua.hidden = true; return; }
+  ua.hidden = false;
+  ua.innerHTML = `<span class="uname">${esc(me.name || me.email || "Inloggad")}</span> ` +
+    `<button id="logoutBtn" class="linkbtn">Logga ut</button>`;
+  $("logoutBtn").onclick = async () => { await api("POST", "/auth/logout"); location.reload(); };
+}
+function showLogin() {
+  $("loginOverlay").hidden = false;
+  if (window.google && window.google.accounts) { renderGoogleBtn(); return; }
+  const s = document.createElement("script");
+  s.src = "https://accounts.google.com/gsi/client";
+  s.async = true;
+  s.onload = renderGoogleBtn;
+  s.onerror = () => { $("loginError").textContent = "Kunde inte ladda Google-inloggning."; };
+  document.head.appendChild(s);
+}
+function renderGoogleBtn() {
+  if (!appConfig.google_client_id) {
+    $("loginError").textContent = "GOOGLE_CLIENT_ID är inte konfigurerat på servern.";
+    return;
+  }
+  google.accounts.id.initialize({ client_id: appConfig.google_client_id, callback: handleCredential });
+  google.accounts.id.renderButton($("googleBtn"), { theme: "filled_blue", size: "large", text: "signin_with", shape: "pill" });
+}
+async function handleCredential(resp) {
+  try {
+    await api("POST", "/auth/google", { credential: resp.credential });
+    location.reload();
+  } catch (e) {
+    $("loginError").textContent = "Inloggning misslyckades: " + e.message;
+  }
+}
+
 // ---- init ----
-showView("projects");
-loadGlobal();
-loadProjectList();
+boot();

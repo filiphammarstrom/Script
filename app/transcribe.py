@@ -41,10 +41,10 @@ class Transcriber(Protocol):
 class AssemblyAITranscriber:
     """Molntranskribering med diarisering via AssemblyAI."""
 
-    def __init__(self) -> None:
-        api_key = os.environ.get("ASSEMBLYAI_API_KEY")
+    def __init__(self, api_key: str | None = None) -> None:
+        api_key = api_key or os.environ.get("ASSEMBLYAI_API_KEY")
         if not api_key:
-            raise RuntimeError("ASSEMBLYAI_API_KEY saknas i miljön.")
+            raise RuntimeError("AssemblyAI-nyckel saknas (ASSEMBLYAI_API_KEY eller din egen nyckel).")
         import assemblyai as aai  # lazy import
 
         aai.settings.api_key = api_key
@@ -258,10 +258,10 @@ class OpenAITranscriber:
                                 Sätt t.ex. 'gpt-4o-mini-transcribe' för billigare utan diarisering.
     """
 
-    def __init__(self, model: str | None = None) -> None:
-        api_key = os.environ.get("OPENAI_API_KEY")
+    def __init__(self, model: str | None = None, api_key: str | None = None) -> None:
+        api_key = api_key or os.environ.get("OPENAI_API_KEY")
         if not api_key:
-            raise RuntimeError("OPENAI_API_KEY saknas i miljön.")
+            raise RuntimeError("OpenAI-nyckel saknas (OPENAI_API_KEY eller din egen nyckel).")
         from openai import OpenAI  # lazy import
 
         self._client = OpenAI(api_key=api_key)
@@ -285,11 +285,19 @@ class OpenAITranscriber:
         return text
 
 
-def get_transcriber(backend: str | None = None, model: str | None = None) -> Transcriber:
+def get_transcriber(
+    backend: str | None = None,
+    model: str | None = None,
+    openai_key: str | None = None,
+    assemblyai_key: str | None = None,
+    allow_local: bool = True,
+) -> Transcriber:
     """Välj transkriberingsmotor.
 
     `backend` väljs per anrop (UI), annars env TRANSCRIBE_BACKEND, annars 'assemblyai'.
-    `model` väljer modell per anrop (används av openai-motorn, t.ex. diarisering vs billig 1-röst).
+    `model` väljer modell per anrop (openai-motorn). `openai_key`/`assemblyai_key` är
+    användarens egna nycklar. `allow_local=False` (hostat läge) blockerar lokala motorer
+    som bara fungerar på den egna datorn.
       'assemblyai' = moln med diarisering (kostar per minut, valbar reserv).
       'openai' = moln via OpenAI; modell väljs med `model` (diarize / mini / standard).
       'local'/'whisper' = lokal Whisper-CLI på din dator (gratis).
@@ -297,12 +305,16 @@ def get_transcriber(backend: str | None = None, model: str | None = None) -> Tra
     """
     backend = (backend or os.environ.get("TRANSCRIBE_BACKEND", "assemblyai")).lower()
     if backend == "assemblyai":
-        return AssemblyAITranscriber()
+        return AssemblyAITranscriber(api_key=assemblyai_key)
     if backend in ("openai", "gpt-4o", "gpt4o", "openai_diarize"):
-        return OpenAITranscriber(model=model)
+        return OpenAITranscriber(model=model, api_key=openai_key)
     if backend in ("local", "whisper", "whisper_cli"):
+        if not allow_local:
+            raise RuntimeError("Lokal transkribering är inte tillgänglig i molnläget – välj OpenAI eller AssemblyAI.")
         return LocalWhisperTranscriber()
     if backend in ("watch", "watched", "watched_folder", "macwhisper"):
+        if not allow_local:
+            raise RuntimeError("Bevakad mapp är inte tillgänglig i molnläget – välj OpenAI eller AssemblyAI.")
         return WatchedFolderTranscriber()
     raise RuntimeError(f"Okänd transkriberingsmotor: {backend!r}")
 

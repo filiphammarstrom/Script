@@ -143,12 +143,13 @@ def analyze(
     text: str,
     global_settings: GlobalSettings,
     model: str | None = None,
+    api_key: str | None = None,
 ) -> AnalyzeResult:
     """Kör Claude och returnera den strukturerade manusrepresentationen.
 
-    Kräver att ANTHROPIC_API_KEY finns i miljön.
+    `api_key` är användarens egen nyckel; saknas den används ANTHROPIC_API_KEY från miljön.
     """
-    client = anthropic.Anthropic()
+    client = anthropic.Anthropic(api_key=api_key) if api_key else anthropic.Anthropic()
     response = client.messages.create(
         model=model or DEFAULT_MODEL,
         max_tokens=16000,
@@ -219,13 +220,14 @@ def revise(
     instruction: str,
     global_settings: GlobalSettings,
     model: str | None = None,
+    api_key: str | None = None,
 ) -> ReviseResult:
     """Kör Claude och returnera FÖRESLAGNA ändringar av det befintliga manuset.
 
     Tillämpar inget – anroparen visar förslagen för användaren och tillämpar först
-    efter godkännande. Kräver att ANTHROPIC_API_KEY finns i miljön.
+    efter godkännande. `api_key` är användarens egen nyckel (annars miljöns).
     """
-    client = anthropic.Anthropic()
+    client = anthropic.Anthropic(api_key=api_key) if api_key else anthropic.Anthropic()
     response = client.messages.create(
         model=model or DEFAULT_MODEL,
         max_tokens=8000,
