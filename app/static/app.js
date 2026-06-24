@@ -351,8 +351,41 @@ function renderElements() {
       tag.textContent = "LUCKA";
       row.appendChild(tag);
     }
+
+    const actions = document.createElement("div");
+    actions.className = "el-actions";
+    const mkBtn = (label, title, fn) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "iconbtn";
+      b.textContent = label;
+      b.title = title;
+      b.onclick = fn;
+      return b;
+    };
+    actions.appendChild(mkBtn("↑", "Flytta upp", () => moveElement(el, -1)));
+    actions.appendChild(mkBtn("↓", "Flytta ner", () => moveElement(el, 1)));
+    actions.appendChild(mkBtn("✕", "Ta bort raden", () => deleteElement(el)));
+    row.appendChild(actions);
+
     box.appendChild(row);
   }
+}
+function moveElement(el, dir) {
+  const i = project.elements.indexOf(el);
+  const j = i + dir;
+  if (i < 0 || j < 0 || j >= project.elements.length) return;
+  [project.elements[i], project.elements[j]] = [project.elements[j], project.elements[i]];
+  renderElements();
+  setStatus('Flyttad – glöm inte "Spara ändringar".');
+}
+function deleteElement(el) {
+  const i = project.elements.indexOf(el);
+  if (i < 0) return;
+  if (!confirm(`Ta bort raden?\n\n${(el.text || "").slice(0, 80)}`)) return;
+  project.elements.splice(i, 1);
+  renderElements();
+  setStatus('Rad borttagen – glöm inte "Spara ändringar".');
 }
 function highlightElement(id) {
   showProjectTab("manus");

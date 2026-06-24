@@ -217,6 +217,9 @@ select { width: auto; min-width: 0; }
 .el { display: flex; gap: 8px; align-items: flex-start; padding: 5px; border-radius: 8px; }
 .el select { width: 130px; flex: 0 0 auto; margin-top: 0; }
 .el textarea { flex: 1; margin-top: 0; }
+.el-actions { display: flex; gap: 3px; flex: 0 0 auto; }
+.iconbtn { padding: 5px 9px; font-size: 13px; line-height: 1; background: var(--panel-2); color: var(--muted); }
+.iconbtn:hover { border-color: var(--accent); color: var(--ink); transform: none; }
 .el-scene_heading textarea { text-transform: uppercase; font-weight: 600; }
 .el-character textarea { text-transform: uppercase; }
 .el.low-conf { background: #2a2516; }
