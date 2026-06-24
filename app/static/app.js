@@ -2,6 +2,7 @@
 const $ = (id) => document.getElementById(id);
 const TYPES = ["scene_heading", "action", "character", "dialogue", "parenthetical", "transition", "general"];
 let project = null;
+let currentRulesFilename = "";
 
 async function api(method, url, body) {
   const opts = { method, headers: {} };
@@ -17,27 +18,56 @@ async function api(method, url, body) {
 function esc(s) {
   return (s || "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 }
-function setStatus(msg, busy = false) {
-  const s = $("status");
-  s.textContent = msg;
-  s.className = "status" + (busy ? " busy" : "");
+function mkStatus(id) {
+  return (msg, busy = false) => {
+    const s = $(id);
+    s.textContent = msg;
+    s.className = "status" + (busy ? " busy" : "");
+  };
 }
-// Egen statusrad för Bas-AI, som alltid är synlig (även utan öppnat projekt).
-function setGlobalStatus(msg, busy = false) {
-  const s = $("globalStatus");
-  s.textContent = msg;
-  s.className = "status" + (busy ? " busy" : "");
+const setStatus = mkStatus("status");
+const setGlobalStatus = mkStatus("globalStatus");
+const setProjSetStatus = mkStatus("projSetStatus");
+
+// ---- vy-navigering ----
+function showView(name) {
+  for (const v of document.querySelectorAll(".view")) v.hidden = v.id !== "view-" + name;
+  $("navProjects").classList.toggle("active", name === "projects");
+  $("navSettings").classList.toggle("active", name === "settings");
 }
+$("navProjects").onclick = async () => {
+  await loadProjectList();
+  showView("projects");
+};
+$("navSettings").onclick = () => showView("settings");
 
 // ---- bas-AI (globala regler) ----
 async function loadGlobal() {
   const s = await api("GET", "/api/settings");
   $("globalDirectives").value = s.directives || "";
+  currentRulesFilename = s.rules_filename || "";
+  renderActiveRules();
+}
+function renderActiveRules(pending) {
+  const chars = $("globalDirectives").value.length;
+  const box = $("rulesActive");
+  if (currentRulesFilename) {
+    box.innerHTML = `Aktiv regelbok: <strong>${esc(currentRulesFilename)}</strong> · ${chars} tecken` +
+      (pending ? ' <em>(ej sparad)</em>' : "");
+  } else if (chars > 0) {
+    box.innerHTML = `Inskriven text · ${chars} tecken` + (pending ? ' <em>(ej sparad)</em>' : "");
+  } else {
+    box.textContent = "Ingen regelbok uppladdad än.";
+  }
 }
 $("saveGlobalBtn").onclick = async () => {
   setGlobalStatus("Sparar ...", true);
   try {
-    await api("PUT", "/api/settings", { directives: $("globalDirectives").value });
+    await api("PUT", "/api/settings", {
+      directives: $("globalDirectives").value,
+      rules_filename: currentRulesFilename,
+    });
+    renderActiveRules();
     setGlobalStatus("Bas-AI sparad ✓");
   } catch (e) {
     setGlobalStatus("Kunde inte spara: " + e.message);
@@ -55,6 +85,8 @@ $("rulesFile").onchange = async (e) => {
     const { text } = await res.json();
     const existing = $("globalDirectives").value.trim();
     $("globalDirectives").value = existing ? existing + "\n\n" + text : text;
+    currentRulesFilename = file.name;
+    renderActiveRules(true);
     setGlobalStatus(`Inläst ${file.name} (${text.length} tecken) – tryck "Spara bas-AI".`);
   } catch (err) {
     setGlobalStatus("Kunde inte läsa filen: " + err.message);
@@ -62,39 +94,34 @@ $("rulesFile").onchange = async (e) => {
   e.target.value = "";
 };
 
-// ---- projekt ----
+// ---- projektlista ----
 async function loadProjectList() {
   const list = await api("GET", "/api/projects");
-  const sel = $("projectSelect");
-  const current = sel.value;
-  sel.innerHTML = '<option value="">– välj projekt –</option>';
-  for (const p of list) {
-    const o = document.createElement("option");
-    o.value = p.id;
-    o.textContent = `${p.title} (${p.scenes} scener)`;
-    sel.appendChild(o);
+  const box = $("projectList");
+  box.innerHTML = "";
+  if (!list.length) {
+    box.innerHTML = '<p class="hint">Inga projekt än – skapa ett ovan.</p>';
+    return;
   }
-  sel.value = current;
+  for (const p of list) {
+    const card = document.createElement("div");
+    card.className = "projectcard";
+    card.innerHTML = `<span class="pc-title">${esc(p.title)}</span><span class="pc-meta">${p.scenes} scener</span>`;
+    card.onclick = async () => openProject(await api("GET", `/api/projects/${p.id}`));
+    box.appendChild(card);
+  }
 }
 $("newProjectBtn").onclick = async () => {
   const title = $("newTitle").value.trim() || "Namnlöst projekt";
   const p = await api("POST", "/api/projects", { title });
   $("newTitle").value = "";
-  await loadProjectList();
-  $("projectSelect").value = p.id;
   openProject(p);
 };
-$("projectSelect").onchange = async (e) => {
-  if (!e.target.value) {
-    $("projectArea").hidden = true;
-    return;
-  }
-  openProject(await api("GET", `/api/projects/${e.target.value}`));
-};
 
+// ---- projektvy ----
 function openProject(p) {
   project = p;
-  $("projectArea").hidden = false;
+  $("projHeadTitle").textContent = p.title;
   $("projTitle").value = p.title;
   $("projContext").value = p.context;
   $("projDirectives").value = p.directives;
@@ -102,16 +129,56 @@ function openProject(p) {
   renderElements();
   $("clarPanel").hidden = true;
   $("clarifications").innerHTML = "";
+  $("inputText").value = "";
+  setStatus("");
+  setProjSetStatus("");
+  showProjectTab("manus");
+  showView("project");
 }
+function showProjectTab(name) {
+  $("tab-manus").hidden = name !== "manus";
+  $("tab-projset").hidden = name !== "projset";
+  $("tabManusBtn").classList.toggle("active", name === "manus");
+  $("tabSettingsBtn").classList.toggle("active", name === "projset");
+}
+$("tabManusBtn").onclick = () => showProjectTab("manus");
+$("tabSettingsBtn").onclick = () => showProjectTab("projset");
+$("backToProjects").onclick = async () => {
+  await loadProjectList();
+  showView("projects");
+};
 
 $("saveProjectBtn").onclick = async () => {
-  project = await api("PUT", `/api/projects/${project.id}`, {
-    title: $("projTitle").value,
-    context: $("projContext").value,
-    directives: $("projDirectives").value,
-  });
-  await loadProjectList();
-  setStatus("Projekt sparat.");
+  setProjSetStatus("Sparar ...", true);
+  try {
+    project = await api("PUT", `/api/projects/${project.id}`, {
+      title: $("projTitle").value,
+      context: $("projContext").value,
+      directives: $("projDirectives").value,
+    });
+    $("projHeadTitle").textContent = project.title;
+    setProjSetStatus("Projekt sparat ✓");
+  } catch (e) {
+    setProjSetStatus("Kunde inte spara: " + e.message);
+  }
+};
+$("synopsisFile").onchange = async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  setProjSetStatus(`Läser in ${file.name} ...`, true);
+  try {
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await fetch("/api/extract-text", { method: "POST", body: fd });
+    if (!res.ok) throw new Error((await res.text()) || res.status);
+    const { text } = await res.json();
+    const existing = $("projContext").value.trim();
+    $("projContext").value = existing ? existing + "\n\n" + text : text;
+    setProjSetStatus(`Inläst ${file.name} – tryck "Spara projekt".`);
+  } catch (err) {
+    setProjSetStatus("Kunde inte läsa filen: " + err.message);
+  }
+  e.target.value = "";
 };
 
 // ---- story-bibel ----
@@ -211,8 +278,11 @@ $("transcriptFile").onchange = async (e) => {
 // ---- analys ----
 $("analyzeBtn").onclick = async () => {
   const text = $("inputText").value.trim();
-  if (!text) return;
-  setStatus("AI:n analyserar ...", true);
+  if (!text) {
+    setStatus("Klistra in eller transkribera text först.");
+    return;
+  }
+  setStatus("Analyserar ...", true);
   try {
     const data = await api("POST", `/api/projects/${project.id}/analyze`, { text });
     project = data.project;
@@ -244,6 +314,10 @@ function renderClarifications(clar) {
 function renderElements() {
   const box = $("elements");
   box.innerHTML = "";
+  if (!project.elements.length) {
+    box.innerHTML = '<p class="hint">Inget manus än – transkribera/klistra in text och tryck Analysera.</p>';
+    return;
+  }
   for (const el of project.elements) {
     const row = document.createElement("div");
     row.className = "el el-" + el.type + (el.confidence !== "high" ? " low-conf" : "");
@@ -277,10 +351,44 @@ function renderElements() {
       tag.textContent = "LUCKA";
       row.appendChild(tag);
     }
+
+    const actions = document.createElement("div");
+    actions.className = "el-actions";
+    const mkBtn = (label, title, fn) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "iconbtn";
+      b.textContent = label;
+      b.title = title;
+      b.onclick = fn;
+      return b;
+    };
+    actions.appendChild(mkBtn("↑", "Flytta upp", () => moveElement(el, -1)));
+    actions.appendChild(mkBtn("↓", "Flytta ner", () => moveElement(el, 1)));
+    actions.appendChild(mkBtn("✕", "Ta bort raden", () => deleteElement(el)));
+    row.appendChild(actions);
+
     box.appendChild(row);
   }
 }
+function moveElement(el, dir) {
+  const i = project.elements.indexOf(el);
+  const j = i + dir;
+  if (i < 0 || j < 0 || j >= project.elements.length) return;
+  [project.elements[i], project.elements[j]] = [project.elements[j], project.elements[i]];
+  renderElements();
+  setStatus('Flyttad – glöm inte "Spara ändringar".');
+}
+function deleteElement(el) {
+  const i = project.elements.indexOf(el);
+  if (i < 0) return;
+  if (!confirm(`Ta bort raden?\n\n${(el.text || "").slice(0, 80)}`)) return;
+  project.elements.splice(i, 1);
+  renderElements();
+  setStatus('Rad borttagen – glöm inte "Spara ändringar".');
+}
 function highlightElement(id) {
+  showProjectTab("manus");
   const row = document.querySelector(`.el[data-id="${id}"]`);
   if (!row) return;
   row.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -310,5 +418,6 @@ $("exportBtn").onclick = async () => {
 };
 
 // ---- init ----
+showView("projects");
 loadGlobal();
 loadProjectList();

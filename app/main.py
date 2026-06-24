@@ -43,6 +43,7 @@ class AnalyzeIn(BaseModel):
 
 class SettingsIn(BaseModel):
     directives: str = ""
+    rules_filename: str = ""
 
 
 # ---- globala inställningar (bas-AI) ----
@@ -53,7 +54,9 @@ def get_settings() -> GlobalSettings:
 
 @app.put("/api/settings")
 def put_settings(body: SettingsIn) -> GlobalSettings:
-    return store.save_global_settings(GlobalSettings(directives=body.directives))
+    return store.save_global_settings(
+        GlobalSettings(directives=body.directives, rules_filename=body.rules_filename)
+    )
 
 
 @app.post("/api/extract-text")

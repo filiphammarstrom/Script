@@ -67,6 +67,7 @@ class GlobalSettings(BaseModel):
     """'Bas-AI:n' – instruktioner som gäller ALLA projekt."""
 
     directives: str = ""
+    rules_filename: str = ""  # namnet på den senast uppladdade regel-/formatboken (visas i UI:t)
 
 
 # --- Modellens strukturerade output från analyssteget ---
