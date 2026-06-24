@@ -1,6 +1,16 @@
 "use strict";
 const $ = (id) => document.getElementById(id);
 const TYPES = ["scene_heading", "action", "character", "dialogue", "parenthetical", "transition", "general"];
+const TYPE_LABELS = {
+  scene_heading: "Scenrubrik",
+  action: "Action",
+  character: "Karaktär",
+  dialogue: "Dialog",
+  parenthetical: "Parentes",
+  transition: "Övergång",
+  general: "Allmänt",
+};
+let scenesCollapsed = false;
 let project = null;
 let currentRulesFilename = "";
 
@@ -372,6 +382,71 @@ function renderClarifications(clar) {
 }
 
 // ---- manus-editor ----
+function autogrow(ta) {
+  ta.style.height = "auto";
+  ta.style.height = ta.scrollHeight + 2 + "px";
+}
+function iconBtn(label, title, fn) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "iconbtn";
+  b.textContent = label;
+  b.title = title;
+  b.onclick = (e) => { e.stopPropagation(); fn(); };
+  return b;
+}
+function elementRow(el) {
+  const row = document.createElement("div");
+  row.className = "fel fel-" + el.type + (el.confidence !== "high" ? " low-conf" : "");
+  row.dataset.id = el.id;
+
+  const ta = document.createElement("textarea");
+  ta.className = "fel-text";
+  ta.rows = 1;
+  ta.value = el.text;
+  ta.oninput = () => { el.text = ta.value; autogrow(ta); };
+  row.appendChild(ta);
+
+  const tools = document.createElement("div");
+  tools.className = "fel-tools";
+  const sel = document.createElement("select");
+  for (const t of TYPES) {
+    const o = document.createElement("option");
+    o.value = t;
+    o.textContent = TYPE_LABELS[t] || t;
+    if (t === el.type) o.selected = true;
+    sel.appendChild(o);
+  }
+  sel.onchange = () => { el.type = sel.value; renderElements(); };  // typbyte kan ändra scenindelning
+  tools.appendChild(sel);
+  tools.appendChild(iconBtn("↑", "Flytta upp", () => moveElement(el, -1)));
+  tools.appendChild(iconBtn("↓", "Flytta ner", () => moveElement(el, 1)));
+  tools.appendChild(iconBtn("✕", "Ta bort raden", () => deleteElement(el)));
+  row.appendChild(tools);
+
+  if (el.is_gap) {
+    const tag = document.createElement("span");
+    tag.className = "gap";
+    tag.textContent = "LUCKA";
+    row.appendChild(tag);
+  }
+  return row;
+}
+// Gruppera elementen i scener: varje scenrubrik startar en ny scen.
+function groupScenes() {
+  const groups = [];
+  let cur = null;
+  for (const el of project.elements) {
+    if (el.type === "scene_heading") {
+      cur = { heading: el, items: [el] };
+      groups.push(cur);
+    } else {
+      if (!cur) { cur = { heading: null, items: [] }; groups.push(cur); }
+      cur.items.push(el);
+    }
+  }
+  return groups;
+}
 function renderElements() {
   const box = $("elements");
   box.innerHTML = "";
@@ -379,58 +454,48 @@ function renderElements() {
     box.innerHTML = '<p class="hint">Inget manus än – transkribera/klistra in text och tryck Analysera.</p>';
     return;
   }
-  for (const el of project.elements) {
-    const row = document.createElement("div");
-    row.className = "el el-" + el.type + (el.confidence !== "high" ? " low-conf" : "");
-    row.dataset.id = el.id;
 
-    const sel = document.createElement("select");
-    for (const t of TYPES) {
-      const o = document.createElement("option");
-      o.value = t;
-      o.textContent = t;
-      if (t === el.type) o.selected = true;
-      sel.appendChild(o);
-    }
-    sel.onchange = () => {
-      el.type = sel.value;
-      row.className = "el el-" + el.type;
+  const bar = document.createElement("div");
+  bar.className = "scenes-bar";
+  const toggleAll = document.createElement("button");
+  toggleAll.type = "button";
+  toggleAll.textContent = scenesCollapsed ? "Fäll ut alla" : "Fäll ihop alla";
+  toggleAll.onclick = () => { scenesCollapsed = !scenesCollapsed; renderElements(); };
+  bar.appendChild(toggleAll);
+  box.appendChild(bar);
+
+  for (const g of groupScenes()) {
+    const scene = document.createElement("div");
+    scene.className = "scene";
+
+    const head = document.createElement("div");
+    head.className = "scene-head";
+    const chev = document.createElement("span");
+    chev.className = "chev";
+    const title = document.createElement("span");
+    title.className = "scene-title";
+    title.textContent = g.heading ? (g.heading.text || "(ny scenrubrik)") : "(Före första scenrubriken)";
+    const count = document.createElement("span");
+    count.className = "scene-count";
+    count.textContent = g.items.length + (g.items.length === 1 ? " rad" : " rader");
+    head.append(chev, title, count);
+
+    const body = document.createElement("div");
+    body.className = "scene-body";
+    for (const el of g.items) body.appendChild(elementRow(el));
+
+    const setCollapsed = (collapsed) => {
+      scene.classList.toggle("collapsed", collapsed);
+      chev.textContent = collapsed ? "▸" : "▾";
+      if (!collapsed) body.querySelectorAll(".fel-text").forEach(autogrow);
     };
+    head.onclick = () => setCollapsed(!scene.classList.contains("collapsed"));
 
-    const inp = document.createElement("textarea");
-    inp.value = el.text;
-    inp.rows = 1;
-    inp.oninput = () => {
-      el.text = inp.value;
-    };
-
-    row.appendChild(sel);
-    row.appendChild(inp);
-    if (el.is_gap) {
-      const tag = document.createElement("span");
-      tag.className = "gap";
-      tag.textContent = "LUCKA";
-      row.appendChild(tag);
-    }
-
-    const actions = document.createElement("div");
-    actions.className = "el-actions";
-    const mkBtn = (label, title, fn) => {
-      const b = document.createElement("button");
-      b.type = "button";
-      b.className = "iconbtn";
-      b.textContent = label;
-      b.title = title;
-      b.onclick = fn;
-      return b;
-    };
-    actions.appendChild(mkBtn("↑", "Flytta upp", () => moveElement(el, -1)));
-    actions.appendChild(mkBtn("↓", "Flytta ner", () => moveElement(el, 1)));
-    actions.appendChild(mkBtn("✕", "Ta bort raden", () => deleteElement(el)));
-    row.appendChild(actions);
-
-    box.appendChild(row);
+    scene.append(head, body);
+    box.appendChild(scene);
+    setCollapsed(scenesCollapsed);
   }
+  box.querySelectorAll(".scene:not(.collapsed) .fel-text").forEach(autogrow);
 }
 function moveElement(el, dir) {
   const i = project.elements.indexOf(el);
@@ -450,8 +515,10 @@ function deleteElement(el) {
 }
 function highlightElement(id) {
   showProjectTab("manus");
-  const row = document.querySelector(`.el[data-id="${id}"]`);
+  const row = document.querySelector(`.fel[data-id="${id}"]`);
   if (!row) return;
+  const scene = row.closest(".scene");
+  if (scene && scene.classList.contains("collapsed")) scene.querySelector(".scene-head").click();
   row.scrollIntoView({ behavior: "smooth", block: "center" });
   row.classList.add("flash");
   setTimeout(() => row.classList.remove("flash"), 1500);
