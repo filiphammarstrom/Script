@@ -22,6 +22,12 @@ function setStatus(msg, busy = false) {
   s.textContent = msg;
   s.className = "status" + (busy ? " busy" : "");
 }
+// Egen statusrad för Bas-AI, som alltid är synlig (även utan öppnat projekt).
+function setGlobalStatus(msg, busy = false) {
+  const s = $("globalStatus");
+  s.textContent = msg;
+  s.className = "status" + (busy ? " busy" : "");
+}
 
 // ---- bas-AI (globala regler) ----
 async function loadGlobal() {
@@ -29,13 +35,18 @@ async function loadGlobal() {
   $("globalDirectives").value = s.directives || "";
 }
 $("saveGlobalBtn").onclick = async () => {
-  await api("PUT", "/api/settings", { directives: $("globalDirectives").value });
-  setStatus("Bas-AI sparad.");
+  setGlobalStatus("Sparar ...", true);
+  try {
+    await api("PUT", "/api/settings", { directives: $("globalDirectives").value });
+    setGlobalStatus("Bas-AI sparad ✓");
+  } catch (e) {
+    setGlobalStatus("Kunde inte spara: " + e.message);
+  }
 };
 $("rulesFile").onchange = async (e) => {
   const file = e.target.files[0];
   if (!file) return;
-  setStatus(`Läser in ${file.name} ...`, true);
+  setGlobalStatus(`Läser in ${file.name} ...`, true);
   try {
     const fd = new FormData();
     fd.append("file", file);
@@ -44,9 +55,9 @@ $("rulesFile").onchange = async (e) => {
     const { text } = await res.json();
     const existing = $("globalDirectives").value.trim();
     $("globalDirectives").value = existing ? existing + "\n\n" + text : text;
-    setStatus(`Läste in ${file.name} – tryck "Spara bas-AI".`);
+    setGlobalStatus(`Inläst ${file.name} (${text.length} tecken) – tryck "Spara bas-AI".`);
   } catch (err) {
-    setStatus("Kunde inte läsa filen: " + err.message);
+    setGlobalStatus("Kunde inte läsa filen: " + err.message);
   }
   e.target.value = "";
 };
