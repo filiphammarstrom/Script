@@ -41,6 +41,11 @@ class AnalyzeIn(BaseModel):
     model: str | None = None
 
 
+class ReviseIn(BaseModel):
+    instruction: str
+    model: str | None = None
+
+
 class SettingsIn(BaseModel):
     directives: str = ""
     rules_filename: str = ""
@@ -125,6 +130,20 @@ def analyze_project(project_id: str, body: AnalyzeIn) -> dict:
     project = store.merge_analyze_result(project, result)
     store.save_project(project)
     return {"project": project, "clarifications": result.clarifications}
+
+
+@app.post("/api/projects/{project_id}/revise")
+def revise_project(project_id: str, body: ReviseIn) -> dict:
+    """Föreslå ändringar av befintligt manus. Tillämpar inget – klienten godkänner först."""
+    project = store.load_project(project_id)
+    if project is None:
+        raise HTTPException(404, "Projektet finns inte")
+    settings = store.load_global_settings()
+    try:
+        result = analyze_mod.revise(project, body.instruction, settings, model=body.model)
+    except Exception as exc:  # saknad API-nyckel, nätverksfel, modellfel ...
+        raise HTTPException(502, f"Revideringen misslyckades: {exc}")
+    return {"operations": [op.model_dump() for op in result.operations], "summary": result.summary}
 
 
 def _run_transcription(
