@@ -1,4 +1,4 @@
-# Script — transkription → manus (FDX)
+# ScriptVoice — transkription → manus (FDX)
 
 Webbapp som omvandlar en **dikterad/transkriberad text** till ett **filmmanus i FDX-format**
 (Final Draft XML). En AI (Claude) läser texten, förstår sammanhanget, avgör vem som säger
