@@ -15,6 +15,7 @@ import anthropic
 from app.models import AnalyzeResult, GlobalSettings, Project, ReviseResult
 
 DEFAULT_MODEL = os.environ.get("SCRIPT_MODEL", "claude-sonnet-4-6")
+OPENAI_ANALYZE_MODEL = os.environ.get("OPENAI_ANALYZE_MODEL", "gpt-4o")
 
 SYSTEM_RULES = """Du är MANUSSEKRETERARE – inte författare, dramaturg, script doctor eller medförfattare. Din uppgift är att skriva ut användarens dikterade scen i professionellt manusformat, så nära dikteringen som möjligt, UTAN att förändra innehållet.
 
@@ -104,18 +105,20 @@ _TOOL = {
 }
 
 
-def _system_blocks(global_settings: GlobalSettings) -> list[dict]:
-    """Systemprompt = inbyggda grundregler (sekreterarläge) + användarens bas-AI-regler.
-
-    Markeras för prompt-caching så att en stor, stabil regeluppsättning (t.ex. en
-    uppladdad formatbok) blir billig att skicka med vid varje analys."""
+def _system_text(global_settings: GlobalSettings) -> str:
+    """Systemprompt som ren text: grundregler (sekreterarläge) + användarens bas-AI."""
     text = SYSTEM_RULES
     if global_settings.directives.strip():
         text += (
             "\n\n# ANVÄNDARENS EGNA GLOBALA REGLER (bas-AI – t.ex. formatbok)\n"
             + global_settings.directives.strip()
         )
-    return [{"type": "text", "text": text, "cache_control": {"type": "ephemeral"}}]
+    return text
+
+
+def _system_blocks(global_settings: GlobalSettings) -> list[dict]:
+    """Anthropic-systemblock med prompt-caching av den stabila regeluppsättningen."""
+    return [{"type": "text", "text": _system_text(global_settings), "cache_control": {"type": "ephemeral"}}]
 
 
 def _user_content(project: Project, text: str) -> str:
@@ -144,11 +147,15 @@ def analyze(
     global_settings: GlobalSettings,
     model: str | None = None,
     api_key: str | None = None,
+    provider: str = "anthropic",
 ) -> AnalyzeResult:
-    """Kör Claude och returnera den strukturerade manusrepresentationen.
+    """Kör vald AI-motor och returnera den strukturerade manusrepresentationen.
 
-    `api_key` är användarens egen nyckel; saknas den används ANTHROPIC_API_KEY från miljön.
+    `provider` är 'anthropic' (Claude, default) eller 'openai' (GPT). `api_key` är
+    användarens egen nyckel för den valda motorn (annars miljöns nyckel).
     """
+    if (provider or "anthropic").lower() == "openai":
+        return _analyze_openai(project, text, global_settings, model, api_key)
     client = anthropic.Anthropic(api_key=api_key) if api_key else anthropic.Anthropic()
     response = client.messages.create(
         model=model or DEFAULT_MODEL,
@@ -188,14 +195,18 @@ _REVISE_TOOL = {
 }
 
 
-def _revise_system_blocks(global_settings: GlobalSettings) -> list[dict]:
+def _revise_system_text(global_settings: GlobalSettings) -> str:
     text = REVISE_RULES
     if global_settings.directives.strip():
         text += (
             "\n\n# ANVÄNDARENS EGNA GLOBALA REGLER (bas-AI – t.ex. formatbok)\n"
             + global_settings.directives.strip()
         )
-    return [{"type": "text", "text": text, "cache_control": {"type": "ephemeral"}}]
+    return text
+
+
+def _revise_system_blocks(global_settings: GlobalSettings) -> list[dict]:
+    return [{"type": "text", "text": _revise_system_text(global_settings), "cache_control": {"type": "ephemeral"}}]
 
 
 def _revise_user_content(project: Project, instruction: str) -> str:
@@ -221,12 +232,15 @@ def revise(
     global_settings: GlobalSettings,
     model: str | None = None,
     api_key: str | None = None,
+    provider: str = "anthropic",
 ) -> ReviseResult:
-    """Kör Claude och returnera FÖRESLAGNA ändringar av det befintliga manuset.
+    """Kör vald AI-motor och returnera FÖRESLAGNA ändringar av det befintliga manuset.
 
     Tillämpar inget – anroparen visar förslagen för användaren och tillämpar först
-    efter godkännande. `api_key` är användarens egen nyckel (annars miljöns).
+    efter godkännande. `provider` är 'anthropic' (Claude) eller 'openai' (GPT).
     """
+    if (provider or "anthropic").lower() == "openai":
+        return _revise_openai(project, instruction, global_settings, model, api_key)
     client = anthropic.Anthropic(api_key=api_key) if api_key else anthropic.Anthropic()
     response = client.messages.create(
         model=model or DEFAULT_MODEL,
@@ -240,3 +254,56 @@ def revise(
         if block.type == "tool_use":
             return ReviseResult.model_validate(block.input)
     raise RuntimeError("Modellen returnerade inga förslag (inget tool_use).")
+
+
+# ---- OpenAI (GPT) som alternativ motor ----
+
+def _openai_client(api_key: str | None):
+    from openai import OpenAI  # lazy import
+
+    return OpenAI(api_key=api_key) if api_key else OpenAI()
+
+
+def _openai_function_call(client, model, system_text, user_text, tool_name, description, schema):
+    """Tvinga GPT att svara via ett function-call med given JSON-schema; returnera arguments-JSON."""
+    resp = client.chat.completions.create(
+        model=model,
+        messages=[
+            {"role": "system", "content": system_text},
+            {"role": "user", "content": user_text},
+        ],
+        tools=[{"type": "function", "function": {"name": tool_name, "description": description, "parameters": schema}}],
+        tool_choice={"type": "function", "function": {"name": tool_name}},
+    )
+    msg = resp.choices[0].message
+    if not getattr(msg, "tool_calls", None):
+        raise RuntimeError("GPT returnerade ingen strukturerad output (inget function_call).")
+    return msg.tool_calls[0].function.arguments
+
+
+def _analyze_openai(project, text, global_settings, model, api_key) -> AnalyzeResult:
+    client = _openai_client(api_key)
+    args = _openai_function_call(
+        client,
+        model or OPENAI_ANALYZE_MODEL,
+        _system_text(global_settings),
+        _user_content(project, text),
+        "emit_screenplay",
+        "Returnera den strukturerade manusrepresentationen för den givna texten.",
+        AnalyzeResult.model_json_schema(),
+    )
+    return AnalyzeResult.model_validate_json(args)
+
+
+def _revise_openai(project, instruction, global_settings, model, api_key) -> ReviseResult:
+    client = _openai_client(api_key)
+    args = _openai_function_call(
+        client,
+        model or OPENAI_ANALYZE_MODEL,
+        _revise_system_text(global_settings),
+        _revise_user_content(project, instruction),
+        "propose_edits",
+        "Föreslå exakta, minimala redigeringar av det befintliga manuset.",
+        ReviseResult.model_json_schema(),
+    )
+    return ReviseResult.model_validate_json(args)

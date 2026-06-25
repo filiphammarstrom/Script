@@ -53,11 +53,21 @@ class ProjectUpdateIn(BaseModel):
 class AnalyzeIn(BaseModel):
     text: str
     model: str | None = None
+    provider: str | None = None  # 'anthropic' (Claude, default) eller 'openai' (GPT)
 
 
 class ReviseIn(BaseModel):
     instruction: str
     model: str | None = None
+    provider: str | None = None
+
+
+def _ai_key(uid: str, provider: str | None) -> str | None:
+    """Användarens egen nyckel för vald AI-motor."""
+    secrets = store.load_secrets(uid)
+    if (provider or "anthropic").lower() == "openai":
+        return secrets.get("openai_key")
+    return secrets.get("anthropic_key")
 
 
 class SettingsIn(BaseModel):
@@ -208,9 +218,11 @@ def analyze_project(
     if project is None:
         raise HTTPException(404, "Projektet finns inte")
     settings = store.load_global_settings(uid)
-    api_key = store.load_secrets(uid).get("anthropic_key")
     try:
-        result = analyze_mod.analyze(project, body.text, settings, model=body.model, api_key=api_key)
+        result = analyze_mod.analyze(
+            project, body.text, settings,
+            model=body.model, api_key=_ai_key(uid, body.provider), provider=body.provider or "anthropic",
+        )
     except Exception as exc:  # saknad API-nyckel, nätverksfel, modellfel ...
         raise HTTPException(502, f"AI-analysen misslyckades: {exc}")
     project = store.merge_analyze_result(project, result)
@@ -227,10 +239,10 @@ def revise_project(
     if project is None:
         raise HTTPException(404, "Projektet finns inte")
     settings = store.load_global_settings(uid)
-    api_key = store.load_secrets(uid).get("anthropic_key")
     try:
         result = analyze_mod.revise(
-            project, body.instruction, settings, model=body.model, api_key=api_key
+            project, body.instruction, settings,
+            model=body.model, api_key=_ai_key(uid, body.provider), provider=body.provider or "anthropic",
         )
     except Exception as exc:  # saknad API-nyckel, nätverksfel, modellfel ...
         raise HTTPException(502, f"Revideringen misslyckades: {exc}")

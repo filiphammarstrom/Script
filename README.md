@@ -61,6 +61,8 @@ Nu startar ett klick på ikonen appen och öppnar den i webbläsaren.
 
 Modell: default `claude-sonnet-4-6`. Sätt `SCRIPT_MODEL=claude-opus-4-8` för svårare fall.
 
+**AI-motor:** manusbygget (Analysera/Revidera) kan köras med **Claude** (default) eller **GPT (OpenAI)** – välj i appen vid Analysera-knappen. GPT använder din OpenAI-nyckel; default-modell är `gpt-4o` (ändra med `OPENAI_ANALYZE_MODEL`).
+
 ### Transkribering: moln eller lokalt (gratis)
 
 `TRANSCRIBE_BACKEND` väljer motor:

@@ -357,7 +357,7 @@ $("analyzeBtn").onclick = async () => {
   }
   setStatus("Analyserar ...", true);
   try {
-    const data = await api("POST", `/api/projects/${project.id}/analyze`, { text });
+    const data = await api("POST", `/api/projects/${project.id}/analyze`, { text, provider: $("aiEngine").value });
     project = data.project;
     renderBible();
     renderElements();
@@ -555,7 +555,7 @@ $("reviseBtn").onclick = async () => {
   setReviseStatus("Tänker ...", true);
   $("revisePreview").hidden = true;
   try {
-    const data = await api("POST", `/api/projects/${project.id}/revise`, { instruction });
+    const data = await api("POST", `/api/projects/${project.id}/revise`, { instruction, provider: $("aiEngine").value });
     renderRevisePreview(data.operations || [], data.summary || "");
   } catch (e) {
     setReviseStatus("Fel: " + e.message);
