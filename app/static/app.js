@@ -723,15 +723,29 @@ function renderGoogleBtn() {
     $("loginError").textContent = "GOOGLE_CLIENT_ID är inte konfigurerat på servern.";
     return;
   }
+  $("googleBtn").innerHTML = "";  // tillåt omrendering vid nytt försök
   google.accounts.id.initialize({ client_id: appConfig.google_client_id, callback: handleCredential });
   google.accounts.id.renderButton($("googleBtn"), { theme: "filled_blue", size: "large", text: "signin_with", shape: "pill" });
 }
 async function handleCredential(resp) {
+  $("loginError").textContent = "";
   try {
     await api("POST", "/auth/google", { credential: resp.credential });
-    location.reload();
+    // Verifiera att sessionscookien faktiskt fastnade innan vi byter vy
+    // (i stället för ett blint location.reload() som döljer cookie-problem).
+    const me = await api("GET", "/api/me");
+    onLoggedIn(me);
   } catch (e) {
-    $("loginError").textContent = "Inloggning misslyckades: " + e.message;
+    const msg = String((e && e.message) || e);
+    if (/inte inloggad/i.test(msg) || /\b401\b/.test(msg)) {
+      // Token godkändes men sessionen kunde inte läsas tillbaka = cookien sparades inte.
+      $("loginError").textContent =
+        "Inloggningen lyckades men sessionen sparades inte – webbläsaren blockerar troligen cookies. " +
+        "Tillåt cookies för den här sidan (eller testa ett inkognitofönster / annan webbläsare) och försök igen.";
+    } else {
+      $("loginError").textContent = "Inloggning misslyckades: " + msg;
+    }
+    renderGoogleBtn();  // återställ knappen så att man kan försöka igen
   }
 }
 
