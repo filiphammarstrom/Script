@@ -16,6 +16,10 @@
 }
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
+/* Gör hidden-attributet auktoritativt: utan detta vinner egna display-regler
+   (t.ex. .overlay/.userarea: display:flex) över [hidden] och elementet går
+   inte att dölja — vilket lät inloggningsrutan ligga kvar efter login. */
+[hidden] { display: none !important; }
 body {
   margin: 0;
   font: 15px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
