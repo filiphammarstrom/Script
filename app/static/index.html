@@ -116,6 +116,10 @@
           <textarea id="inputText" rows="8" placeholder="Klistra in transkriberad text – eller transkribera/importera ovan ..."></textarea>
           <div class="row">
             <button id="analyzeBtn" class="primary">Analysera</button>
+            <select id="aiEngine" title="AI-motor för manusbygget">
+              <option value="anthropic">AI: Claude</option>
+              <option value="openai">AI: GPT (OpenAI)</option>
+            </select>
             <span id="status" class="status"></span>
           </div>
         </section>
