@@ -121,6 +121,8 @@ export COOKIE_SECURE=true                 # när du kör bakom HTTPS
 
 ### Driftsätt i molnet (Render, ~10 min)
 
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/filiphammarstrom/Script)
+
 Repot innehåller en `Dockerfile` och en `render.yaml` (Blueprint) så det blir några klick. Render ger automatisk HTTPS och en persistent disk för data.
 
 1. **Skapa ett Google OAuth-client-ID:** [Google Cloud Console](https://console.cloud.google.com/) → *APIs & Services → Credentials → Create credentials → OAuth client ID* → typ **Web application**. Under *Authorized JavaScript origins* lägger du till din app-URL (t.ex. `https://ditt-namn.onrender.com`) – och `http://localhost:8000` om du vill testa lokalt. Kopiera **client-ID:t** (inget secret behövs).

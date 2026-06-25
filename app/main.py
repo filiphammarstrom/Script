@@ -348,6 +348,12 @@ def export_project(project_id: str, uid: str = Depends(auth_mod.current_uid)) ->
 
 
 # ---- frontend ----
+@app.get("/healthz")
+def healthz() -> dict:
+    """Lättviktig hälsokoll för hostingplattformen (ingen inloggning, ingen fil)."""
+    return {"ok": True}
+
+
 @app.get("/")
 def index() -> FileResponse:
     return FileResponse(STATIC_DIR / "index.html")

@@ -6,7 +6,7 @@ services:
     name: transkription-manus
     runtime: docker
     plan: starter            # krävs för persistent disk (data försvinner annars vid deploy)
-    healthCheckPath: /
+    healthCheckPath: /healthz
     envVars:
       - key: AUTH_ENABLED
         value: "true"
