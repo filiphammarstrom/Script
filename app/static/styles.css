@@ -46,6 +46,13 @@ h1 {
   letter-spacing: .01em;
 }
 h1::before { content: "🎬 "; }
+.brand-tagline {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--muted, #888);
+  letter-spacing: 0;
+  margin-left: 6px;
+}
 .topnav { display: flex; gap: 6px; }
 .navbtn {
   background: transparent;

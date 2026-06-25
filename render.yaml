@@ -3,7 +3,7 @@
 # Fyll i GOOGLE_CLIENT_ID i dashboarden efter första deployen.
 services:
   - type: web
-    name: transkription-manus
+    name: scriptvoice
     runtime: docker
     plan: starter            # krävs för persistent disk (data försvinner annars vid deploy)
     healthCheckPath: /healthz
