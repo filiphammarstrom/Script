@@ -15,7 +15,15 @@ import re
 import uuid
 from pathlib import Path
 
-from app.models import AnalyzeResult, GlobalSettings, Project, StoryBible
+from app.models import (
+    AnalyzeResult,
+    DictateOp,
+    DictateResult,
+    GlobalSettings,
+    Project,
+    ScreenplayElement,
+    StoryBible,
+)
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 USERS_DIR = DATA_DIR / "users"
@@ -215,6 +223,89 @@ def merge_analyze_result(project: Project, result: AnalyzeResult) -> Project:
         clar.element_id += offset
     project.elements.extend(result.new_elements)
     _merge_story_bible(project.story_bible, result.story_bible_updates)
+    return project
+
+
+# ---- dikteringsläge: tillämpa operationer på ett manus i ständig förändring ----
+def _next_id(project: Project) -> int:
+    return max((e.id for e in project.elements), default=-1) + 1
+
+
+def _index_of_id(elements: list[ScreenplayElement], target_id) -> int | None:
+    for i, el in enumerate(elements):
+        if el.id == target_id:
+            return i
+    return None
+
+
+def _scene_end_index(elements: list[ScreenplayElement], scene_no: int) -> int | None:
+    """Index för SISTA elementet i scen `scene_no` (1-baserat efter scenrubriker).
+    None om manuset är tomt; sista index om scennumret pekar bortom slutet."""
+    if not elements:
+        return None
+    seen = 0
+    start = None
+    for i, el in enumerate(elements):
+        if el.type == "scene_heading":
+            seen += 1
+            if seen == scene_no:
+                start = i
+            elif seen == scene_no + 1:
+                return i - 1  # sista elementet i scenen ligger precis före nästa rubrik
+    return len(elements) - 1 if (start is not None or scene_no) else None
+
+
+def _insert_block(project: Project, after_index: int | None, new_elements) -> None:
+    if not new_elements:
+        return
+    base = _next_id(project)
+    block = [ScreenplayElement(id=base + k, **ne.model_dump()) for k, ne in enumerate(new_elements)]
+    pos = 0 if after_index is None else after_index + 1
+    project.elements[pos:pos] = block
+
+
+def apply_dict_op(project: Project, op: DictateOp) -> None:
+    """Tillämpa EN operation. Nya element får färska id:n; befintliga id:n rörs aldrig,
+    så väntande (modifierande) operationer behåller giltiga target_id."""
+    els = project.elements
+    if op.op == "append":
+        _insert_block(project, len(els) - 1 if els else None, op.elements)
+    elif op.op == "insert_after_scene":
+        _insert_block(project, _scene_end_index(els, op.after_scene or 0), op.elements)
+    elif op.op == "insert_after":
+        if op.target_id is None:
+            _insert_block(project, None, op.elements)  # infoga först
+        else:
+            idx = _index_of_id(els, op.target_id)
+            _insert_block(project, idx if idx is not None else len(els) - 1, op.elements)
+    elif op.op == "replace":
+        el = next((e for e in els if e.id == op.target_id), None)
+        if el is not None:
+            if op.text is not None:
+                el.text = op.text
+            if op.type is not None:
+                el.type = op.type
+    elif op.op == "delete":
+        project.elements = [e for e in els if e.id != op.target_id]
+
+
+def apply_dictation(project: Project, result: DictateResult) -> tuple[Project, list[DictateOp]]:
+    """Tillämpa additiva operationer (lägg till/infoga) direkt och slå ihop story-bibeln.
+    Returnerar (projekt, väntande modifierande operationer som kräver godkännande)."""
+    pending: list[DictateOp] = []
+    for op in result.operations:
+        if op.is_additive():
+            apply_dict_op(project, op)
+        else:
+            pending.append(op)
+    _merge_story_bible(project.story_bible, result.story_bible_updates)
+    return project, pending
+
+
+def apply_edits(project: Project, operations: list[DictateOp]) -> Project:
+    """Tillämpa godkända modifierande operationer (replace/delete)."""
+    for op in operations:
+        apply_dict_op(project, op)
     return project
 
 

@@ -23,7 +23,7 @@ from app import jobs as jobs_mod
 from app import store
 from app import transcribe as transcribe_mod
 from app.fdx import to_fdx
-from app.models import GlobalSettings, Project, ScreenplayElement, StoryBible
+from app.models import DictateOp, GlobalSettings, Project, ScreenplayElement, StoryBible
 
 app = FastAPI(title="Transkription → Manus (FDX)")
 app.add_middleware(
@@ -61,6 +61,10 @@ class ReviseIn(BaseModel):
     instruction: str
     model: str | None = None
     provider: str | None = None
+
+
+class ApplyEditsIn(BaseModel):
+    operations: list[DictateOp] = []
 
 
 def _ai_key(uid: str, provider: str | None) -> str | None:
@@ -314,6 +318,49 @@ def revise_project(
     except Exception as exc:  # saknad API-nyckel, nätverksfel, modellfel ...
         raise HTTPException(502, f"Revideringen misslyckades: {exc}")
     return {"operations": [op.model_dump() for op in result.operations], "summary": result.summary}
+
+
+@app.post("/api/projects/{project_id}/dictate")
+def dictate_project(
+    project_id: str, body: AnalyzeIn, uid: str = Depends(auth_mod.current_uid)
+) -> dict:
+    """En enda dikteringsruta: tolka dikteringen och bygg om manuset.
+
+    Additiva operationer (lägg till/infoga) tillämpas direkt och sparas. Modifierande
+    operationer (ändra/ta bort befintligt) returneras som `pending_ops` för godkännande.
+    """
+    project = store.load_project(uid, project_id)
+    if project is None:
+        raise HTTPException(404, "Projektet finns inte")
+    settings = store.effective_global_settings(uid)
+    try:
+        result = analyze_mod.dictate(
+            project, body.text, settings,
+            model=body.model, api_key=_ai_key(uid, body.provider), provider=body.provider or "anthropic",
+        )
+    except Exception as exc:  # saknad API-nyckel, nätverksfel, modellfel ...
+        raise HTTPException(502, f"Dikteringen misslyckades: {exc}")
+    project, pending = store.apply_dictation(project, result)
+    store.save_project(uid, project)
+    return {
+        "project": project,
+        "pending_ops": [op.model_dump() for op in pending],
+        "clarifications": result.clarifications,
+        "summary": result.summary,
+    }
+
+
+@app.post("/api/projects/{project_id}/apply-edits")
+def apply_edits_project(
+    project_id: str, body: ApplyEditsIn, uid: str = Depends(auth_mod.current_uid)
+) -> dict:
+    """Tillämpa godkända modifierande operationer (ändra/ta bort) från en diktering."""
+    project = store.load_project(uid, project_id)
+    if project is None:
+        raise HTTPException(404, "Projektet finns inte")
+    store.apply_edits(project, body.operations)
+    store.save_project(uid, project)
+    return {"project": project}
 
 
 def _run_transcription(
