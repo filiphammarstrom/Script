@@ -260,23 +260,29 @@ def revise(
 
 DICTATE_OPS_RULES = """
 
-# DIKTERINGSLÄGE – DU BYGGER ETT MANUS SOM STÄNDIGT FÖRÄNDRAS
-Du får det NUVARANDE manuset med scennummer i hakparentes ([SCEN N]) och varje element märkt (id=K).
-Användarens diktering kan göra flera saker på en gång. Tolka den och returnera en lista av OPERATIONER via verktyget edit_screenplay:
+# DIKTERINGSLÄGE – DU BYGGER ETT MANUS SOM VÄXER
+Du får det NUVARANDE manuset enbart som KONTEXT, med scennummer [SCEN N] och element-id (id=K).
+Det befintliga manuset är BARA referens. Återge det aldrig, duplicera det aldrig och skriv aldrig om det på eget initiativ.
 
-- append: nytt material som FORTSÄTTER manuset sist. Detta är NORMALFALLET när användaren bara dikterar vidare. Lägg de nya elementen i `elements`.
-- insert_after_scene: användaren vill placera nytt material vid en POSITION ("den här scenen ska in mellan scen 23 och 24", "lägg in en scen efter scen 5"). Sätt `after_scene` till scennumret att infoga EFTER (t.ex. mellan 23 och 24 => after_scene=23) och lägg de nya elementen i `elements`.
-- insert_after: infoga nya element direkt efter ett visst element. Sätt `target_id` (eller null för att infoga allra först) och `elements`.
-- replace: ÄNDRA ett befintligt element ("ändra repliken i scen 12 från X till Y", "byt scenrubriken i köket till natt"). Sätt `target_id` till elementets id och `text` (och `type` bara om typen verkligen ändras).
-- delete: TA BORT ett befintligt element ("ta bort repliken där Potter säger Z"). Sätt `target_id`.
+DITT NORMALLÄGE ÄR ATT LÄGGA TILL (append).
+- I de allra flesta dikteringar fortsätter användaren bara berätta → returnera EN enda `append`-operation med de nya elementen. Allt befintligt lämnas HELT orört.
+- Rör ALDRIG befintliga element (ingen replace, ingen delete) om inte användaren UTTRYCKLIGEN och specifikt ber om en ändring. Att "förbättra", "städa upp", "skriva om" eller "ersätta" på eget initiativ är FÖRBJUDET.
+- Returnera ALDRIG replace/delete för element som användaren inte uttryckligen pekat ut. Ersätt aldrig hela eller delar av manuset bara för att du fått ny text.
 
-REGLER
-- En och samma diktering kan innehålla FLERA operationer av olika slag (t.ex. diktera en ny scen OCH mitt i säga "ändra repliken i scen 12"). Returnera dem alla, i logisk ordning.
+ÖVRIGA OPERATIONER – ENDAST NÄR ANVÄNDAREN EXPLICIT SÄGER DET:
+- insert_after_scene: BARA om användaren anger en POSITION ("lägg in mellan scen 23 och 24", "en scen efter scen 5"). `after_scene` = scennumret att infoga EFTER (mellan 23 och 24 => after_scene=23); nya element i `elements`.
+- insert_after: infoga nya element efter ett visst element. `target_id` (null = infoga först) + `elements`.
+- replace: BARA om användaren uttryckligen säger att något SKA ÄNDRAS och pekar ut det ("ändra repliken i scen 12 till …", "byt scenrubriken i köket till natt"). Sätt `target_id` och `text` (och `type` bara om typen verkligen ändras). Ändra exakt det elementet, inget annat.
+- delete: BARA om användaren uttryckligen säger att något SKA TAS BORT ("ta bort repliken där Potter säger Z"). Sätt `target_id`.
+
+AVGÖRANDE
+- Är du det minsta osäker på om något är en ändring eller nytt material → behandla det som NYTT och använd `append`. Gissa ALDRIG att användaren vill ändra eller ersätta befintligt.
+- En diktering kan innehålla flera operationer, men varje replace/delete kräver en uttrycklig formulering i själva dikteringen.
 - Nya element (i `elements`) saknar id – servern numrerar dem. Följ formatreglerna (versaler i scenrubriker och karaktärsnamn, slå ihop repliker av samma karaktär, en scenrubrik per ny plats osv.).
-- Manussekreterarprincipen gäller fortfarande: skriv BARA det användaren beskriver. Hitta inte på dialog, handling, känslor eller övergångar.
-- Hitta rätt element/position via [SCEN N] och (id=K). Om det är OKLART vilket element eller vilken position som avses: gör INGEN gissning – returnera en clarification och utelämna den osäkra operationen.
-- Skilj dikteringskommandon (t.ex. "nej, ta bort det där") från manusinnehåll.
-- summary: en kort mening på svenska om vad du gjorde, t.ex. "La till en ny scen efter scen 23 och ändrade repliken i scen 12."
+- SCENRUBRIKER: när en diktering tydligt utspelar sig på en plats eller påbörjar en scen ska du skriva en korrekt scenrubrik (INT./EXT. + PLATS + TID) och härleda inomhus/utomhus, plats och tid på dygnet ur sammanhanget. Manuset ska normalt INLEDAS med en scenrubrik. Detta är att dokumentera scenen, inte att hitta på – härled bara det sammanhanget rimligen ger.
+- Manussekreterarprincipen gäller: skriv BARA det användaren beskriver. Hitta inte på dialog, handling, känslor eller övergångar.
+- Är det oklart VILKET element eller VAR en uttrycklig ändring ska ske → returnera en clarification, ingen gissad operation.
+- summary: en kort mening på svenska, t.ex. "La till 2 nya scener" eller "Ändrade repliken i scen 12".
 - Om manuset är tomt: lägg allt som append.
 """
 
