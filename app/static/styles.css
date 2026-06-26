@@ -277,18 +277,24 @@ select { width: auto; min-width: 0; }
 
 .scene-body { padding: 6px 18px 16px; background: #0c0e13; font-family: "Courier New", ui-monospace, monospace; }
 .fel { position: relative; display: flex; align-items: flex-start; }
+/* Lodrät rytm som ett manus: en tomrad före scenrubrik, handling, ny replikör
+   och övergång – men repliken sitter tätt under karaktärsnamnet. */
+.fel.fel-scene_heading, .fel.fel-action, .fel.fel-character,
+.fel.fel-transition, .fel.fel-general { margin-top: 1.1em; }
+.fel.fel-dialogue, .fel.fel-parenthetical { margin-top: 0; }
+.scene-body > .fel:first-child { margin-top: 0; }
 .fel-text {
   flex: 1; background: transparent; border: 1px solid transparent; border-radius: 5px;
   resize: none; overflow: hidden; font-family: "Courier New", ui-monospace, monospace;
-  color: var(--ink); padding: 4px 6px; margin: 1px 0; line-height: 1.45;
+  color: var(--ink); padding: 2px 6px; margin: 0; line-height: 1.5;
 }
 .fel-text:hover { border-color: var(--line); }
 .fel-text:focus { outline: none; border-color: var(--accent); background: #0c0e13; box-shadow: none; }
-/* manus-indrag per typ (web-approximation av Final Draft-layouten) */
+/* Manus-indrag per typ (web-approximation av Final Draft, i monospace-tecken). */
 .fel-scene_heading .fel-text { text-transform: uppercase; font-weight: 700; }
-.fel-character .fel-text { text-transform: uppercase; margin-left: 3.4em; max-width: 20em; }
-.fel-dialogue .fel-text { margin-left: 1.6em; max-width: 26em; }
-.fel-parenthetical .fel-text { margin-left: 2.6em; max-width: 20em; font-style: italic; color: var(--muted); }
+.fel-character .fel-text { text-transform: uppercase; margin-left: 12ch; max-width: 30ch; }
+.fel-dialogue .fel-text { margin-left: 6ch; max-width: 35ch; }
+.fel-parenthetical .fel-text { margin-left: 10ch; max-width: 25ch; font-style: italic; color: var(--muted); }
 .fel-transition .fel-text { text-transform: uppercase; text-align: right; }
 .fel.low-conf .fel-text { background: #2a2516; }
 .fel.flash .fel-text { background: var(--flash); transition: background .3s; }
