@@ -46,18 +46,14 @@
     <section id="view-settings" class="view" hidden>
       <section class="panel">
         <h2>Dina egna regler</h2>
-        <p class="hint">Dina instruktioner läggs <em>ovanpå</em> grunden som administratören satt. Grunden gäller alltid – här finjusterar du AI:n för dig.</p>
+        <p class="hint">Här kan du skriva in dina egna preferenser. De läggs <em>ovanpå</em> grunden som administratören satt – grunden gäller alltid.</p>
         <details id="baseView" class="basebox">
           <summary>Grund (gäller alla – satt av admin)</summary>
           <pre id="baseDirectives" class="basetext">—</pre>
         </details>
-        <div id="rulesActive" class="active-file">Inga egna regler än.</div>
-        <textarea id="globalDirectives" rows="10" placeholder="Dina egna tillägg – eller ladda upp en fil nedan ..."></textarea>
+        <textarea id="globalDirectives" rows="10" placeholder="Skriv eller klistra in dina egna preferenser ..."></textarea>
         <div class="row">
           <button id="saveGlobalBtn" class="primary">Spara mina regler</button>
-          <label class="filelabel">Ladda upp regel-/formatbok
-            <input type="file" id="rulesFile" accept=".pdf,.txt,.md,.text" hidden>
-          </label>
           <span id="globalStatus" class="status"></span>
         </div>
       </section>

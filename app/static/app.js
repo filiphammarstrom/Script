@@ -12,7 +12,6 @@ const TYPE_LABELS = {
 };
 let scenesCollapsed = false;
 let project = null;
-let currentRulesFilename = "";
 
 async function api(method, url, body) {
   const opts = { method, headers: {} };
@@ -65,12 +64,10 @@ $("navProjects").onclick = async () => {
 $("navSettings").onclick = () => showView("settings");
 $("navAdmin").onclick = async () => { await loadAdmin(); showView("admin"); };
 
-// ---- bas-AI (globala regler) ----
+// ---- egna regler (läggs ovanpå grunden) ----
 async function loadGlobal() {
   const s = await api("GET", "/api/settings");
   $("globalDirectives").value = s.directives || "";
-  currentRulesFilename = s.rules_filename || "";
-  renderActiveRules();
   try {
     const base = await api("GET", "/api/base-settings");
     const txt = (base.directives || "").trim();
@@ -79,50 +76,14 @@ async function loadGlobal() {
       base.rules_filename ? `Grund: ${base.rules_filename}` : "Grund (gäller alla – satt av admin)";
   } catch (_) { /* grunden är valfri att visa */ }
 }
-function renderActiveRules(pending) {
-  const chars = $("globalDirectives").value.length;
-  const box = $("rulesActive");
-  if (currentRulesFilename) {
-    box.innerHTML = `Aktiv regelbok: <strong>${esc(currentRulesFilename)}</strong> · ${chars} tecken` +
-      (pending ? ' <em>(ej sparad)</em>' : "");
-  } else if (chars > 0) {
-    box.innerHTML = `Inskriven text · ${chars} tecken` + (pending ? ' <em>(ej sparad)</em>' : "");
-  } else {
-    box.textContent = "Ingen regelbok uppladdad än.";
-  }
-}
 $("saveGlobalBtn").onclick = async () => {
   setGlobalStatus("Sparar ...", true);
   try {
-    await api("PUT", "/api/settings", {
-      directives: $("globalDirectives").value,
-      rules_filename: currentRulesFilename,
-    });
-    renderActiveRules();
-    setGlobalStatus("Bas-AI sparad ✓");
+    await api("PUT", "/api/settings", { directives: $("globalDirectives").value, rules_filename: "" });
+    setGlobalStatus("Sparat ✓");
   } catch (e) {
     setGlobalStatus("Kunde inte spara: " + e.message);
   }
-};
-$("rulesFile").onchange = async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  setGlobalStatus(`Läser in ${file.name} ...`, true);
-  try {
-    const fd = new FormData();
-    fd.append("file", file);
-    const res = await fetch("/api/extract-text", { method: "POST", body: fd });
-    if (!res.ok) throw new Error((await res.text()) || res.status);
-    const { text } = await res.json();
-    const existing = $("globalDirectives").value.trim();
-    $("globalDirectives").value = existing ? existing + "\n\n" + text : text;
-    currentRulesFilename = file.name;
-    renderActiveRules(true);
-    setGlobalStatus(`Inläst ${file.name} (${text.length} tecken) – tryck "Spara bas-AI".`);
-  } catch (err) {
-    setGlobalStatus("Kunde inte läsa filen: " + err.message);
-  }
-  e.target.value = "";
 };
 
 // ---- admin: grund (gäller alla) + åtkomst ----
