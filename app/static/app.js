@@ -533,6 +533,22 @@ function groupScenes() {
   }
   return groups;
 }
+// Grov uppskattning av antal manussidor (~55 rader/sida). Final Draft räknar
+// exakt vid export – detta är bara en levande indikator medan man skriver.
+function estimatePages(elements) {
+  const CPL = { scene_heading: 60, action: 60, general: 60, transition: 60, character: 38, dialogue: 35, parenthetical: 25 };
+  let lines = 0;
+  for (const el of elements) {
+    const cpl = CPL[el.type] || 60;
+    let l = Math.max(1, Math.ceil((el.text || "").length / cpl));
+    if (el.type === "scene_heading" || el.type === "action" || el.type === "transition" || el.type === "character") l += 1;
+    lines += l;
+  }
+  return Math.max(0.1, lines / 55);
+}
+function fmtPages(p) {
+  return (Math.round(p * 10) / 10).toString().replace(".", ",");
+}
 function renderElements() {
   const box = $("elements");
   box.innerHTML = "";
@@ -541,16 +557,23 @@ function renderElements() {
     return;
   }
 
+  const groups = groupScenes();
+  const sceneTotal = groups.filter((g) => g.heading).length;
+
   const bar = document.createElement("div");
   bar.className = "scenes-bar";
   const toggleAll = document.createElement("button");
   toggleAll.type = "button";
   toggleAll.textContent = scenesCollapsed ? "Fäll ut alla" : "Fäll ihop alla";
   toggleAll.onclick = () => { scenesCollapsed = !scenesCollapsed; renderElements(); };
-  bar.appendChild(toggleAll);
+  const stats = document.createElement("span");
+  stats.className = "script-stats";
+  stats.textContent = `≈ ${fmtPages(estimatePages(project.elements))} sidor · ${sceneTotal} ${sceneTotal === 1 ? "scen" : "scener"}`;
+  bar.append(toggleAll, stats);
   box.appendChild(bar);
 
-  for (const g of groupScenes()) {
+  let sceneNo = 0;
+  for (const g of groups) {
     const scene = document.createElement("div");
     scene.className = "scene";
 
@@ -564,7 +587,16 @@ function renderElements() {
     const count = document.createElement("span");
     count.className = "scene-count";
     count.textContent = g.items.length + (g.items.length === 1 ? " rad" : " rader");
-    head.append(chev, title, count);
+    if (g.heading) {
+      sceneNo += 1;
+      const num = document.createElement("span");
+      num.className = "scene-num";
+      num.textContent = sceneNo;
+      num.title = `Scen ${sceneNo}`;
+      head.append(chev, num, title, count);
+    } else {
+      head.append(chev, title, count);
+    }
 
     const body = document.createElement("div");
     body.className = "scene-body";

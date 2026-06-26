@@ -259,7 +259,14 @@ select { width: auto; min-width: 0; }
 .iconbtn { padding: 5px 9px; font-size: 13px; line-height: 1; background: var(--panel-2); color: var(--muted); }
 .iconbtn:hover { border-color: var(--accent); color: var(--ink); transform: none; }
 
-.scenes-bar { display: flex; justify-content: flex-end; margin-bottom: 10px; }
+.scenes-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.script-stats { color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.scene-num {
+  flex: 0 0 auto; min-width: 1.6em; text-align: center;
+  font-size: 12px; font-weight: 700; color: var(--accent);
+  background: rgba(110, 168, 254, .14); border-radius: 6px; padding: 1px 6px;
+  font-variant-numeric: tabular-nums;
+}
 .scene { border: 1px solid var(--line); border-radius: 10px; margin-bottom: 10px; overflow: hidden; background: var(--panel-2); }
 .scene-head { display: flex; align-items: center; gap: 10px; padding: 12px 14px; cursor: pointer; user-select: none; }
 .scene-head:hover { background: rgba(110, 168, 254, .06); }
