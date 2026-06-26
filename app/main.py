@@ -160,8 +160,9 @@ def put_settings(body: SettingsIn, uid: str = Depends(auth_mod.current_uid)) -> 
 
 # ---- delad grund (bas-AI) + admin/åtkomst ----
 @app.get("/api/base-settings")
-def get_base_settings(uid: str = Depends(auth_mod.current_uid)) -> GlobalSettings:
-    """Grunden är läsbar för alla inloggade (den tillämpas ju på dem)."""
+def get_base_settings(uid: str = Depends(require_admin)) -> GlobalSettings:
+    """Endast admin. Grunden tillämpas på alla men dess innehåll är hemligt –
+    den slås ihop server-side och returneras aldrig till vanliga användare."""
     return store.load_base_settings()
 
 

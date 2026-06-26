@@ -70,15 +70,17 @@ def test_login_gate_and_admin_guard(tmp_path, monkeypatch):
     # ej inbjuden → nekas
     assert TestClient(main_mod.app).post("/auth/google", json={"credential": "rando"}).status_code == 403
 
-    # admin (via env) släpps in och ser is_admin
+    # admin (via env) släpps in, ser is_admin och kan läsa grunden
     boss = TestClient(main_mod.app)
     assert boss.post("/auth/google", json={"credential": "boss"}).status_code == 200
     assert boss.get("/api/me").json()["is_admin"] is True
     assert boss.get("/api/admin/access").status_code == 200
+    assert boss.get("/api/base-settings").status_code == 200
 
-    # inbjuden vanlig användare kommer in men inte åt admin
+    # inbjuden vanlig användare kommer in men inte åt admin – och grunden är hemlig
     access.add_allowed("friend@example.com")
     friend = TestClient(main_mod.app)
     assert friend.post("/auth/google", json={"credential": "friend"}).status_code == 200
     assert friend.get("/api/me").json()["is_admin"] is False
     assert friend.get("/api/admin/access").status_code == 403
+    assert friend.get("/api/base-settings").status_code == 403  # grunden läcker inte

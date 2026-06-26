@@ -68,13 +68,6 @@ $("navAdmin").onclick = async () => { await loadAdmin(); showView("admin"); };
 async function loadGlobal() {
   const s = await api("GET", "/api/settings");
   $("globalDirectives").value = s.directives || "";
-  try {
-    const base = await api("GET", "/api/base-settings");
-    const txt = (base.directives || "").trim();
-    $("baseDirectives").textContent = txt || "(ingen grund satt än)";
-    $("baseView").querySelector("summary").textContent =
-      base.rules_filename ? `Grund: ${base.rules_filename}` : "Grund (gäller alla – satt av admin)";
-  } catch (_) { /* grunden är valfri att visa */ }
 }
 $("saveGlobalBtn").onclick = async () => {
   setGlobalStatus("Sparar ...", true);
