@@ -112,12 +112,19 @@ export AUTH_ENABLED=true
 export GOOGLE_CLIENT_ID="<ditt-id>.apps.googleusercontent.com"   # från Google Cloud Console
 export SECRET_KEY="<lång slumpsträng>"   # signerar sessionskakan
 export COOKIE_SECURE=true                 # när du kör bakom HTTPS
+export ADMIN_EMAILS="du@gmail.com"        # admin(s); aktiverar även åtkomstspärren
 ```
 
 - **Google-login** använder Googles "Sign in with Google" (ID-token) och kräver bara ett **client-ID** (inget secret). Skapa en OAuth 2.0-klient (typ: webbapp) i Google Cloud Console och lägg din domän under *Authorized JavaScript origins*.
 - **Egen nyckel per användare:** varje inloggad användare lägger in sina egna Anthropic/OpenAI/AssemblyAI-nycklar under **Inställningar → API-nycklar** (lagras på kontot, visas aldrig igen). Du som driftar betalar alltså inget för andras körningar.
 - I molnläget är **bara moln-transkribering** (OpenAI/AssemblyAI) tillgänglig – lokal Whisper och bevakad mapp fungerar bara på din egen dator.
-- All användardata (projekt, bas-AI, nycklar) ligger under `data/users/<uid>/` och är gitignorerat.
+- All användardata (projekt, egna regler, nycklar) ligger under `data/users/<uid>/` och är gitignorerat. Den delade grunden ligger i `data/base/`.
+
+### Admin, åtkomst och grund vs egna regler
+
+- **Admin** pekas ut via `ADMIN_EMAILS` (komma-separerat, din Google-e-post). Admins ser en extra **Admin**-flik. Fler admins kan utses därifrån.
+- **Åtkomstspärr (allowlist):** så fort minst en admin finns är inloggning **begränsad** – bara inbjudna e-postadresser kommer in. Admin bjuder in/tar bort personer under **Admin → Användare & åtkomst** (ingen omdeploy). Saknas `ADMIN_EMAILS` helt är appen öppen (så ingen låser ut sig själv).
+- **Grund vs egna regler:** admin sätter en delad **grund** (format-/regelbok + bas-instruktioner) under **Admin → Grund** som gäller *alla*. Varje användare kan **lägga till** egna instruktioner ovanpå under **Inställningar → Dina egna regler** – grunden tillämpas alltid och kan inte ändras av vanliga användare. Vid manusbygget blir AI:ns regler **grund + användarens tillägg**.
 
 ### Driftsätt i molnet (Render, ~10 min)
 
@@ -127,9 +134,9 @@ Repot innehåller en `Dockerfile` och en `render.yaml` (Blueprint) så det blir 
 
 1. **Skapa ett Google OAuth-client-ID:** [Google Cloud Console](https://console.cloud.google.com/) → *APIs & Services → Credentials → Create credentials → OAuth client ID* → typ **Web application**. Under *Authorized JavaScript origins* lägger du till din app-URL (t.ex. `https://ditt-namn.onrender.com`) – och `http://localhost:8000` om du vill testa lokalt. Kopiera **client-ID:t** (inget secret behövs).
 2. **Deploya:** på [Render](https://render.com/) → *New → Blueprint* → välj detta repo. Render läser `render.yaml`, skapar webbtjänsten + disken och genererar `SECRET_KEY` åt dig.
-3. **Fyll i `GOOGLE_CLIENT_ID`** i tjänstens *Environment* och spara (utlöser en ny deploy).
+3. **Fyll i `GOOGLE_CLIENT_ID`** och **`ADMIN_EMAILS`** (din Google-e-post) i tjänstens *Environment* och spara (utlöser en ny deploy). `ADMIN_EMAILS` gör dig till admin och slår på åtkomstspärren.
 4. **Klart:** öppna URL:en, logga in med Google, och lägg in dina egna API-nycklar under **Inställningar → API-nycklar**.
-5. **Bjud in andra:** dela URL:en. Var och en loggar in med sitt Google-konto, lägger in sina egna nycklar, och får sin egen data.
+5. **Bjud in andra:** under **Admin → Användare & åtkomst** lägger du till de e-postadresser som ska få logga in. Var och en loggar in med sitt Google-konto, lägger in sina egna nycklar, och får sin egen data ovanpå din grund.
 
 > **Viktigt:** den persistenta disken (i `render.yaml`) krävs för att projekt/nycklar ska överleva en omdeploy. Render Starter-plan (~$7/mån) krävs för disk. Samma upplägg funkar på Fly.io/Railway – peka bara en volym på `/app/data` och sätt samma miljövariabler (`AUTH_ENABLED`, `GOOGLE_CLIENT_ID`, `SECRET_KEY`, `COOKIE_SECURE`).
 

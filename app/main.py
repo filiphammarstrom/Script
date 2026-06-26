@@ -16,6 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from starlette.middleware.sessions import SessionMiddleware
 
+from app import access as access_mod
 from app import analyze as analyze_mod
 from app import auth as auth_mod
 from app import jobs as jobs_mod
@@ -85,6 +86,28 @@ class GoogleLoginIn(BaseModel):
     credential: str
 
 
+class EmailIn(BaseModel):
+    email: str
+
+
+class AdminFlagIn(BaseModel):
+    email: str
+    is_admin: bool = True
+
+
+def _current_email(uid: str) -> str:
+    return (store.load_user(uid) or {}).get("email", "")
+
+
+def require_admin(uid: str = Depends(auth_mod.current_uid)) -> str:
+    """FastAPI-beroende: släpper bara igenom administratörer (lokal ägare = admin)."""
+    if not auth_mod.auth_enabled():
+        return uid  # lokalt enanvändarläge: ägaren är admin
+    if not access_mod.is_admin(_current_email(uid)):
+        raise HTTPException(403, "Endast administratör har åtkomst till detta.")
+    return uid
+
+
 # ---- inloggning / konto ----
 @app.get("/api/config")
 def get_config() -> dict:
@@ -94,9 +117,9 @@ def get_config() -> dict:
 @app.get("/api/me")
 def get_me(uid: str = Depends(auth_mod.current_uid)) -> dict:
     if not auth_mod.auth_enabled():
-        return {"id": uid, "name": "Lokal användare", "email": "", "auth_enabled": False}
+        return {"id": uid, "name": "Lokal användare", "email": "", "auth_enabled": False, "is_admin": True}
     user = store.load_user(uid) or {"id": uid}
-    return {**user, "auth_enabled": True}
+    return {**user, "auth_enabled": True, "is_admin": access_mod.is_admin(user.get("email", ""))}
 
 
 @app.post("/auth/google")
@@ -105,6 +128,12 @@ def auth_google(body: GoogleLoginIn, request: Request) -> dict:
         info = auth_mod.verify_google_id_token(body.credential)
     except ValueError as exc:
         raise HTTPException(401, str(exc))
+    if not access_mod.is_allowed(info["email"]):
+        raise HTTPException(
+            403,
+            f"Kontot {info['email']} har inte åtkomst till ScriptVoice ännu. "
+            "Be administratören att bjuda in din e-postadress.",
+        )
     uid = store.upsert_user(info["sub"], info["email"], info["name"])
     request.session["uid"] = uid
     return {"ok": True, "id": uid, "name": info["name"], "email": info["email"]}
@@ -127,6 +156,43 @@ def put_settings(body: SettingsIn, uid: str = Depends(auth_mod.current_uid)) -> 
     return store.save_global_settings(
         uid, GlobalSettings(directives=body.directives, rules_filename=body.rules_filename)
     )
+
+
+# ---- delad grund (bas-AI) + admin/åtkomst ----
+@app.get("/api/base-settings")
+def get_base_settings(uid: str = Depends(auth_mod.current_uid)) -> GlobalSettings:
+    """Grunden är läsbar för alla inloggade (den tillämpas ju på dem)."""
+    return store.load_base_settings()
+
+
+@app.put("/api/base-settings")
+def put_base_settings(body: SettingsIn, uid: str = Depends(require_admin)) -> GlobalSettings:
+    return store.save_base_settings(
+        GlobalSettings(directives=body.directives, rules_filename=body.rules_filename)
+    )
+
+
+@app.get("/api/admin/access")
+def get_access(uid: str = Depends(require_admin)) -> dict:
+    return access_mod.snapshot()
+
+
+@app.post("/api/admin/access/allow")
+def access_allow(body: EmailIn, uid: str = Depends(require_admin)) -> dict:
+    access_mod.add_allowed(body.email)
+    return access_mod.snapshot()
+
+
+@app.post("/api/admin/access/remove")
+def access_remove(body: EmailIn, uid: str = Depends(require_admin)) -> dict:
+    access_mod.remove_allowed(body.email)
+    return access_mod.snapshot()
+
+
+@app.post("/api/admin/access/admin")
+def access_set_admin(body: AdminFlagIn, uid: str = Depends(require_admin)) -> dict:
+    access_mod.set_admin(body.email, body.is_admin)
+    return access_mod.snapshot()
 
 
 # ---- användarens egna API-nycklar ----
@@ -217,7 +283,7 @@ def analyze_project(
     project = store.load_project(uid, project_id)
     if project is None:
         raise HTTPException(404, "Projektet finns inte")
-    settings = store.load_global_settings(uid)
+    settings = store.effective_global_settings(uid)
     try:
         result = analyze_mod.analyze(
             project, body.text, settings,
@@ -238,7 +304,7 @@ def revise_project(
     project = store.load_project(uid, project_id)
     if project is None:
         raise HTTPException(404, "Projektet finns inte")
-    settings = store.load_global_settings(uid)
+    settings = store.effective_global_settings(uid)
     try:
         result = analyze_mod.revise(
             project, body.instruction, settings,

@@ -21,6 +21,7 @@
     <nav class="topnav">
       <button id="navProjects" class="navbtn">Projekt</button>
       <button id="navSettings" class="navbtn">Inställningar</button>
+      <button id="navAdmin" class="navbtn" hidden>Admin</button>
       <span id="userArea" class="userarea" hidden></span>
     </nav>
   </header>
@@ -41,15 +42,19 @@
       </section>
     </section>
 
-    <!-- ===== VY: Inställningar (Bas-AI) ===== -->
+    <!-- ===== VY: Inställningar (egna regler + nycklar) ===== -->
     <section id="view-settings" class="view" hidden>
       <section class="panel">
-        <h2>Bas-AI (globala regler)</h2>
-        <p class="hint">Dina egna regler som gäller <em>alla</em> projekt. Här lär du upp AI:n generellt. Uppdateras när som helst.</p>
-        <div id="rulesActive" class="active-file">Ingen regelbok uppladdad än.</div>
-        <textarea id="globalDirectives" rows="12" placeholder="Klistra in dina manusregler – eller ladda upp en fil nedan ..."></textarea>
+        <h2>Dina egna regler</h2>
+        <p class="hint">Dina instruktioner läggs <em>ovanpå</em> grunden som administratören satt. Grunden gäller alltid – här finjusterar du AI:n för dig.</p>
+        <details id="baseView" class="basebox">
+          <summary>Grund (gäller alla – satt av admin)</summary>
+          <pre id="baseDirectives" class="basetext">—</pre>
+        </details>
+        <div id="rulesActive" class="active-file">Inga egna regler än.</div>
+        <textarea id="globalDirectives" rows="10" placeholder="Dina egna tillägg – eller ladda upp en fil nedan ..."></textarea>
         <div class="row">
-          <button id="saveGlobalBtn" class="primary">Spara bas-AI</button>
+          <button id="saveGlobalBtn" class="primary">Spara mina regler</button>
           <label class="filelabel">Ladda upp regel-/formatbok
             <input type="file" id="rulesFile" accept=".pdf,.txt,.md,.text" hidden>
           </label>
@@ -73,6 +78,34 @@
           <button id="saveKeysBtn" class="primary">Spara nycklar</button>
           <span id="keysStatus" class="status"></span>
         </div>
+      </section>
+    </section>
+
+    <!-- ===== VY: Admin (grund + åtkomst) ===== -->
+    <section id="view-admin" class="view" hidden>
+      <section class="panel">
+        <h2>Grund (gäller alla)</h2>
+        <p class="hint">Format-/regelboken och bas-instruktionerna som tillämpas för <em>alla</em> användare. Var och en kan lägga till egna tillägg ovanpå, men inte ändra grunden.</p>
+        <div id="baseRulesActive" class="active-file">Ingen grund satt än.</div>
+        <textarea id="baseDirectivesEdit" rows="12" placeholder="Klistra in grundreglerna – eller ladda upp en fil nedan ..."></textarea>
+        <div class="row">
+          <button id="saveBaseBtn" class="primary">Spara grund</button>
+          <label class="filelabel">Ladda upp regel-/formatbok
+            <input type="file" id="baseRulesFile" accept=".pdf,.txt,.md,.text" hidden>
+          </label>
+          <span id="baseStatus" class="status"></span>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Användare &amp; åtkomst</h2>
+        <p class="hint">Bara inbjudna e-postadresser kan logga in. Lägg till en persons Google-e-post för att ge åtkomst.</p>
+        <div class="row">
+          <input id="newAllowEmail" type="email" placeholder="namn@exempel.se">
+          <button id="addAllowBtn" class="primary">Bjud in</button>
+          <span id="accessStatus" class="status"></span>
+        </div>
+        <div id="accessList" class="accesslist"></div>
       </section>
     </section>
 

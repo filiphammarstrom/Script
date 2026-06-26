@@ -16,6 +16,8 @@ services:
         generateValue: true   # Render genererar en stark hemlighet åt dig
       - key: GOOGLE_CLIENT_ID
         sync: false           # fyll i i dashboarden (ditt OAuth-client-ID)
+      - key: ADMIN_EMAILS
+        sync: false           # din Google-e-post = admin. Tills denna är satt är appen öppen.
     disk:
       name: data
       mountPath: /app/data    # här sparas projekt, bas-AI och nycklar
