@@ -5,9 +5,37 @@ redigera den, och FDX genereras deterministiskt från den (se app/fdx.py).
 """
 from __future__ import annotations
 
+import json
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+
+def _as_list(v):
+    """Vissa modeller returnerar nästlade listfält som en JSON-*sträng*. Tolka
+    strängen som JSON innan validering; tom/ogiltig sträng blir tom lista."""
+    if isinstance(v, str):
+        s = v.strip()
+        if not s:
+            return []
+        try:
+            return json.loads(s)
+        except Exception:
+            return []
+    return v
+
+
+def _as_obj(v):
+    """Som _as_list men för ett objektfält (tom/ogiltig sträng -> tomt objekt)."""
+    if isinstance(v, str):
+        s = v.strip()
+        if not s:
+            return {}
+        try:
+            return json.loads(s)
+        except Exception:
+            return {}
+    return v
 
 # Våra elementtyper motsvarar Final Drafts Paragraph-typer (se app/fdx.py).
 ElementType = Literal[
@@ -53,6 +81,11 @@ class StoryBible(BaseModel):
     locations: list[str] = Field(default_factory=list)  # kanoniska scenrubrik-slugs
     notes: list[str] = Field(default_factory=list)
 
+    @field_validator("characters", "locations", "notes", mode="before")
+    @classmethod
+    def _coerce_lists(cls, v):
+        return _as_list(v)
+
 
 class Project(BaseModel):
     id: str
@@ -78,6 +111,16 @@ class AnalyzeResult(BaseModel):
     story_bible_updates: StoryBible = Field(default_factory=StoryBible)
     clarifications: list[Clarification] = Field(default_factory=list)
 
+    @field_validator("new_elements", "clarifications", mode="before")
+    @classmethod
+    def _coerce_lists(cls, v):
+        return _as_list(v)
+
+    @field_validator("story_bible_updates", mode="before")
+    @classmethod
+    def _coerce_bible(cls, v):
+        return _as_obj(v)
+
 
 # --- Revideringsläge: föreslagna ändringar av BEFINTLIGT manus ---
 
@@ -97,3 +140,8 @@ class ReviseResult(BaseModel):
 
     operations: list[EditOp] = Field(default_factory=list)
     summary: str = ""
+
+    @field_validator("operations", mode="before")
+    @classmethod
+    def _coerce_ops(cls, v):
+        return _as_list(v)
