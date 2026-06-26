@@ -110,7 +110,7 @@ def _system_text(global_settings: GlobalSettings) -> str:
     text = SYSTEM_RULES
     if global_settings.directives.strip():
         text += (
-            "\n\n# ANVÄNDARENS EGNA GLOBALA REGLER (bas-AI – t.ex. formatbok)\n"
+            "\n\n# GLOBALA REGLER (bas-AI – grund satt av admin + denna användares tillägg)\n"
             + global_settings.directives.strip()
         )
     return text
@@ -199,7 +199,7 @@ def _revise_system_text(global_settings: GlobalSettings) -> str:
     text = REVISE_RULES
     if global_settings.directives.strip():
         text += (
-            "\n\n# ANVÄNDARENS EGNA GLOBALA REGLER (bas-AI – t.ex. formatbok)\n"
+            "\n\n# GLOBALA REGLER (bas-AI – grund satt av admin + denna användares tillägg)\n"
             + global_settings.directives.strip()
         )
     return text

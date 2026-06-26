@@ -19,6 +19,7 @@ from app.models import AnalyzeResult, GlobalSettings, Project, StoryBible
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 USERS_DIR = DATA_DIR / "users"
+BASE_DIR = DATA_DIR / "base"  # delad "grund" (bas-AI) som admin sätter för alla
 LOCAL_UID = "local"
 
 # Äldre (enanvändar-)platser, för engångsmigrering till "local".
@@ -80,6 +81,39 @@ def save_global_settings(uid: str, settings: GlobalSettings) -> GlobalSettings:
     _ensure_user(uid)
     (_user_dir(uid) / "global.json").write_text(settings.model_dump_json(indent=2), "utf-8")
     return settings
+
+
+# ---- delad grund (bas-AI som admin sätter för alla) ----
+def load_base_settings() -> GlobalSettings:
+    path = BASE_DIR / "global.json"
+    if path.exists():
+        return GlobalSettings.model_validate_json(path.read_text("utf-8"))
+    return GlobalSettings()
+
+
+def save_base_settings(settings: GlobalSettings) -> GlobalSettings:
+    BASE_DIR.mkdir(parents=True, exist_ok=True)
+    (BASE_DIR / "global.json").write_text(settings.model_dump_json(indent=2), "utf-8")
+    return settings
+
+
+def effective_global_settings(uid: str) -> GlobalSettings:
+    """Slå ihop grunden (gäller alla) med användarens egna tillägg.
+
+    Additivt (användarens val 2a): grunden ligger alltid först och kan inte tas
+    bort; användarens egna instruktioner läggs på ovanpå.
+    """
+    base = load_base_settings()
+    own = load_global_settings(uid)
+    parts: list[str] = []
+    if base.directives.strip():
+        parts.append("# GRUND (gäller alla – satt av administratör)\n" + base.directives.strip())
+    if own.directives.strip():
+        parts.append("# EGNA TILLÄGG (denna användare)\n" + own.directives.strip())
+    return GlobalSettings(
+        directives="\n\n".join(parts),
+        rules_filename=own.rules_filename or base.rules_filename,
+    )
 
 
 # ---- användarens egna API-nycklar ----

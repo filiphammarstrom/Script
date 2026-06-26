@@ -21,7 +21,15 @@ async function api(method, url, body) {
     opts.body = JSON.stringify(body);
   }
   const res = await fetch(url, opts);
-  if (!res.ok) throw new Error((await res.text()) || res.status);
+  if (!res.ok) {
+    const raw = await res.text();
+    let msg = raw;
+    try {
+      const d = JSON.parse(raw).detail;       // FastAPI lägger felet i "detail"
+      if (typeof d === "string") msg = d;
+    } catch (_) { /* inte JSON – visa råtexten */ }
+    throw new Error(msg || res.status);
+  }
   return res.json();
 }
 
@@ -38,6 +46,8 @@ function mkStatus(id) {
 const setStatus = mkStatus("status");
 const setGlobalStatus = mkStatus("globalStatus");
 const setProjSetStatus = mkStatus("projSetStatus");
+const setBaseStatus = mkStatus("baseStatus");
+const setAccessStatus = mkStatus("accessStatus");
 const setReviseStatus = mkStatus("reviseStatus");
 const setKeysStatus = mkStatus("keysStatus");
 
@@ -46,12 +56,14 @@ function showView(name) {
   for (const v of document.querySelectorAll(".view")) v.hidden = v.id !== "view-" + name;
   $("navProjects").classList.toggle("active", name === "projects");
   $("navSettings").classList.toggle("active", name === "settings");
+  $("navAdmin").classList.toggle("active", name === "admin");
 }
 $("navProjects").onclick = async () => {
   await loadProjectList();
   showView("projects");
 };
 $("navSettings").onclick = () => showView("settings");
+$("navAdmin").onclick = async () => { await loadAdmin(); showView("admin"); };
 
 // ---- bas-AI (globala regler) ----
 async function loadGlobal() {
@@ -59,6 +71,13 @@ async function loadGlobal() {
   $("globalDirectives").value = s.directives || "";
   currentRulesFilename = s.rules_filename || "";
   renderActiveRules();
+  try {
+    const base = await api("GET", "/api/base-settings");
+    const txt = (base.directives || "").trim();
+    $("baseDirectives").textContent = txt || "(ingen grund satt än)";
+    $("baseView").querySelector("summary").textContent =
+      base.rules_filename ? `Grund: ${base.rules_filename}` : "Grund (gäller alla – satt av admin)";
+  } catch (_) { /* grunden är valfri att visa */ }
 }
 function renderActiveRules(pending) {
   const chars = $("globalDirectives").value.length;
@@ -104,6 +123,117 @@ $("rulesFile").onchange = async (e) => {
     setGlobalStatus("Kunde inte läsa filen: " + err.message);
   }
   e.target.value = "";
+};
+
+// ---- admin: grund (gäller alla) + åtkomst ----
+let baseRulesFilename = "";
+async function loadAdmin() {
+  const base = await api("GET", "/api/base-settings");
+  $("baseDirectivesEdit").value = base.directives || "";
+  baseRulesFilename = base.rules_filename || "";
+  renderBaseActive();
+  await loadAccess();
+}
+function renderBaseActive(pending) {
+  const chars = $("baseDirectivesEdit").value.length;
+  const box = $("baseRulesActive");
+  if (baseRulesFilename) {
+    box.innerHTML = `Aktiv regelbok: <strong>${esc(baseRulesFilename)}</strong> · ${chars} tecken` +
+      (pending ? ' <em>(ej sparad)</em>' : "");
+  } else if (chars > 0) {
+    box.innerHTML = `Inskriven text · ${chars} tecken` + (pending ? ' <em>(ej sparad)</em>' : "");
+  } else {
+    box.textContent = "Ingen grund satt än.";
+  }
+}
+$("saveBaseBtn").onclick = async () => {
+  setBaseStatus("Sparar ...", true);
+  try {
+    await api("PUT", "/api/base-settings", {
+      directives: $("baseDirectivesEdit").value,
+      rules_filename: baseRulesFilename,
+    });
+    renderBaseActive();
+    setBaseStatus("Grund sparad ✓");
+  } catch (e) {
+    setBaseStatus("Kunde inte spara: " + e.message);
+  }
+};
+$("baseRulesFile").onchange = async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  setBaseStatus(`Läser in ${file.name} ...`, true);
+  try {
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await fetch("/api/extract-text", { method: "POST", body: fd });
+    if (!res.ok) throw new Error((await res.text()) || res.status);
+    const { text } = await res.json();
+    const existing = $("baseDirectivesEdit").value.trim();
+    $("baseDirectivesEdit").value = existing ? existing + "\n\n" + text : text;
+    baseRulesFilename = file.name;
+    renderBaseActive(true);
+    setBaseStatus(`Inläst ${file.name} (${text.length} tecken) – tryck "Spara grund".`);
+  } catch (err) {
+    setBaseStatus("Kunde inte läsa filen: " + err.message);
+  }
+  e.target.value = "";
+};
+async function loadAccess() {
+  renderAccess(await api("GET", "/api/admin/access"));
+}
+function renderAccess(snap) {
+  const box = $("accessList");
+  box.innerHTML = "";
+  const rows = [
+    ...snap.admins.map((email) => ({ email, admin: true, env: snap.env_admins.includes(email) })),
+    ...snap.allowed.map((email) => ({ email, admin: false, env: false })),
+  ];
+  if (!rows.length) {
+    box.innerHTML = '<p class="hint">Inga inbjudna än – bara du (admin) kommer in.</p>';
+    return;
+  }
+  for (const r of rows) {
+    const row = document.createElement("div");
+    row.className = "accessrow";
+    const tags = (r.admin ? '<span class="badge">admin</span>' : "") +
+      (r.env ? ' <span class="hint">(via miljövariabel)</span>' : "");
+    row.innerHTML = `<span class="ae-email">${esc(r.email)} ${tags}</span>`;
+    const actions = document.createElement("span");
+    actions.className = "ae-actions";
+    if (!r.env) {
+      const adminBtn = document.createElement("button");
+      adminBtn.className = "linkbtn";
+      adminBtn.textContent = r.admin ? "Ta bort admin" : "Gör till admin";
+      adminBtn.onclick = async () => {
+        await api("POST", "/api/admin/access/admin", { email: r.email, is_admin: !r.admin });
+        await loadAccess();
+      };
+      const rm = document.createElement("button");
+      rm.className = "linkbtn danger";
+      rm.textContent = "Ta bort";
+      rm.onclick = async () => {
+        await api("POST", "/api/admin/access/remove", { email: r.email });
+        await loadAccess();
+      };
+      actions.append(adminBtn, rm);
+    }
+    row.appendChild(actions);
+    box.appendChild(row);
+  }
+}
+$("addAllowBtn").onclick = async () => {
+  const email = $("newAllowEmail").value.trim();
+  if (!email) return;
+  setAccessStatus("Lägger till ...", true);
+  try {
+    await api("POST", "/api/admin/access/allow", { email });
+    $("newAllowEmail").value = "";
+    setAccessStatus("Inbjuden ✓");
+    await loadAccess();
+  } catch (e) {
+    setAccessStatus("Kunde inte: " + e.message);
+  }
 };
 
 // ---- projektlista ----
@@ -695,6 +825,7 @@ async function boot() {
 function onLoggedIn(me) {
   $("loginOverlay").hidden = true;
   renderUserArea(me);
+  $("navAdmin").hidden = !me.is_admin;
   showView("projects");
   loadGlobal();
   loadProjectList();
@@ -737,7 +868,10 @@ async function handleCredential(resp) {
     onLoggedIn(me);
   } catch (e) {
     const msg = String((e && e.message) || e);
-    if (/inte inloggad/i.test(msg) || /\b401\b/.test(msg)) {
+    if (/inte åtkomst/i.test(msg)) {
+      // Servern nekade kontot (inte på allowlisten).
+      $("loginError").textContent = msg;
+    } else if (/inte inloggad/i.test(msg) || /\b401\b/.test(msg)) {
       // Token godkändes men sessionen kunde inte läsas tillbaka = cookien sparades inte.
       $("loginError").textContent =
         "Inloggningen lyckades men sessionen sparades inte – webbläsaren blockerar troligen cookies. " +
