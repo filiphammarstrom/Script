@@ -153,10 +153,14 @@ pytest tests/test_fdx.py
 1. (Valfritt) Klistra in/ladda upp dina globala regler i **Bas-AI** och spara.
 2. Skapa ett projekt, fyll i synopsis/kontext och ev. projektinstruktioner.
 3. Klistra in transkriberad text — **eller** ladda upp en ljudfil och tryck **Transkribera**
-   (talar-märkt text fylls i rutan) — och tryck sedan **Analysera**. AI:n bygger på manuset
-   och uppdaterar story-bibeln.
-4. Svara ev. på AI:ns frågor (frivilligt) eller redigera elementen direkt.
-5. **Exportera FDX** och öppna `.fdx`-filen i Final Draft.
+   (talar-märkt text fylls i rutan) — och tryck sedan **Lägg till / ändra**.
+4. **En enda dikteringsruta** bygger ett manus i ständig förändring: varje diktering kan
+   *lägga till* sist, *infoga på en plats* ("den här scenen ska in mellan scen 23 och 24")
+   eller *ändra/ta bort* befintligt ("ändra repliken i scen 12 till …") — ofta blandat. Nytt
+   material läggs in direkt; ändringar av befintligt innehåll visas för **godkännande**, och
+   **Ångra senaste** återställer dikteringen. Scennummer och en ungefärlig sidräknare visas i manuset.
+5. Svara ev. på AI:ns frågor (frivilligt) eller redigera elementen direkt.
+6. **Exportera FDX** och öppna `.fdx`-filen i Final Draft.
 
 ## Status / nästa steg
 

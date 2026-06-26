@@ -12,7 +12,7 @@ import os
 
 import anthropic
 
-from app.models import AnalyzeResult, GlobalSettings, Project, ReviseResult
+from app.models import AnalyzeResult, DictateResult, GlobalSettings, Project, ReviseResult
 
 DEFAULT_MODEL = os.environ.get("SCRIPT_MODEL", "claude-sonnet-4-6")
 OPENAI_ANALYZE_MODEL = os.environ.get("OPENAI_ANALYZE_MODEL", "gpt-4o")
@@ -256,6 +256,108 @@ def revise(
     raise RuntimeError("Modellen returnerade inga förslag (inget tool_use).")
 
 
+# ---- dikteringsläge: ETT manus i ständig förändring (lägg till / infoga / ändra / ta bort) ----
+
+DICTATE_OPS_RULES = """
+
+# DIKTERINGSLÄGE – DU BYGGER ETT MANUS SOM STÄNDIGT FÖRÄNDRAS
+Du får det NUVARANDE manuset med scennummer i hakparentes ([SCEN N]) och varje element märkt (id=K).
+Användarens diktering kan göra flera saker på en gång. Tolka den och returnera en lista av OPERATIONER via verktyget edit_screenplay:
+
+- append: nytt material som FORTSÄTTER manuset sist. Detta är NORMALFALLET när användaren bara dikterar vidare. Lägg de nya elementen i `elements`.
+- insert_after_scene: användaren vill placera nytt material vid en POSITION ("den här scenen ska in mellan scen 23 och 24", "lägg in en scen efter scen 5"). Sätt `after_scene` till scennumret att infoga EFTER (t.ex. mellan 23 och 24 => after_scene=23) och lägg de nya elementen i `elements`.
+- insert_after: infoga nya element direkt efter ett visst element. Sätt `target_id` (eller null för att infoga allra först) och `elements`.
+- replace: ÄNDRA ett befintligt element ("ändra repliken i scen 12 från X till Y", "byt scenrubriken i köket till natt"). Sätt `target_id` till elementets id och `text` (och `type` bara om typen verkligen ändras).
+- delete: TA BORT ett befintligt element ("ta bort repliken där Potter säger Z"). Sätt `target_id`.
+
+REGLER
+- En och samma diktering kan innehålla FLERA operationer av olika slag (t.ex. diktera en ny scen OCH mitt i säga "ändra repliken i scen 12"). Returnera dem alla, i logisk ordning.
+- Nya element (i `elements`) saknar id – servern numrerar dem. Följ formatreglerna (versaler i scenrubriker och karaktärsnamn, slå ihop repliker av samma karaktär, en scenrubrik per ny plats osv.).
+- Manussekreterarprincipen gäller fortfarande: skriv BARA det användaren beskriver. Hitta inte på dialog, handling, känslor eller övergångar.
+- Hitta rätt element/position via [SCEN N] och (id=K). Om det är OKLART vilket element eller vilken position som avses: gör INGEN gissning – returnera en clarification och utelämna den osäkra operationen.
+- Skilj dikteringskommandon (t.ex. "nej, ta bort det där") från manusinnehåll.
+- summary: en kort mening på svenska om vad du gjorde, t.ex. "La till en ny scen efter scen 23 och ändrade repliken i scen 12."
+- Om manuset är tomt: lägg allt som append.
+"""
+
+
+def _dictate_system_text(global_settings: GlobalSettings) -> str:
+    text = SYSTEM_RULES + DICTATE_OPS_RULES
+    if global_settings.directives.strip():
+        text += (
+            "\n\n# GLOBALA REGLER (bas-AI – grund satt av admin + denna användares tillägg)\n"
+            + global_settings.directives.strip()
+        )
+    return text
+
+
+def _dictate_system_blocks(global_settings: GlobalSettings) -> list[dict]:
+    return [{"type": "text", "text": _dictate_system_text(global_settings), "cache_control": {"type": "ephemeral"}}]
+
+
+_DICTATE_TOOL = {
+    "name": "edit_screenplay",
+    "description": "Tolka dikteringen och returnera operationer som bygger om manuset (lägg till, infoga, ändra, ta bort).",
+    "input_schema": DictateResult.model_json_schema(),
+}
+
+
+def _numbered_manuscript(project: Project) -> str:
+    if not project.elements:
+        return "(tomt – detta blir manusets första innehåll)"
+    out: list[str] = []
+    scene = 0
+    for el in project.elements:
+        if el.type == "scene_heading":
+            scene += 1
+            out.append(f"[SCEN {scene}] (id={el.id}) {el.type}: {el.text}")
+        else:
+            out.append(f"          (id={el.id}) {el.type}: {el.text}")
+    return "\n".join(out)
+
+
+def _dictate_user_content(project: Project, text: str) -> str:
+    parts: list[str] = []
+    if project.context.strip():
+        parts.append("# Projektkontext / synopsis\n" + project.context.strip())
+    if project.directives.strip():
+        parts.append("# Projektets instruktioner\n" + project.directives.strip())
+    parts.append("# Story-bibel (håll konsekvent, bygg vidare)\n" + project.story_bible.model_dump_json(indent=2))
+    parts.append(
+        "# Nuvarande manus (scennummer [SCEN N], element-id (id=K) – referera till dessa)\n"
+        + _numbered_manuscript(project)
+    )
+    parts.append("# Ny diktering att tolka (kan lägga till, infoga, ändra eller ta bort)\n" + text)
+    return "\n\n".join(parts)
+
+
+def dictate(
+    project: Project,
+    text: str,
+    global_settings: GlobalSettings,
+    model: str | None = None,
+    api_key: str | None = None,
+    provider: str = "anthropic",
+) -> DictateResult:
+    """Tolka en diktering mot det nuvarande manuset och returnera operationer
+    (lägg till / infoga / ändra / ta bort). Anroparen tillämpar additiva direkt."""
+    if (provider or "anthropic").lower() == "openai":
+        return _dictate_openai(project, text, global_settings, model, api_key)
+    client = anthropic.Anthropic(api_key=api_key) if api_key else anthropic.Anthropic()
+    response = client.messages.create(
+        model=model or DEFAULT_MODEL,
+        max_tokens=16000,
+        system=_dictate_system_blocks(global_settings),
+        tools=[_DICTATE_TOOL],
+        tool_choice={"type": "tool", "name": "edit_screenplay"},
+        messages=[{"role": "user", "content": _dictate_user_content(project, text)}],
+    )
+    for block in response.content:
+        if block.type == "tool_use":
+            return DictateResult.model_validate(block.input)
+    raise RuntimeError("Modellen returnerade ingen strukturerad output (inget tool_use).")
+
+
 # ---- OpenAI (GPT) som alternativ motor ----
 
 def _openai_client(api_key: str | None):
@@ -307,3 +409,17 @@ def _revise_openai(project, instruction, global_settings, model, api_key) -> Rev
         ReviseResult.model_json_schema(),
     )
     return ReviseResult.model_validate_json(args)
+
+
+def _dictate_openai(project, text, global_settings, model, api_key) -> DictateResult:
+    client = _openai_client(api_key)
+    args = _openai_function_call(
+        client,
+        model or OPENAI_ANALYZE_MODEL,
+        _dictate_system_text(global_settings),
+        _dictate_user_content(project, text),
+        "edit_screenplay",
+        "Tolka dikteringen och returnera operationer som bygger om manuset.",
+        DictateResult.model_json_schema(),
+    )
+    return DictateResult.model_validate_json(args)

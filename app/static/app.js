@@ -12,6 +12,7 @@ const TYPE_LABELS = {
 };
 let scenesCollapsed = false;
 let project = null;
+let undoSnapshot = null;  // manusets element FÖRE senaste diktering (för ångra)
 
 async function api(method, url, body) {
   const opts = { method, headers: {} };
@@ -47,7 +48,6 @@ const setGlobalStatus = mkStatus("globalStatus");
 const setProjSetStatus = mkStatus("projSetStatus");
 const setBaseStatus = mkStatus("baseStatus");
 const setAccessStatus = mkStatus("accessStatus");
-const setReviseStatus = mkStatus("reviseStatus");
 const setKeysStatus = mkStatus("keysStatus");
 
 // ---- vy-navigering ----
@@ -226,6 +226,9 @@ function openProject(p) {
   $("clarPanel").hidden = true;
   $("clarifications").innerHTML = "";
   $("inputText").value = "";
+  hideEditPreview();
+  undoSnapshot = null;
+  $("undoBtn").hidden = true;
   setStatus("");
   setProjSetStatus("");
   showProjectTab("manus");
@@ -436,20 +439,44 @@ $("transcriptFile").onchange = async (e) => {
 $("analyzeBtn").onclick = async () => {
   const text = $("inputText").value.trim();
   if (!text) {
-    setStatus("Klistra in eller transkribera text först.");
+    setStatus("Diktera eller klistra in text först.");
     return;
   }
-  setStatus("Analyserar ...", true);
+  setStatus("Bygger in i manuset ...", true);
+  const snapshot = JSON.parse(JSON.stringify(project.elements));
   try {
-    const data = await api("POST", `/api/projects/${project.id}/analyze`, { text, provider: $("aiEngine").value });
+    const data = await api("POST", `/api/projects/${project.id}/dictate`, { text, provider: $("aiEngine").value });
     project = data.project;
+    undoSnapshot = snapshot;
+    $("undoBtn").hidden = false;
     renderBible();
     renderElements();
     renderClarifications(data.clarifications || []);
     $("inputText").value = "";
-    setStatus(`Klart. ${(data.clarifications || []).length} sak(er) att ev. förtydliga.`);
+    const pending = data.pending_ops || [];
+    if (pending.length) {
+      showEditPreview(pending);
+      setStatus(data.summary || `${pending.length} ändring(ar) av befintligt innehåll att godkänna.`);
+    } else {
+      hideEditPreview();
+      setStatus(data.summary || "Inlagt ✓");
+    }
   } catch (e) {
     setStatus("Fel: " + e.message);
+  }
+};
+$("undoBtn").onclick = async () => {
+  if (!undoSnapshot) return;
+  setStatus("Ångrar ...", true);
+  try {
+    project = await api("PUT", `/api/projects/${project.id}`, { elements: undoSnapshot });
+    undoSnapshot = null;
+    $("undoBtn").hidden = true;
+    hideEditPreview();
+    renderElements();
+    setStatus("Ångrade senaste dikteringen.");
+  } catch (e) {
+    setStatus("Kunde inte ångra: " + e.message);
   }
 };
 
@@ -663,44 +690,26 @@ $("exportBtn").onclick = async () => {
   URL.revokeObjectURL(a.href);
 };
 
-// ---- revidera i efterhand ----
-let pendingOps = null;
-$("reviseBtn").onclick = async () => {
-  const instruction = $("reviseText").value.trim();
-  if (!instruction) { setReviseStatus("Skriv en ändringsinstruktion först."); return; }
-  setReviseStatus("Tänker ...", true);
-  $("revisePreview").hidden = true;
-  try {
-    const data = await api("POST", `/api/projects/${project.id}/revise`, { instruction, provider: $("aiEngine").value });
-    renderRevisePreview(data.operations || [], data.summary || "");
-  } catch (e) {
-    setReviseStatus("Fel: " + e.message);
-  }
-};
-
-function renderRevisePreview(ops, summary) {
-  pendingOps = ops;
-  const box = $("revisePreview");
-  box.hidden = false;
-  box.innerHTML = "";
-  const sum = document.createElement("div");
-  sum.className = "revise-summary";
-  sum.textContent = summary || (ops.length ? "Föreslagna ändringar:" : "Inga ändringar föreslogs.");
-  box.appendChild(sum);
-
-  if (!ops.length) {  // AI:n var osäker / behöver förtydligande
-    setReviseStatus("");
-    return;
-  }
-
+// ---- ändringar av befintligt innehåll: granska & godkänn ----
+let pendingEdits = null;
+function hideEditPreview() {
+  pendingEdits = null;
+  $("editPreviewPanel").hidden = true;
+  $("editPreview").innerHTML = "";
+}
+function showEditPreview(ops) {
+  pendingEdits = ops;
   const byId = {};
   for (const el of project.elements) byId[el.id] = el;
+  const box = $("editPreview");
+  box.innerHTML = "";
+
   const list = document.createElement("div");
   list.className = "revise-ops";
   for (const op of ops) {
     const item = document.createElement("div");
     item.className = "revise-op op-" + op.op;
-    let label = "";
+    let label;
     if (op.op === "replace") {
       const cur = byId[op.target_id];
       label = `✏️ Ändra: ”${esc(cur ? cur.text : "?")}” → ”${esc(op.text || "")}”`;
@@ -708,7 +717,7 @@ function renderRevisePreview(ops, summary) {
       const cur = byId[op.target_id];
       label = `🗑️ Ta bort: ”${esc(cur ? cur.text : "?")}”`;
     } else {
-      label = `➕ Infoga: ”${esc(op.text || "")}” (${TYPE_LABELS[op.type] || op.type || "?"})`;
+      label = `✏️ ${op.op}`;
     }
     item.innerHTML = `<div class="revise-op-text">${label}</div>` +
       (op.reason ? `<div class="revise-reason">${esc(op.reason)}</div>` : "");
@@ -721,46 +730,26 @@ function renderRevisePreview(ops, summary) {
   const ok = document.createElement("button");
   ok.className = "primary";
   ok.textContent = "Godkänn ändringar";
-  ok.onclick = applyRevise;
+  ok.onclick = approveEdits;
   const cancel = document.createElement("button");
   cancel.textContent = "Avbryt";
-  cancel.onclick = () => { pendingOps = null; box.hidden = true; setReviseStatus("Avbröts."); };
+  cancel.onclick = () => { hideEditPreview(); setStatus("Ändringarna ignorerades."); };
   actions.append(ok, cancel);
   box.appendChild(actions);
-  setReviseStatus(`${ops.length} föreslagen ändring – granska och godkänn.`);
-}
 
-async function applyRevise() {
-  if (!pendingOps) return;
-  const els = project.elements;
-  let nextId = els.reduce((m, e) => Math.max(m, e.id), -1) + 1;
-  for (const op of pendingOps) {
-    if (op.op === "replace") {
-      const el = els.find((e) => e.id === op.target_id);
-      if (el) { if (op.text != null) el.text = op.text; if (op.type) el.type = op.type; }
-    } else if (op.op === "delete") {
-      const i = els.findIndex((e) => e.id === op.target_id);
-      if (i >= 0) els.splice(i, 1);
-    } else if (op.op === "insert_after") {
-      const newEl = { id: nextId++, type: op.type || "action", text: op.text || "", confidence: "high", is_gap: false };
-      if (op.target_id == null) {
-        els.unshift(newEl);
-      } else {
-        const i = els.findIndex((e) => e.id === op.target_id);
-        if (i >= 0) els.splice(i + 1, 0, newEl); else els.push(newEl);
-      }
-    }
-  }
-  pendingOps = null;
-  $("revisePreview").hidden = true;
-  $("reviseText").value = "";
-  renderElements();
+  $("editPreviewPanel").hidden = false;
+}
+async function approveEdits() {
+  if (!pendingEdits) return;
+  setStatus("Godkänner ändringar ...", true);
   try {
-    project = await api("PUT", `/api/projects/${project.id}`, { elements: project.elements });
+    const data = await api("POST", `/api/projects/${project.id}/apply-edits`, { operations: pendingEdits });
+    project = data.project;
+    hideEditPreview();
     renderElements();
-    setReviseStatus("Ändringarna tillämpades och sparades ✓");
+    setStatus("Ändringar godkända ✓");
   } catch (e) {
-    setReviseStatus("Tillämpat lokalt men kunde inte spara: " + e.message);
+    setStatus("Kunde inte godkänna: " + e.message);
   }
 }
 

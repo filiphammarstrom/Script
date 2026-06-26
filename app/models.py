@@ -145,3 +145,55 @@ class ReviseResult(BaseModel):
     @classmethod
     def _coerce_ops(cls, v):
         return _as_list(v)
+
+
+# --- Dikteringsläge: ett manus i ständig förändring (lägg till / infoga / ändra / ta bort) ---
+
+
+class NewElement(BaseModel):
+    """Ett nytt element som AI:n vill skriva in (utan id – servern numrerar)."""
+
+    type: ElementType
+    text: str = ""
+    confidence: Literal["high", "medium", "low"] = "high"
+    is_gap: bool = False
+
+
+class DictateOp(BaseModel):
+    """En operation på manuset. Additiva (append/insert_*) tillämpas direkt;
+    modifierande (replace/delete) av befintligt innehåll kräver godkännande."""
+
+    op: Literal["append", "insert_after", "insert_after_scene", "replace", "delete"]
+    target_id: int | None = None      # insert_after / replace / delete: elementets id
+    after_scene: int | None = None    # insert_after_scene: scennummer (1-baserat)
+    type: ElementType | None = None   # replace: ny typ (om den ändras)
+    text: str | None = None           # replace: ny text
+    elements: list[NewElement] = Field(default_factory=list)  # append / insert_*: nya element
+    reason: str = ""                  # kort förklaring (svenska) som visas för användaren
+
+    @field_validator("elements", mode="before")
+    @classmethod
+    def _coerce_elements(cls, v):
+        return _as_list(v)
+
+    def is_additive(self) -> bool:
+        return self.op in ("append", "insert_after", "insert_after_scene")
+
+
+class DictateResult(BaseModel):
+    """AI:ns tolkning av en diktering: blandning av tillägg, infogningar och ändringar."""
+
+    operations: list[DictateOp] = Field(default_factory=list)
+    story_bible_updates: StoryBible = Field(default_factory=StoryBible)
+    clarifications: list[Clarification] = Field(default_factory=list)
+    summary: str = ""
+
+    @field_validator("operations", "clarifications", mode="before")
+    @classmethod
+    def _coerce_lists(cls, v):
+        return _as_list(v)
+
+    @field_validator("story_bible_updates", mode="before")
+    @classmethod
+    def _coerce_bible(cls, v):
+        return _as_obj(v)

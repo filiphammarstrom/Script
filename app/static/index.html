@@ -138,9 +138,11 @@
             </label>
             <span id="audioName" class="status"></span>
           </div>
-          <textarea id="inputText" rows="8" placeholder="Klistra in transkriberad text – eller transkribera/importera ovan ..."></textarea>
+          <p class="hint">Diktera vidare på manuset. Du kan lägga till sist, <em>infoga på en plats</em> ("den här scenen ska in mellan scen 23 och 24") eller <em>ändra/ta bort</em> ("ändra repliken i scen 12 till …") – allt i samma ruta.</p>
+          <textarea id="inputText" rows="8" placeholder="Diktera/klistra in – fortsätt scenen, 'lägg in en scen mellan 23 och 24 …', eller 'ändra repliken i scen 12 till …'"></textarea>
           <div class="row">
-            <button id="analyzeBtn" class="primary">Analysera</button>
+            <button id="analyzeBtn" class="primary">Lägg till / ändra</button>
+            <button id="undoBtn" hidden>↶ Ångra senaste</button>
             <select id="aiEngine" title="AI-motor för manusbygget">
               <option value="anthropic">AI: Claude</option>
               <option value="openai">AI: GPT (OpenAI)</option>
@@ -164,15 +166,10 @@
           </div>
         </section>
 
-        <section class="panel">
-          <h2>Revidera i efterhand</h2>
-          <p class="hint">Diktera/skriv en ändring av det <em>befintliga</em> manuset – t.ex. "fem scener tidigare borde Bobo ha sagt ... i stället". AI:n föreslår exakta ändringar som du godkänner innan något sparas.</p>
-          <textarea id="reviseText" rows="3" placeholder="Beskriv ändringen ..."></textarea>
-          <div class="row">
-            <button id="reviseBtn">Föreslå ändringar</button>
-            <span id="reviseStatus" class="status"></span>
-          </div>
-          <div id="revisePreview" class="revise-preview" hidden></div>
+        <section class="panel" id="editPreviewPanel" hidden>
+          <h2>Ändringar att godkänna</h2>
+          <p class="hint">Dikteringen vill ändra <em>befintligt</em> innehåll. Nytt material är redan inlagt – granska och godkänn ändringarna nedan.</p>
+          <div id="editPreview" class="revise-preview"></div>
         </section>
       </div>
 
