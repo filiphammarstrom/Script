@@ -263,8 +263,25 @@ select { width: auto; min-width: 0; }
    ryms bredvid varandra. */
 main:has(#view-project:not([hidden])) { max-width: 1200px; }
 .elements { max-width: 100%; }
-.scenes-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.scenes-bar {
+  position: sticky; top: 52px; z-index: 5;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  margin-bottom: 10px; padding: 7px 10px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+}
 .script-stats { color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.script-stats b { color: var(--accent); font-weight: 700; }
+.scene-page { margin-left: auto; flex: 0 0 auto; color: var(--accent); font-size: 12px; font-variant-numeric: tabular-nums; }
+/* Sidbrytning som i ett manus: "Sida N" mellan elementen. */
+.page-break {
+  display: flex; align-items: center; gap: 12px;
+  margin: 16px 6px 4px; color: var(--muted);
+  font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; user-select: none;
+}
+.page-break::before, .page-break::after { content: ""; flex: 1; border-top: 1px dashed var(--line); }
+.elements > .page-break { width: 620px; max-width: 100%; }  /* scengräns-brytning i sidbredd */
+.elements.paper .page-break { color: #9a917f; }
+.elements.paper .page-break::before, .elements.paper .page-break::after { border-color: #d8d2c4; }
 .scene-num {
   flex: 0 0 auto; min-width: 1.6em; text-align: center;
   font-size: 12px; font-weight: 700; color: var(--accent);
@@ -278,7 +295,7 @@ main:has(#view-project:not([hidden])) { max-width: 1200px; }
 .scene-head:hover { background: rgba(110, 168, 254, .06); }
 .chev { color: var(--muted); width: 1em; flex: 0 0 auto; }
 .scene-title { font-weight: 600; text-transform: uppercase; letter-spacing: .02em; font-family: "Courier New", monospace; }
-.scene-count { margin-left: auto; color: var(--muted); font-size: 12px; flex: 0 0 auto; }
+.scene-count { margin-left: 10px; color: var(--muted); font-size: 12px; flex: 0 0 auto; }
 .scene.collapsed .scene-body { display: none; }
 
 /* scene-body = en manussida med liten vänstermarginal. */

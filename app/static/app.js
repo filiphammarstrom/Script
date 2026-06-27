@@ -561,21 +561,28 @@ function groupScenes() {
   }
   return groups;
 }
-// Grov uppskattning av antal manussidor (~55 rader/sida). Final Draft räknar
-// exakt vid export – detta är bara en levande indikator medan man skriver.
+// Grov uppskattning av sidor (~55 rader/sida). Final Draft räknar exakt vid export.
+const LINES_PER_PAGE = 55;
+const CPL = { scene_heading: 60, action: 60, general: 60, transition: 60, character: 38, dialogue: 35, parenthetical: 25 };
+function linesFor(el) {
+  let l = Math.max(1, Math.ceil((el.text || "").length / (CPL[el.type] || 60)));
+  if (el.type === "scene_heading" || el.type === "action" || el.type === "transition" || el.type === "character") l += 1;
+  return l;
+}
 function estimatePages(elements) {
-  const CPL = { scene_heading: 60, action: 60, general: 60, transition: 60, character: 38, dialogue: 35, parenthetical: 25 };
   let lines = 0;
-  for (const el of elements) {
-    const cpl = CPL[el.type] || 60;
-    let l = Math.max(1, Math.ceil((el.text || "").length / cpl));
-    if (el.type === "scene_heading" || el.type === "action" || el.type === "transition" || el.type === "character") l += 1;
-    lines += l;
-  }
-  return Math.max(0.1, lines / 55);
+  for (const el of elements) lines += linesFor(el);
+  return Math.max(0.1, lines / LINES_PER_PAGE);
 }
 function fmtPages(p) {
   return (Math.round(p * 10) / 10).toString().replace(".", ",");
+}
+function pageBreakDivider(page) {
+  const pb = document.createElement("div");
+  pb.className = "page-break";
+  pb.dataset.page = page;
+  pb.innerHTML = `<span>Sida ${page}</span>`;
+  return pb;
 }
 function renderElements() {
   const box = $("elements");
@@ -587,6 +594,7 @@ function renderElements() {
 
   const groups = groupScenes();
   const sceneTotal = groups.filter((g) => g.heading).length;
+  const totalPages = Math.max(1, Math.ceil(estimatePages(project.elements)));
 
   const bar = document.createElement("div");
   bar.className = "scenes-bar";
@@ -596,14 +604,22 @@ function renderElements() {
   toggleAll.onclick = () => { scenesCollapsed = !scenesCollapsed; renderElements(); };
   const stats = document.createElement("span");
   stats.className = "script-stats";
-  stats.textContent = `≈ ${fmtPages(estimatePages(project.elements))} sidor · ${sceneTotal} ${sceneTotal === 1 ? "scen" : "scener"}`;
+  stats.innerHTML = `Sida <b id="pageNow">1</b> / ${totalPages} · ${sceneTotal} ${sceneTotal === 1 ? "scen" : "scener"}`;
   bar.append(toggleAll, stats);
   box.appendChild(bar);
 
   let sceneNo = 0;
+  let runningLines = 0;
+  let lastPage = 1;
   for (const g of groups) {
+    const startPage = Math.floor(runningLines / LINES_PER_PAGE) + 1;
+    if (startPage > lastPage) {  // sidbrytning vid scengräns – på toppnivå, syns även när scener är ihopfällda
+      lastPage = startPage;
+      box.appendChild(pageBreakDivider(startPage));
+    }
     const scene = document.createElement("div");
     scene.className = "scene";
+    scene.dataset.page = startPage;
 
     const head = document.createElement("div");
     head.className = "scene-head";
@@ -612,6 +628,10 @@ function renderElements() {
     const title = document.createElement("span");
     title.className = "scene-title";
     title.textContent = g.heading ? (g.heading.text || "(ny scenrubrik)") : "(Före första scenrubriken)";
+    const pageTag = document.createElement("span");
+    pageTag.className = "scene-page";
+    pageTag.textContent = "s. " + startPage;
+    pageTag.title = "Börjar på sida " + startPage;
     const count = document.createElement("span");
     count.className = "scene-count";
     count.textContent = g.items.length + (g.items.length === 1 ? " rad" : " rader");
@@ -621,14 +641,22 @@ function renderElements() {
       num.className = "scene-num";
       num.textContent = sceneNo;
       num.title = `Scen ${sceneNo}`;
-      head.append(chev, num, title, count);
+      head.append(chev, num, title, pageTag, count);
     } else {
-      head.append(chev, title, count);
+      head.append(chev, title, pageTag, count);
     }
 
     const body = document.createElement("div");
     body.className = "scene-body";
-    for (const el of g.items) body.appendChild(elementRow(el));
+    g.items.forEach((el, idx) => {
+      const elPage = Math.floor(runningLines / LINES_PER_PAGE) + 1;
+      if (idx > 0 && elPage > lastPage) {  // sidbrytning mitt i en scen – inuti kroppen
+        lastPage = elPage;
+        body.appendChild(pageBreakDivider(elPage));
+      }
+      body.appendChild(elementRow(el));
+      runningLines += linesFor(el);
+    });
 
     const setCollapsed = (collapsed) => {
       scene.classList.toggle("collapsed", collapsed);
@@ -642,6 +670,31 @@ function renderElements() {
     setCollapsed(scenesCollapsed);
   }
   box.querySelectorAll(".scene:not(.collapsed) .fel-text").forEach(autogrow);
+  bindPageScroll();
+  updatePageIndicator();
+}
+// ---- levande "Sida X / Y" medan man scrollar ----
+let pageScrollBound = false;
+function bindPageScroll() {
+  if (pageScrollBound) return;
+  pageScrollBound = true;
+  let ticking = false;
+  window.addEventListener("scroll", () => {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(() => { updatePageIndicator(); ticking = false; });
+  }, { passive: true });
+}
+function updatePageIndicator() {
+  const now = document.getElementById("pageNow");
+  if (!now) return;
+  const ref = 140;  // referenslinje strax under header + sticky-bar
+  let cur = 1;
+  for (const m of document.querySelectorAll("#elements [data-page]")) {
+    if (m.getBoundingClientRect().top <= ref) cur = parseInt(m.dataset.page, 10) || cur;
+    else break;  // markörerna är i dokumentordning = visuell ordning
+  }
+  now.textContent = cur;
 }
 function moveElement(el, dir) {
   const i = project.elements.indexOf(el);
