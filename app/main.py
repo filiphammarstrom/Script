@@ -67,6 +67,11 @@ class ApplyEditsIn(BaseModel):
     operations: list[DictateOp] = []
 
 
+class SegmentIn(BaseModel):
+    model: str | None = None
+    provider: str | None = None
+
+
 def _ai_key(uid: str, provider: str | None) -> str | None:
     """Användarens egen nyckel för vald AI-motor."""
     secrets = store.load_secrets(uid)
@@ -361,6 +366,26 @@ def apply_edits_project(
     store.apply_edits(project, body.operations)
     store.save_project(uid, project)
     return {"project": project}
+
+
+@app.post("/api/projects/{project_id}/segment")
+def segment_project(
+    project_id: str, body: SegmentIn, uid: str = Depends(auth_mod.current_uid)
+) -> dict:
+    """Föreslå scenrubriker att infoga i ett befintligt manus. Tillämpar inget –
+    klienten visar förslagen och godkänner via /apply-edits."""
+    project = store.load_project(uid, project_id)
+    if project is None:
+        raise HTTPException(404, "Projektet finns inte")
+    settings = store.effective_global_settings(uid)
+    try:
+        result = analyze_mod.segment(
+            project, settings,
+            model=body.model, api_key=_ai_key(uid, body.provider), provider=body.provider or "anthropic",
+        )
+    except Exception as exc:  # saknad API-nyckel, nätverksfel, modellfel ...
+        raise HTTPException(502, f"Indelningen misslyckades: {exc}")
+    return {"operations": [op.model_dump() for op in result.operations], "summary": result.summary}
 
 
 def _run_transcription(
