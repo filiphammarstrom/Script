@@ -858,5 +858,18 @@ async function handleCredential(resp) {
   }
 }
 
+// ---- manus: vitt papper / mörkt läge (sparas) ----
+const PAPER_KEY = "scriptvoice_paper";
+function applyPaper() {
+  const on = localStorage.getItem(PAPER_KEY) === "1";
+  $("elements").classList.toggle("paper", on);
+  $("paperToggle").textContent = on ? "🌙 Mörkt läge" : "📄 Vitt papper";
+}
+$("paperToggle").onclick = () => {
+  localStorage.setItem(PAPER_KEY, localStorage.getItem(PAPER_KEY) === "1" ? "0" : "1");
+  applyPaper();
+};
+
 // ---- init ----
+applyPaper();
 boot();
