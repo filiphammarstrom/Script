@@ -259,9 +259,10 @@ select { width: auto; min-width: 0; }
 .iconbtn { padding: 5px 9px; font-size: 13px; line-height: 1; background: var(--panel-2); color: var(--muted); }
 .iconbtn:hover { border-color: var(--accent); color: var(--ink); transform: none; }
 
-/* Manuset begränsas till en sid-liknande bredd så redigeringsverktygen får
-   en egen högermarginal i stället för att ligga ovanpå texten. */
-.elements { max-width: 880px; }
+/* Projektvyn (manuset) får mer bredd än övriga vyer, så sidan + kontrollerna
+   ryms bredvid varandra. */
+main:has(#view-project:not([hidden])) { max-width: 1200px; }
+.elements { max-width: 100%; }
 .scenes-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
 .script-stats { color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums; }
 .scene-num {
@@ -270,7 +271,9 @@ select { width: auto; min-width: 0; }
   background: rgba(110, 168, 254, .14); border-radius: 6px; padding: 1px 6px;
   font-variant-numeric: tabular-nums;
 }
-.scene { border: 1px solid var(--line); border-radius: 10px; margin-bottom: 10px; overflow: hidden; background: var(--panel-2); }
+/* Sidan är ett fast brett kort; overflow visible så kontrollerna får synas
+   strax utanför kortet till höger. */
+.scene { width: 620px; max-width: 100%; border: 1px solid var(--line); border-radius: 10px; margin-bottom: 10px; overflow: visible; background: var(--panel-2); }
 .scene-head { display: flex; align-items: center; gap: 10px; padding: 12px 14px; cursor: pointer; user-select: none; }
 .scene-head:hover { background: rgba(110, 168, 254, .06); }
 .chev { color: var(--muted); width: 1em; flex: 0 0 auto; }
@@ -278,9 +281,8 @@ select { width: auto; min-width: 0; }
 .scene-count { margin-left: auto; color: var(--muted); font-size: 12px; flex: 0 0 auto; }
 .scene.collapsed .scene-body { display: none; }
 
-/* scene-body = en manussida. Höger padding är en RAIL där redigerings-
-   verktygen sitter, utanför själva sidtexten. */
-.scene-body { position: relative; padding: 10px 250px 18px 28px; background: #0c0e13; font-family: "Courier New", ui-monospace, monospace; }
+/* scene-body = en manussida med liten vänstermarginal. */
+.scene-body { position: relative; padding: 10px 10px 18px 16px; border-radius: 0 0 9px 9px; background: #0c0e13; font-family: "Courier New", ui-monospace, monospace; }
 .fel { position: relative; display: flex; align-items: flex-start; }
 /* Lodrät rytm som ett manus: en tomrad före scenrubrik, handling, ny replikör
    och övergång – men repliken sitter tätt under karaktärsnamnet. */
@@ -307,7 +309,7 @@ select { width: auto; min-width: 0; }
 
 /* Verktygen sitter i högerrailen (utanför sidtexten), i höjd med sitt element. */
 .fel-tools {
-  position: absolute; left: 100%; margin-left: 14px; top: 0; display: flex; gap: 3px; align-items: center;
+  position: absolute; left: 100%; margin-left: 18px; top: 0; display: flex; gap: 3px; align-items: center;
   opacity: .55; transition: opacity .12s ease; background: rgba(12, 14, 19, .92);
   padding: 3px; border-radius: 7px; border: 1px solid var(--line);
 }
