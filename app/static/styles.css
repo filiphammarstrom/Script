@@ -315,6 +315,23 @@ select { width: auto; min-width: 0; }
 .fel-tools select { width: auto; font-size: 12px; padding: 3px 6px; margin: 0; }
 .fel-tools .iconbtn { padding: 3px 7px; }
 
+/* Panel-rubrik med en kontroll till höger (t.ex. papper-växeln). */
+.panel-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.panel-head h2 { margin: 0; }
+
+/* ---- Vitt papper-läge för manuset (växlas, sparas i localStorage) ---- */
+.elements.paper .scene { background: #fbfaf6; border-color: #ddd6c6; box-shadow: 0 1px 6px rgba(0, 0, 0, .30); }
+.elements.paper .scene-head { background: #efe9da; }
+.elements.paper .scene-head:hover { background: #e7e0cf; }
+.elements.paper .scene-title { color: #1a1a1a; }
+.elements.paper .scene-count, .elements.paper .chev { color: #6b6256; }
+.elements.paper .scene-body { background: #fffefb; color: #111; }
+.elements.paper .fel-text { color: #111; }
+.elements.paper .fel-text:hover { border-color: #cfc8b8; }
+.elements.paper .fel-text:focus { background: #fff; border-color: var(--accent); }
+.elements.paper .fel-parenthetical .fel-text { color: #555; }
+.elements.paper .fel.low-conf .fel-text { background: #fbf2cf; }
+
 /* ---- revidera i efterhand ---- */
 .revise-preview { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 14px; }
 .revise-summary { color: var(--ink); margin-bottom: 10px; }
