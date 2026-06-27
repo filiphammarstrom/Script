@@ -366,6 +366,79 @@ def dictate(
     raise RuntimeError("Modellen returnerade ingen strukturerad output (inget tool_use).")
 
 
+# ---- dela in ett befintligt manus i scener (infoga scenrubriker) ----
+
+SEGMENT_RULES = """Du är MANUSSEKRETERARE. Du får ett BEFINTLIGT manus (handling och dialog) som saknar – eller delvis saknar – scenrubriker. Varje element har ett id (id=K).
+
+Din ENDA uppgift: föreslå VAR scenrubriker ska infogas så att manuset blir korrekt indelat i scener. Returnera operationer via verktyget segment_scenes.
+
+- Använd BARA operationen insert_after som infogar ETT scene_heading-element (i `elements`) vid varje scengräns.
+- `target_id` = id för elementet som scenrubriken ska komma EFTER (dvs sista elementet i föregående scen). För en scenrubrik allra FÖRST i manuset: sätt `target_id` till null.
+- Infoga en ny scenrubrik VARJE gång platsen byts. Härled INT./EXT. + PLATS + TID på dygnet ur sammanhanget (t.ex. `EXT. ARENAN – KVÄLL`, `INT. ARENAN, KULISSERNA – KVÄLL`).
+- ÄNDRA INGENTING annat. Skapa inga replace eller delete. Rör inte den befintliga texten – du infogar bara scenrubriker.
+- Hoppa över ställen som redan har en korrekt scenrubrik.
+- Manussekreterarprincipen: härled bara rubriker som sammanhanget rimligen ger; hitta inte på scener som inte finns.
+- summary: kort på svenska, t.ex. "Föreslår 6 scenrubriker."
+"""
+
+
+def _segment_system_text(global_settings: GlobalSettings) -> str:
+    text = SEGMENT_RULES
+    if global_settings.directives.strip():
+        text += (
+            "\n\n# GLOBALA REGLER (för hur scenrubriker skrivs)\n" + global_settings.directives.strip()
+        )
+    return text
+
+
+def _segment_system_blocks(global_settings: GlobalSettings) -> list[dict]:
+    return [{"type": "text", "text": _segment_system_text(global_settings), "cache_control": {"type": "ephemeral"}}]
+
+
+_SEGMENT_TOOL = {
+    "name": "segment_scenes",
+    "description": "Föreslå var scenrubriker ska infogas i ett befintligt manus (ändra inget annat).",
+    "input_schema": DictateResult.model_json_schema(),
+}
+
+
+def _segment_user_content(project: Project) -> str:
+    parts: list[str] = []
+    if project.context.strip():
+        parts.append("# Projektkontext / synopsis\n" + project.context.strip())
+    parts.append("# Story-bibel\n" + project.story_bible.model_dump_json(indent=2))
+    parts.append(
+        "# Nuvarande manus (element-id (id=K) – infoga scenrubriker via dessa)\n" + _numbered_manuscript(project)
+    )
+    return "\n\n".join(parts)
+
+
+def segment(
+    project: Project,
+    global_settings: GlobalSettings,
+    model: str | None = None,
+    api_key: str | None = None,
+    provider: str = "anthropic",
+) -> DictateResult:
+    """Föreslå scenrubriker att infoga i ett befintligt manus. Tillämpar inget –
+    anroparen visar förslagen och tillämpar först efter godkännande."""
+    if (provider or "anthropic").lower() == "openai":
+        return _segment_openai(project, global_settings, model, api_key)
+    client = anthropic.Anthropic(api_key=api_key) if api_key else anthropic.Anthropic()
+    response = client.messages.create(
+        model=model or DEFAULT_MODEL,
+        max_tokens=8000,
+        system=_segment_system_blocks(global_settings),
+        tools=[_SEGMENT_TOOL],
+        tool_choice={"type": "tool", "name": "segment_scenes"},
+        messages=[{"role": "user", "content": _segment_user_content(project)}],
+    )
+    for block in response.content:
+        if block.type == "tool_use":
+            return DictateResult.model_validate(block.input)
+    raise RuntimeError("Modellen returnerade inga förslag (inget tool_use).")
+
+
 # ---- OpenAI (GPT) som alternativ motor ----
 
 def _openai_client(api_key: str | None):
@@ -428,6 +501,20 @@ def _dictate_openai(project, text, global_settings, model, api_key) -> DictateRe
         _dictate_user_content(project, text),
         "edit_screenplay",
         "Tolka dikteringen och returnera operationer som bygger om manuset.",
+        DictateResult.model_json_schema(),
+    )
+    return DictateResult.model_validate_json(args)
+
+
+def _segment_openai(project, global_settings, model, api_key) -> DictateResult:
+    client = _openai_client(api_key)
+    args = _openai_function_call(
+        client,
+        model or OPENAI_ANALYZE_MODEL,
+        _segment_system_text(global_settings),
+        _segment_user_content(project),
+        "segment_scenes",
+        "Föreslå var scenrubriker ska infogas i ett befintligt manus.",
         DictateResult.model_json_schema(),
     )
     return DictateResult.model_validate_json(args)

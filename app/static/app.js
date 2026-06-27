@@ -690,6 +690,21 @@ $("exportBtn").onclick = async () => {
   URL.revokeObjectURL(a.href);
 };
 
+$("segmentBtn").onclick = async () => {
+  if (!project || !project.elements.length) { setStatus("Inget manus att dela in än."); return; }
+  setStatus("Delar in i scener ...", true);
+  try {
+    const data = await api("POST", `/api/projects/${project.id}/segment`, { provider: $("aiEngine").value });
+    const ops = data.operations || [];
+    if (!ops.length) { setStatus(data.summary || "Inga scengränser hittades."); return; }
+    undoSnapshot = JSON.parse(JSON.stringify(project.elements));  // för ångra efter godkännande
+    showEditPreview(ops);
+    setStatus(data.summary || `${ops.length} scenrubriker att godkänna.`);
+  } catch (e) {
+    setStatus("Fel: " + e.message);
+  }
+};
+
 // ---- ändringar av befintligt innehåll: granska & godkänn ----
 let pendingEdits = null;
 function hideEditPreview() {
@@ -717,7 +732,10 @@ function showEditPreview(ops) {
       const cur = byId[op.target_id];
       label = `🗑️ Ta bort: ”${esc(cur ? cur.text : "?")}”`;
     } else {
-      label = `✏️ ${op.op}`;
+      // insert_after / insert_after_scene / append: visa de nya elementens text
+      const txt = (op.elements || []).map((e) => e.text).filter(Boolean).join(" / ");
+      const cur = op.target_id != null ? byId[op.target_id] : null;
+      label = `➕ Infoga: ”${esc(txt)}”` + (cur ? ` (efter ”${esc(cur.text)}”)` : " (först)");
     }
     item.innerHTML = `<div class="revise-op-text">${label}</div>` +
       (op.reason ? `<div class="revise-reason">${esc(op.reason)}</div>` : "");
@@ -747,6 +765,7 @@ async function approveEdits() {
     project = data.project;
     hideEditPreview();
     renderElements();
+    if (undoSnapshot) $("undoBtn").hidden = false;
     setStatus("Ändringar godkända ✓");
   } catch (e) {
     setStatus("Kunde inte godkänna: " + e.message);
