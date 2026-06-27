@@ -532,6 +532,7 @@ function elementRow(el) {
   }
   sel.onchange = () => { el.type = sel.value; renderElements(); };  // typbyte kan ändra scenindelning
   tools.appendChild(sel);
+  tools.appendChild(iconBtn("+", "Infoga rad under", () => insertElementAfter(el)));
   tools.appendChild(iconBtn("↑", "Flytta upp", () => moveElement(el, -1)));
   tools.appendChild(iconBtn("↓", "Flytta ner", () => moveElement(el, 1)));
   tools.appendChild(iconBtn("✕", "Ta bort raden", () => deleteElement(el)));
@@ -580,7 +581,7 @@ function renderElements() {
   const box = $("elements");
   box.innerHTML = "";
   if (!project.elements.length) {
-    box.innerHTML = '<p class="hint">Inget manus än – transkribera/klistra in text och tryck Analysera.</p>';
+    box.innerHTML = '<p class="hint">Inget manus än – diktera/klistra in text, eller tryck <strong>+ Lägg till rad</strong>.</p>';
     return;
   }
 
@@ -658,6 +659,33 @@ function deleteElement(el) {
   renderElements();
   setStatus('Rad borttagen – glöm inte "Spara ändringar".');
 }
+// ---- manuellt lägga till rader (som i Final Draft) ----
+function newBlankElement(type) {
+  const id = project.elements.reduce((m, e) => Math.max(m, e.id), -1) + 1;
+  return { id, type: type || "action", text: "", confidence: "high", is_gap: false };
+}
+function focusElement(id) {
+  const ta = document.querySelector(`.fel[data-id="${id}"] .fel-text`);
+  if (ta) { ta.focus(); autogrow(ta); }
+}
+function insertElementAfter(el) {
+  const i = project.elements.indexOf(el);
+  if (i < 0) return;
+  const ne = newBlankElement(el.type === "character" ? "dialogue" : "action");
+  project.elements.splice(i + 1, 0, ne);
+  renderElements();
+  focusElement(ne.id);
+  setStatus('Ny rad – välj typ, skriv, och "Spara ändringar".');
+}
+function appendElement() {
+  if (!project) return;
+  const ne = newBlankElement(project.elements.length ? "action" : "scene_heading");
+  project.elements.push(ne);
+  renderElements();
+  focusElement(ne.id);
+  setStatus('Ny rad – välj typ, skriv, och "Spara ändringar".');
+}
+$("addRowBtn").onclick = appendElement;
 function highlightElement(id) {
   showProjectTab("manus");
   const row = document.querySelector(`.fel[data-id="${id}"]`);
