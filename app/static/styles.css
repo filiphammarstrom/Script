@@ -278,7 +278,9 @@ select { width: auto; min-width: 0; }
 .scene-count { margin-left: auto; color: var(--muted); font-size: 12px; flex: 0 0 auto; }
 .scene.collapsed .scene-body { display: none; }
 
-.scene-body { padding: 6px 18px 16px; background: #0c0e13; font-family: "Courier New", ui-monospace, monospace; }
+/* scene-body = en manussida. Höger padding är en RAIL där redigerings-
+   verktygen sitter, utanför själva sidtexten. */
+.scene-body { position: relative; padding: 10px 250px 18px 28px; background: #0c0e13; font-family: "Courier New", ui-monospace, monospace; }
 .fel { position: relative; display: flex; align-items: flex-start; }
 /* Lodrät rytm som ett manus: en tomrad före scenrubrik, handling, ny replikör
    och övergång – men repliken sitter tätt under karaktärsnamnet. */
@@ -287,7 +289,7 @@ select { width: auto; min-width: 0; }
 .fel.fel-dialogue, .fel.fel-parenthetical { margin-top: 0; }
 .scene-body > .fel:first-child { margin-top: 0; }
 .fel-text {
-  flex: 1; max-width: 58ch; background: transparent; border: 1px solid transparent; border-radius: 5px;
+  flex: 1; background: transparent; border: 1px solid transparent; border-radius: 5px;
   resize: none; overflow: hidden; font-family: "Courier New", ui-monospace, monospace;
   color: var(--ink); padding: 2px 6px; margin: 0; line-height: 1.5;
 }
@@ -295,17 +297,18 @@ select { width: auto; min-width: 0; }
 .fel-text:focus { outline: none; border-color: var(--accent); background: #0c0e13; box-shadow: none; }
 /* Manus-indrag per typ (web-approximation av Final Draft, i monospace-tecken). */
 .fel-scene_heading .fel-text { text-transform: uppercase; font-weight: 700; }
-.fel-character .fel-text { text-transform: uppercase; margin-left: 12ch; max-width: 30ch; }
-.fel-dialogue .fel-text { margin-left: 6ch; max-width: 35ch; }
-.fel-parenthetical .fel-text { margin-left: 10ch; max-width: 25ch; font-style: italic; color: var(--muted); }
+.fel-character .fel-text { text-transform: uppercase; margin-left: 22ch; max-width: 38ch; }
+.fel-dialogue .fel-text { margin-left: 10ch; max-width: 35ch; }
+.fel-parenthetical .fel-text { margin-left: 16ch; max-width: 26ch; font-style: italic; color: var(--muted); }
 .fel-transition .fel-text { text-transform: uppercase; text-align: right; }
 .fel.low-conf .fel-text { background: #2a2516; }
 .fel.flash .fel-text { background: var(--flash); transition: background .3s; }
 .fel .gap { align-self: center; margin-left: 8px; color: var(--warn); font-weight: 600; font-size: 11px; flex: 0 0 auto; }
 
+/* Verktygen sitter i högerrailen (utanför sidtexten), i höjd med sitt element. */
 .fel-tools {
-  position: absolute; right: 4px; top: 2px; display: flex; gap: 3px; align-items: center;
-  opacity: .4; transition: opacity .12s ease; background: rgba(12, 14, 19, .92);
+  position: absolute; left: 100%; margin-left: 14px; top: 0; display: flex; gap: 3px; align-items: center;
+  opacity: .55; transition: opacity .12s ease; background: rgba(12, 14, 19, .92);
   padding: 3px; border-radius: 7px; border: 1px solid var(--line);
 }
 .fel:hover .fel-tools, .fel-text:focus + .fel-tools { opacity: 1; }
