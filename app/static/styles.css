@@ -274,6 +274,16 @@ main:has(#view-project:not([hidden])) { max-width: 1200px; }
 .savestate { align-self: center; font-size: 12.5px; color: var(--muted); }
 .savestate.ok { color: var(--good); }
 .savestate.err { color: var(--bad, #e06a6a); }
+
+/* Scen-navigator (outline) */
+.scene-outline { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; max-height: 300px; overflow: auto; }
+.outline-item { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); cursor: pointer; }
+.outline-item:hover { border-color: var(--accent); }
+.outline-item.dragging { opacity: .45; }
+.outline-item.dragover { border-style: dashed; border-color: var(--accent); }
+.ol-num { flex: 0 0 auto; min-width: 1.6em; text-align: center; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+.ol-title { flex: 1; min-width: 0; text-transform: uppercase; font-family: "Courier New", monospace; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ol-page { flex: 0 0 auto; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
 #recordBtn.recording {
   background: #b23b3b; border-color: #d65a5a; color: #fff;
   animation: recpulse 1.2s ease-in-out infinite;

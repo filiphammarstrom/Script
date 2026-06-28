@@ -639,6 +639,7 @@ function renderElements() {
   box.innerHTML = "";
   if (!project.elements.length) {
     box.innerHTML = '<p class="hint">Inget manus än – diktera/klistra in text, eller tryck <strong>+ Lägg till rad</strong>.</p>';
+    $("outlinePanel").hidden = true;
     return;
   }
 
@@ -724,6 +725,59 @@ function renderElements() {
   box.querySelectorAll(".scene:not(.collapsed) .fel-text").forEach(autogrow);
   bindPageScroll();
   updatePageIndicator();
+  renderOutline();
+}
+// ---- scen-navigator: hoppa mellan scener + dra för att flytta hela scener ----
+function renderOutline() {
+  const ol = $("sceneOutline");
+  const groups = groupScenes();
+  const headedCount = groups.filter((g) => g.heading).length;
+  $("outlinePanel").hidden = headedCount < 2;  // visa bara när det finns något att navigera
+  ol.innerHTML = "";
+  if (headedCount < 2) return;
+  let runningLines = 0;
+  let sceneNo = 0;
+  for (const g of groups) {
+    const startPage = Math.floor(runningLines / LINES_PER_PAGE) + 1;
+    if (g.heading) {
+      sceneNo += 1;
+      const no = sceneNo;
+      const li = document.createElement("li");
+      li.className = "outline-item";
+      li.draggable = true;
+      li.innerHTML = `<span class="ol-num">${no}</span>` +
+        `<span class="ol-title">${esc(g.heading.text || "(ny scenrubrik)")}</span>` +
+        `<span class="ol-page">s. ${startPage}</span>`;
+      li.onclick = () => highlightElement(g.heading.id);
+      li.ondragstart = (e) => { e.dataTransfer.setData("text/plain", String(no)); li.classList.add("dragging"); };
+      li.ondragend = () => li.classList.remove("dragging");
+      li.ondragover = (e) => { e.preventDefault(); li.classList.add("dragover"); };
+      li.ondragleave = () => li.classList.remove("dragover");
+      li.ondrop = (e) => {
+        e.preventDefault();
+        li.classList.remove("dragover");
+        reorderScene(parseInt(e.dataTransfer.getData("text/plain"), 10), no);
+      };
+      ol.appendChild(li);
+    }
+    for (const el of g.items) runningLines += linesFor(el);
+  }
+}
+function reorderScene(from, to) {
+  if (!from || !to || from === to) return;
+  const groups = groupScenes();
+  const lead = (groups[0] && !groups[0].heading) ? groups[0].items : [];
+  const headed = groups.filter((g) => g.heading);
+  const fromIdx = from - 1, toIdx = to - 1;
+  if (fromIdx < 0 || fromIdx >= headed.length || toIdx < 0 || toIdx >= headed.length) return;
+  const [moved] = headed.splice(fromIdx, 1);
+  headed.splice(toIdx, 0, moved);
+  const next = [...lead];
+  for (const g of headed) next.push(...g.items);
+  project.elements = next;
+  renderElements();
+  scheduleSave();
+  highlightElement(moved.heading.id);
 }
 // ---- levande "Sida X / Y" medan man scrollar ----
 let pageScrollBound = false;
