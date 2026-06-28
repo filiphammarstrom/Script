@@ -168,6 +168,9 @@ pytest tests/test_fdx.py
 7. **Dela skrivskyddat** (Projektinställningar → *Dela skrivskyddat*): skapa en länk så
    andra kan *läsa* manuset och lämna kommentarer utan att kunna ändra något. Tittarnas
    kommentarer dyker upp i din kommentarslista under Manus. *Sluta dela* återkallar länken.
+8. **Översikt:** växla mellan **Manus** och **Korktavla** (scener som index-kort du drar om),
+   sök & ersätt (t.ex. byt namn på en karaktär), och **Rapporter** (repliker/ord per karaktär,
+   scenöversikt med sidor).
 
 ## Status / nästa steg
 

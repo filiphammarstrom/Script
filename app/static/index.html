@@ -195,11 +195,15 @@
 
         <section class="panel">
           <div class="panel-head">
-            <h2>Manus</h2>
+            <div class="view-toggle">
+              <button id="viewScriptBtn" class="seg active">📄 Manus</button>
+              <button id="viewBoardBtn" class="seg">🗂️ Korktavla</button>
+            </div>
             <button id="paperToggle" class="linkbtn" title="Växla mellan vitt papper och mörkt läge">📄 Vitt papper</button>
           </div>
-          <p class="hint editor-hint"><kbd>Enter</kbd> ny rad · <kbd>Shift</kbd>+<kbd>Enter</kbd> radbrytning · <kbd>Tab</kbd> byt typ · <kbd>⌫</kbd> först på raden slår ihop uppåt · skriv <kbd>INT.</kbd>/<kbd>EXT.</kbd> för scenrubrik</p>
+          <p class="hint editor-hint" id="editorHint"><kbd>Enter</kbd> ny rad · <kbd>Shift</kbd>+<kbd>Enter</kbd> radbrytning · <kbd>Tab</kbd> byt typ · <kbd>⌫</kbd> först på raden slår ihop uppåt · skriv <kbd>INT.</kbd>/<kbd>EXT.</kbd> för scenrubrik</p>
           <div id="elements" class="elements"></div>
+          <div id="corkboard" class="corkboard" hidden></div>
           <div class="row wrap">
             <label class="filelabel">Importera manus (FDX/Fountain)
               <input type="file" id="importFile" accept=".fdx,.fountain,.txt,.text" hidden>

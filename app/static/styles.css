@@ -405,6 +405,27 @@ kbd {
 .ac-item { padding: 5px 10px; border-radius: 5px; cursor: pointer; white-space: nowrap; color: var(--muted); }
 .ac-item.active, .ac-item:hover { background: rgba(110, 168, 254, .18); color: var(--ink); }
 
+/* Vy-växel manus / korktavla (segmenterad kontroll) */
+.view-toggle { display: inline-flex; gap: 2px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 2px; }
+.seg { background: none; border: none; border-radius: 6px; padding: 5px 12px; color: var(--muted); font-size: 13px; }
+.seg:hover { transform: none; border: none; color: var(--ink); }
+.seg.active { background: var(--accent); color: #0b0d11; font-weight: 600; }
+
+/* Korktavla: scener som index-kort man kan dra om */
+.corkboard { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; }
+.card { display: flex; flex-direction: column; gap: 6px; min-height: 130px; padding: 12px; cursor: pointer;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; transition: all .15s ease; }
+.card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: var(--shadow); }
+.card.dragging { opacity: .45; }
+.card.dragover { border-style: dashed; border-color: var(--accent); }
+.card-head { display: flex; align-items: center; justify-content: space-between; }
+.card-no { font-weight: 700; color: var(--accent); background: rgba(110, 168, 254, .14); border-radius: 6px; padding: 1px 8px; font-variant-numeric: tabular-nums; }
+.card-page { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.card-title { font-family: "Courier New", monospace; text-transform: uppercase; font-weight: 700; font-size: 13px; }
+.card-body { flex: 1; color: var(--muted); font-size: 13px; overflow: hidden;
+  display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; }
+.card-foot { color: var(--muted); font-size: 11px; border-top: 1px solid var(--line); padding-top: 6px; }
+
 /* Panel-rubrik med en kontroll till höger (t.ex. papper-växeln). */
 .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .panel-head h2 { margin: 0; }

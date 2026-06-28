@@ -245,6 +245,7 @@ function openProject(p) {
   $("projDirectives").value = p.directives;
   renderBible();
   renderElements();
+  setManusView("script");  // alltid manusvy när ett projekt öppnas
   $("clarPanel").hidden = true;
   $("clarifications").innerHTML = "";
   $("inputText").value = "";
@@ -867,6 +868,69 @@ function reorderScene(from, to) {
   scheduleSave();
   highlightElement(moved.heading.id);
 }
+
+// ---- korktavla (scener som index-kort) ----
+let manusView = "script";
+function setManusView(v) {
+  manusView = v;
+  const board = v === "board";
+  $("elements").hidden = board;
+  $("corkboard").hidden = !board;
+  $("editorHint").hidden = board;
+  $("paperToggle").hidden = board;
+  $("viewScriptBtn").classList.toggle("active", !board);
+  $("viewBoardBtn").classList.toggle("active", board);
+  if (board) renderCorkboard();
+}
+function scenePreview(headingId) {
+  const els = project.elements;
+  const i = els.findIndex((e) => e.id === headingId);
+  if (i < 0) return "";
+  let firstAny = "";
+  for (let j = i + 1; j < els.length; j++) {
+    if (els[j].type === "scene_heading") break;
+    const t = (els[j].text || "").trim();
+    if (!t) continue;
+    if (els[j].type === "action") return t;       // helst första action-raden
+    if (!firstAny) firstAny = t;
+  }
+  return firstAny;
+}
+function renderCorkboard() {
+  const box = $("corkboard");
+  box.innerHTML = "";
+  const scenes = sceneReport();
+  if (!scenes.length) {
+    box.innerHTML = '<p class="hint">Inga scener än – skriv scenrubriker i manuset (eller diktera) först.</p>';
+    return;
+  }
+  for (const s of scenes) {
+    const card = document.createElement("div");
+    card.className = "card";
+    card.draggable = true;
+    card.dataset.no = s.no;
+    card.innerHTML =
+      `<div class="card-head"><span class="card-no">${s.no}</span><span class="card-page">s. ${s.page}</span></div>` +
+      `<div class="card-title">${esc(s.heading)}</div>` +
+      `<div class="card-body">${esc(scenePreview(s.id))}</div>` +
+      `<div class="card-foot">${s.rows} rader${s.chars.length ? " · " + esc(s.chars.join(", ")) : ""}</div>`;
+    card.onclick = () => { setManusView("script"); highlightElement(s.id); };
+    card.ondragstart = (e) => { e.dataTransfer.setData("text/plain", String(s.no)); card.classList.add("dragging"); };
+    card.ondragend = () => card.classList.remove("dragging");
+    card.ondragover = (e) => { e.preventDefault(); card.classList.add("dragover"); };
+    card.ondragleave = () => card.classList.remove("dragover");
+    card.ondrop = (e) => {
+      e.preventDefault();
+      card.classList.remove("dragover");
+      reorderScene(parseInt(e.dataTransfer.getData("text/plain"), 10), s.no);
+      renderCorkboard();  // bygg om brädet i den nya ordningen
+    };
+    box.appendChild(card);
+  }
+}
+$("viewScriptBtn").onclick = () => setManusView("script");
+$("viewBoardBtn").onclick = () => setManusView("board");
+
 // ---- levande "Sida X / Y" medan man scrollar ----
 let pageScrollBound = false;
 function bindPageScroll() {
