@@ -177,6 +177,16 @@
           </div>
         </section>
 
+        <section class="panel">
+          <h2>Fråga manuset <span class="hint">(AI-assistent)</span></h2>
+          <div class="row">
+            <input id="askInput" placeholder="T.ex. 'hur lång är akt 1?', 'sammanfatta scen 3', 'hitta kontinuitetsfel'">
+            <button id="askBtn" class="primary">Fråga</button>
+            <span id="askStatus" class="status"></span>
+          </div>
+          <div id="askAnswer" class="ask-answer" hidden></div>
+        </section>
+
         <section class="panel" id="editPreviewPanel" hidden>
           <h2>Ändringar att godkänna</h2>
           <p class="hint">Dikteringen vill ändra <em>befintligt</em> innehåll. Nytt material är redan inlagt – granska och godkänn ändringarna nedan.</p>

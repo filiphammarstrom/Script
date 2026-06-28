@@ -271,6 +271,7 @@ main:has(#view-project:not([hidden])) { max-width: 1200px; }
 }
 .script-stats { color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums; }
 .script-stats b { color: var(--accent); font-weight: 700; }
+.ask-answer { white-space: pre-wrap; margin-top: 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); line-height: 1.55; }
 .savestate { align-self: center; font-size: 12.5px; color: var(--muted); }
 .savestate.ok { color: var(--good); }
 .savestate.err { color: var(--bad, #e06a6a); }

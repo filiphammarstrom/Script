@@ -46,6 +46,7 @@ function mkStatus(id) {
 const setStatus = mkStatus("status");
 const setGlobalStatus = mkStatus("globalStatus");
 const setProjSetStatus = mkStatus("projSetStatus");
+const setAskStatus = mkStatus("askStatus");
 const setBaseStatus = mkStatus("baseStatus");
 const setAccessStatus = mkStatus("accessStatus");
 const setKeysStatus = mkStatus("keysStatus");
@@ -909,6 +910,23 @@ $("exportBtn").onclick = async () => {
   a.click();
   URL.revokeObjectURL(a.href);
 };
+
+// ---- fråga manuset (AI-assistent) ----
+$("askBtn").onclick = async () => {
+  const q = $("askInput").value.trim();
+  if (!q) { setAskStatus("Skriv en fråga först."); return; }
+  setAskStatus("Tänker ...", true);
+  $("askAnswer").hidden = true;
+  try {
+    const data = await api("POST", `/api/projects/${project.id}/ask`, { question: q, provider: $("aiEngine").value });
+    $("askAnswer").textContent = data.answer || "(tomt svar)";
+    $("askAnswer").hidden = false;
+    setAskStatus("");
+  } catch (e) {
+    setAskStatus("Fel: " + e.message);
+  }
+};
+$("askInput").onkeydown = (e) => { if (e.key === "Enter") $("askBtn").click(); };
 
 // ---- skriv ut / spara som PDF (fristående, manusformaterat dokument) ----
 $("printBtn").onclick = () => {

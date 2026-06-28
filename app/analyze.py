@@ -366,6 +366,52 @@ def dictate(
     raise RuntimeError("Modellen returnerade ingen strukturerad output (inget tool_use).")
 
 
+# ---- fråga manuset (AI-assistent, fritextsvar) ----
+
+ASK_RULES = (
+    "Du är en kunnig manus-assistent. Svara kort och konkret på användarens fråga om manuset, "
+    "enbart utifrån dess faktiska innehåll och story-bibel. Framgår inte svaret – säg det. Hitta inte på. "
+    "Svara på samma språk som frågan."
+)
+
+
+def _ask_user_content(project: Project, question: str) -> str:
+    parts = []
+    if project.context.strip():
+        parts.append("# Projektkontext\n" + project.context.strip())
+    parts.append("# Story-bibel\n" + project.story_bible.model_dump_json(indent=2))
+    parts.append("# Manus (scennummer [SCEN N], element-id (id=K))\n" + _numbered_manuscript(project))
+    parts.append("# Fråga\n" + question)
+    return "\n\n".join(parts)
+
+
+def ask(
+    project: Project,
+    question: str,
+    model: str | None = None,
+    api_key: str | None = None,
+    provider: str = "anthropic",
+) -> str:
+    """Svara i fritext på en fråga om manuset (ingen strukturerad output)."""
+    user = _ask_user_content(project, question)
+    if (provider or "anthropic").lower() == "openai":
+        client = _openai_client(api_key)
+        resp = client.chat.completions.create(
+            model=model or OPENAI_ANALYZE_MODEL,
+            messages=[{"role": "system", "content": ASK_RULES}, {"role": "user", "content": user}],
+        )
+        return (resp.choices[0].message.content or "").strip() or "(tomt svar)"
+    client = anthropic.Anthropic(api_key=api_key) if api_key else anthropic.Anthropic()
+    response = client.messages.create(
+        model=model or DEFAULT_MODEL,
+        max_tokens=1500,
+        system=[{"type": "text", "text": ASK_RULES}],
+        messages=[{"role": "user", "content": user}],
+    )
+    text = "".join(b.text for b in response.content if b.type == "text").strip()
+    return text or "(tomt svar)"
+
+
 # ---- OpenAI (GPT) som alternativ motor ----
 
 def _openai_client(api_key: str | None):
