@@ -13,6 +13,8 @@ const TYPE_LABELS = {
 let scenesCollapsed = false;
 let project = null;
 let undoSnapshot = null;  // manusets element FÖRE senaste diktering (för ångra)
+const SHARE_TOKEN = new URLSearchParams(location.search).get("share");  // ?share=… = skrivskyddad tittarvy
+let sharedToken = null;  // aktiv delningstoken i tittarvyn
 
 async function api(method, url, body) {
   const opts = { method, headers: {} };
@@ -49,6 +51,8 @@ const setProjSetStatus = mkStatus("projSetStatus");
 const setAskStatus = mkStatus("askStatus");
 const setVersionStatus = mkStatus("versionStatus");
 const setCommentStatus = mkStatus("commentStatus");
+const setShareStatus = mkStatus("shareStatus");
+const setSharedCommentStatus = mkStatus("sharedCommentStatus");
 const setBaseStatus = mkStatus("baseStatus");
 const setAccessStatus = mkStatus("accessStatus");
 const setKeysStatus = mkStatus("keysStatus");
@@ -240,6 +244,8 @@ function openProject(p) {
   $("versionsList").innerHTML = "";
   $("commentsDetails").open = false;
   $("commentsList").innerHTML = "";
+  renderShareState(null);
+  setShareStatus("");
   $("askAnswer").hidden = true;
   setStatus("");
   setProjSetStatus("");
@@ -254,7 +260,7 @@ function showProjectTab(name) {
   $("tabSettingsBtn").classList.toggle("active", name === "projset");
 }
 $("tabManusBtn").onclick = () => showProjectTab("manus");
-$("tabSettingsBtn").onclick = () => showProjectTab("projset");
+$("tabSettingsBtn").onclick = () => { showProjectTab("projset"); loadShareStatus(); };
 $("backToProjects").onclick = async () => {
   flushSave();
   await loadProjectList();
@@ -1043,6 +1049,154 @@ async function deleteComment(cid) {
 }
 $("commentsDetails").ontoggle = () => { if ($("commentsDetails").open) loadComments(); };
 
+// ---- skrivskyddad delning (ägarsidan) ----
+function shareUrl(token) {
+  return location.origin + location.pathname + "?share=" + token;
+}
+function renderShareState(token) {
+  const has = !!token;
+  if (has) $("shareLink").value = shareUrl(token);
+  $("shareLinkRow").hidden = !has;
+  $("revokeShareBtn").hidden = !has;
+  $("createShareBtn").disabled = has;
+  $("createShareBtn").textContent = has ? "🔗 Delningslänk aktiv" : "🔗 Skapa delningslänk";
+}
+async function loadShareStatus() {
+  if (!project) return;
+  try {
+    renderShareState((await api("GET", `/api/projects/${project.id}/share`)).token);
+  } catch (_) { /* tyst */ }
+}
+$("createShareBtn").onclick = async () => {
+  setShareStatus("Skapar länk ...", true);
+  try {
+    renderShareState((await api("POST", `/api/projects/${project.id}/share`)).token);
+    setShareStatus("Länk skapad ✓ – vem som helst med länken kan läsa och kommentera.");
+  } catch (e) { setShareStatus("Kunde inte skapa: " + e.message); }
+};
+$("revokeShareBtn").onclick = async () => {
+  if (!confirm("Sluta dela? Den befintliga länken slutar fungera direkt.")) return;
+  setShareStatus("Återkallar ...", true);
+  try {
+    await api("DELETE", `/api/projects/${project.id}/share`);
+    renderShareState(null);
+    setShareStatus("Delningen är avslutad.");
+  } catch (e) { setShareStatus("Kunde inte avsluta: " + e.message); }
+};
+$("copyShareBtn").onclick = async () => {
+  const link = $("shareLink").value;
+  try {
+    await navigator.clipboard.writeText(link);
+  } catch (_) {
+    $("shareLink").select();
+    document.execCommand("copy");
+  }
+  setShareStatus("Länk kopierad ✓");
+};
+
+// ---- skrivskyddad tittarvy (delningslänk öppnad med ?share=…) ----
+function renderSharedScript(elements) {
+  const box = $("sharedScript");
+  box.innerHTML = "";
+  if (!elements.length) { box.innerHTML = '<p class="hint">Manuset är tomt än.</p>'; return; }
+  let sceneNo = 0;
+  let body = null;
+  for (const el of elements) {
+    if (el.type === "scene_heading" || body === null) {
+      const scene = document.createElement("div");
+      scene.className = "scene ro-scene";
+      body = document.createElement("div");
+      body.className = "scene-body";
+      if (el.type === "scene_heading") scene.dataset.scene = sceneNo + 1;
+      scene.appendChild(body);
+      box.appendChild(scene);
+    }
+    const d = document.createElement("div");
+    d.className = "ro-el ro-" + el.type;
+    if (el.type === "scene_heading") {
+      sceneNo += 1;
+      d.innerHTML = `<span class="ro-scene-num">${sceneNo}</span>` +
+        `<span class="ro-scene-text">${esc(el.text || "(scenrubrik)")}</span>`;
+    } else {
+      d.textContent = el.text || "";
+    }
+    body.appendChild(d);
+  }
+}
+function renderSharedComments(comments) {
+  const box = $("sharedCommentsList");
+  box.innerHTML = "";
+  if (!comments.length) { box.innerHTML = '<p class="hint">Inga kommentarer än – bli först!</p>'; return; }
+  for (const c of comments) {
+    const row = document.createElement("div");
+    row.className = "comment-row";
+    const head = document.createElement("div");
+    head.className = "comment-head";
+    head.innerHTML = `<span class="c-author">${esc(c.author || "")}</span><span class="c-meta">${esc(c.ts || "")}</span>`;
+    if (c.scene) {
+      const tag = document.createElement("button");
+      tag.className = "linkbtn c-scene";
+      tag.textContent = `Scen ${c.scene}`;
+      tag.onclick = () => {
+        const card = document.querySelector(`#sharedScript .ro-scene[data-scene="${c.scene}"]`);
+        if (card) card.scrollIntoView({ behavior: "smooth", block: "start" });
+      };
+      head.appendChild(tag);
+    }
+    const body = document.createElement("div");
+    body.className = "comment-text";
+    body.textContent = c.text;
+    row.append(head, body);
+    box.appendChild(row);
+  }
+}
+async function openShared(token) {
+  sharedToken = token;
+  $("loginOverlay").hidden = true;
+  const nav = document.querySelector(".topnav");
+  if (nav) nav.hidden = true;
+  $("sharedCommentAuthor").value = localStorage.getItem("scriptvoice_guest_name") || "";
+  try {
+    const data = await api("GET", `/api/shared/${token}`);
+    $("sharedTitle").textContent = data.title || "Manus";
+    $("sharedAuthor").textContent = data.author ? "av " + data.author : "";
+    renderSharedScript(data.elements || []);
+    renderSharedComments(data.comments || []);
+    showView("shared");
+    applyPaper();
+  } catch (e) {
+    showView("shared");
+    $("sharedTitle").textContent = "Länken fungerar inte";
+    $("sharedAuthor").textContent = "";
+    $("sharedScript").innerHTML = `<p class="hint">${esc(e.message)}</p>`;
+    $("sharedCommentsList").innerHTML = "";
+    const addRow = document.querySelector("#view-shared .comment-add");
+    if (addRow) addRow.style.display = "none";
+  }
+}
+$("sharedAddCommentBtn").onclick = async () => {
+  const text = $("sharedCommentText").value.trim();
+  if (!text) { setSharedCommentStatus("Skriv en kommentar först."); return; }
+  const sceneVal = parseInt($("sharedCommentScene").value, 10);
+  const author = $("sharedCommentAuthor").value.trim();
+  setSharedCommentStatus("Sparar ...", true);
+  try {
+    const data = await api("POST", `/api/shared/${sharedToken}/comments`, {
+      author, text, scene: Number.isFinite(sceneVal) ? sceneVal : null,
+    });
+    $("sharedCommentText").value = "";
+    $("sharedCommentScene").value = "";
+    if (author) localStorage.setItem("scriptvoice_guest_name", author);
+    renderSharedComments(data.comments || []);
+    setSharedCommentStatus("Tack för din kommentar ✓");
+  } catch (e) { setSharedCommentStatus("Fel: " + e.message); }
+};
+$("sharedCommentText").onkeydown = (e) => { if (e.key === "Enter") $("sharedAddCommentBtn").click(); };
+$("sharedPaperToggle").onclick = () => {
+  localStorage.setItem(PAPER_KEY, localStorage.getItem(PAPER_KEY) === "1" ? "0" : "1");
+  applyPaper();
+};
+
 // ---- fråga manuset (AI-assistent) ----
 $("askBtn").onclick = async () => {
   const q = $("askInput").value.trim();
@@ -1192,6 +1346,7 @@ $("saveKeysBtn").onclick = async () => {
 let appConfig = {};
 async function boot() {
   try { appConfig = await api("GET", "/api/config"); } catch (e) { appConfig = {}; }
+  if (SHARE_TOKEN) { openShared(SHARE_TOKEN); return; }  // delningslänk: skrivskyddad vy, ingen inloggning
   if (appConfig.auth_enabled) {
     // I molnläget funkar bara moln-transkribering.
     for (const v of ["local", "watch"]) {
@@ -1271,8 +1426,13 @@ async function handleCredential(resp) {
 const PAPER_KEY = "scriptvoice_paper";
 function applyPaper() {
   const on = localStorage.getItem(PAPER_KEY) === "1";
+  const label = on ? "🌙 Mörkt läge" : "📄 Vitt papper";
   $("elements").classList.toggle("paper", on);
-  $("paperToggle").textContent = on ? "🌙 Mörkt läge" : "📄 Vitt papper";
+  $("paperToggle").textContent = label;
+  const ss = $("sharedScript");
+  if (ss) ss.classList.toggle("paper", on);
+  const sp = $("sharedPaperToggle");
+  if (sp) sp.textContent = label;
 }
 $("paperToggle").onclick = () => {
   localStorage.setItem(PAPER_KEY, localStorage.getItem(PAPER_KEY) === "1" ? "0" : "1");

@@ -84,6 +84,12 @@ class CommentIn(BaseModel):
     scene: int | None = None
 
 
+class SharedCommentIn(BaseModel):
+    author: str = ""
+    text: str
+    scene: int | None = None
+
+
 def _author_name(uid: str) -> str:
     if not auth_mod.auth_enabled():
         return "Du"
@@ -449,6 +455,70 @@ def delete_comment_endpoint(
     if store.load_project(uid, project_id) is None:
         raise HTTPException(404, "Projektet finns inte")
     return {"comments": store.delete_comment(uid, project_id, comment_id)}
+
+
+# ---- skrivskyddad delning + tittarkommentarer ----
+@app.get("/api/projects/{project_id}/share")
+def get_share(project_id: str, uid: str = Depends(auth_mod.current_uid)) -> dict:
+    if store.load_project(uid, project_id) is None:
+        raise HTTPException(404, "Projektet finns inte")
+    return {"token": store.share_token_for(uid, project_id)}
+
+
+@app.post("/api/projects/{project_id}/share")
+def create_share_endpoint(project_id: str, uid: str = Depends(auth_mod.current_uid)) -> dict:
+    if store.load_project(uid, project_id) is None:
+        raise HTTPException(404, "Projektet finns inte")
+    return {"token": store.create_share(uid, project_id)}
+
+
+@app.delete("/api/projects/{project_id}/share")
+def revoke_share_endpoint(project_id: str, uid: str = Depends(auth_mod.current_uid)) -> dict:
+    if store.load_project(uid, project_id) is None:
+        raise HTTPException(404, "Projektet finns inte")
+    store.revoke_share(uid, project_id)
+    return {"token": None}
+
+
+def _resolve_share_or_404(token: str) -> tuple[str, str, Project]:
+    """Slå upp en delningstoken → (ägar-uid, projekt-id, projekt) eller 404."""
+    ref = store.resolve_share(token)
+    if not ref:
+        raise HTTPException(404, "Delningslänken finns inte eller har återkallats.")
+    owner, pid = ref["uid"], ref["project_id"]
+    project = store.load_project(owner, pid)
+    if project is None:
+        raise HTTPException(404, "Det delade projektet finns inte längre.")
+    return owner, pid, project
+
+
+@app.get("/api/shared/{token}")
+def get_shared(token: str) -> dict:
+    """Skrivskyddad vy av ett delat manus – ingen inloggning krävs (token = nyckeln)."""
+    owner, pid, project = _resolve_share_or_404(token)
+    return {
+        "title": project.title,
+        "author": project.author,
+        "elements": [e.model_dump() for e in project.elements],
+        "comments": store.list_comments(owner, pid),
+    }
+
+
+@app.get("/api/shared/{token}/comments")
+def get_shared_comments(token: str) -> dict:
+    owner, pid, _ = _resolve_share_or_404(token)
+    return {"comments": store.list_comments(owner, pid)}
+
+
+@app.post("/api/shared/{token}/comments")
+def add_shared_comment(token: str, body: SharedCommentIn) -> dict:
+    """En tittare lämnar en kommentar. Den hamnar i ägarens kommentarslista."""
+    owner, pid, _ = _resolve_share_or_404(token)
+    if not body.text.strip():
+        raise HTTPException(400, "Tom kommentar.")
+    author = body.author.strip() or "Gäst"
+    comments = store.add_comment(owner, pid, author, body.text.strip(), body.scene)
+    return {"comments": comments}
 
 
 @app.post("/api/projects/{project_id}/ask")
