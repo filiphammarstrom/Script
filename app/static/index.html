@@ -208,6 +208,23 @@
         </section>
 
         <section class="panel">
+          <details id="findDetails">
+            <summary><strong>Sök &amp; ersätt</strong> <span class="hint">(t.ex. byt namn på en karaktär i hela manuset)</span></summary>
+            <div class="row wrap find-row">
+              <input id="findText" placeholder="Sök ...">
+              <input id="findReplace" placeholder="Ersätt med ...">
+              <label class="inline-check"><input type="checkbox" id="findMatchCase"> Skilj på stora/små</label>
+            </div>
+            <div class="row wrap">
+              <button id="findNextBtn">Nästa träff</button>
+              <button id="replaceOneBtn">Ersätt</button>
+              <button id="replaceAllBtn" class="primary">Ersätt alla</button>
+              <span id="findStatus" class="status"></span>
+            </div>
+          </details>
+        </section>
+
+        <section class="panel">
           <h2>Fråga manuset <span class="hint">(AI-assistent)</span></h2>
           <div class="row">
             <input id="askInput" placeholder="T.ex. 'hur lång är akt 1?', 'sammanfatta scen 3', 'hitta kontinuitetsfel'">

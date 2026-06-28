@@ -257,6 +257,9 @@ function openProject(p) {
   $("commentsList").innerHTML = "";
   renderShareState(null);
   setShareStatus("");
+  $("findDetails").open = false;
+  findCursor = -1;
+  setFindStatus("");
   $("askAnswer").hidden = true;
   setStatus("");
   setProjSetStatus("");
@@ -1222,6 +1225,88 @@ async function deleteComment(cid) {
   }
 }
 $("commentsDetails").ontoggle = () => { if ($("commentsDetails").open) loadComments(); };
+
+// ---- sök & ersätt (i hela manuset) ----
+const setFindStatus = mkStatus("findStatus");
+let findCursor = -1;  // index i den senaste träfflistan (för "Nästa träff")
+function findAllMatches(needle, matchCase) {
+  const out = [];
+  if (!needle) return out;
+  const n = matchCase ? needle : needle.toLowerCase();
+  project.elements.forEach((el, ei) => {
+    const hay = matchCase ? (el.text || "") : (el.text || "").toLowerCase();
+    let from = 0, k;
+    while ((k = hay.indexOf(n, from)) !== -1) { out.push({ ei, start: k }); from = k + n.length; }
+  });
+  return out;
+}
+function replaceInString(hay, needle, repl, matchCase) {
+  let out = "", count = 0, from = 0, k;
+  const h = matchCase ? hay : hay.toLowerCase();
+  const n = matchCase ? needle : needle.toLowerCase();
+  while ((k = h.indexOf(n, from)) !== -1) {
+    out += hay.slice(from, k) + repl;
+    from = k + needle.length;
+    count++;
+  }
+  return { text: out + hay.slice(from), count };
+}
+function findNext() {
+  const needle = $("findText").value;
+  const matchCase = $("findMatchCase").checked;
+  const matches = findAllMatches(needle, matchCase);
+  if (!matches.length) { setFindStatus(needle ? "Inga träffar" : ""); findCursor = -1; return; }
+  findCursor = (findCursor + 1) % matches.length;
+  setFindStatus(`Träff ${findCursor + 1} av ${matches.length}`);
+  const m = matches[findCursor];
+  const el = project.elements[m.ei];
+  highlightElement(el.id);
+  const ta = document.querySelector(`.fel[data-id="${el.id}"] .fel-text`);
+  if (ta) { ta.focus(); ta.selectionStart = m.start; ta.selectionEnd = m.start + needle.length; }
+}
+function replaceOne() {
+  const needle = $("findText").value;
+  if (!needle) return;
+  const repl = $("findReplace").value;
+  const matchCase = $("findMatchCase").checked;
+  const ta = document.activeElement;
+  if (ta && ta.classList && ta.classList.contains("fel-text")) {
+    const sel = ta.value.slice(ta.selectionStart, ta.selectionEnd);
+    const eq = matchCase ? sel === needle : sel.toLowerCase() === needle.toLowerCase();
+    if (eq) {
+      const row = ta.closest(".fel");
+      const el = row && project.elements.find((x) => x.id === +row.dataset.id);
+      if (el) {
+        const s = ta.selectionStart;
+        el.text = ta.value.slice(0, s) + repl + ta.value.slice(ta.selectionEnd);
+        ta.value = el.text;
+        autogrow(ta);
+        scheduleSave();
+      }
+    }
+  }
+  findNext();  // hoppa till nästa träff
+}
+function replaceAll() {
+  const needle = $("findText").value;
+  if (!needle) { setFindStatus("Skriv något att söka efter."); return; }
+  const repl = $("findReplace").value;
+  const matchCase = $("findMatchCase").checked;
+  let count = 0;
+  for (const el of project.elements) {
+    const r = replaceInString(el.text || "", needle, repl, matchCase);
+    if (r.count) { el.text = r.text; count += r.count; }
+  }
+  findCursor = -1;
+  if (count) { renderElements(); scheduleSave(); }
+  setFindStatus(count ? `Ersatte ${count} förekomst(er)` : "Inga träffar");
+}
+$("findNextBtn").onclick = findNext;
+$("replaceOneBtn").onclick = replaceOne;
+$("replaceAllBtn").onclick = replaceAll;
+$("findText").oninput = () => { findCursor = -1; };
+$("findText").onkeydown = (e) => { if (e.key === "Enter") findNext(); };
+$("findReplace").onkeydown = (e) => { if (e.key === "Enter") replaceAll(); };
 
 // ---- skrivskyddad delning (ägarsidan) ----
 function shareUrl(token) {
