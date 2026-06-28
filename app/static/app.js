@@ -910,6 +910,41 @@ $("exportBtn").onclick = async () => {
   URL.revokeObjectURL(a.href);
 };
 
+// ---- skriv ut / spara som PDF (fristående, manusformaterat dokument) ----
+$("printBtn").onclick = () => {
+  if (!project || !project.elements.length) { setStatus("Inget manus att skriva ut än."); return; }
+  const css = `
+    @page { size: Letter; margin: 1in 1in 1in 1.5in; }
+    * { margin: 0; }
+    body { font: 12pt/1.0 "Courier New", Courier, monospace; color: #000; }
+    .title-page { height: 8.5in; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; page-break-after: always; }
+    .title-page .t { text-transform: uppercase; text-decoration: underline; }
+    .title-page .by { margin-top: 1.5em; }
+    .contact { margin-top: 3in; align-self: flex-start; text-align: left; white-space: pre-line; }
+    .el { white-space: pre-wrap; }
+    .scene_heading { text-transform: uppercase; font-weight: bold; margin-top: 1.5em; }
+    .action, .general { margin-top: 1em; }
+    .character { text-transform: uppercase; margin-top: 1em; margin-left: 2.2in; }
+    .dialogue { margin-left: 1in; max-width: 3.5in; }
+    .parenthetical { margin-left: 1.6in; max-width: 2.5in; }
+    .transition { text-transform: uppercase; text-align: right; margin-top: 1em; }
+    .character, .parenthetical, .dialogue { page-break-inside: avoid; }
+  `;
+  const t = (project.title || "").trim(), a = (project.author || "").trim(), c = (project.contact || "").trim();
+  let body = "";
+  if (t || a || c) {
+    body += `<div class="title-page"><div class="t">${esc(t.toUpperCase())}</div>`;
+    if (a) body += `<div class="by">Written by</div><div>${esc(a)}</div>`;
+    if (c) body += `<div class="contact">${esc(c)}</div>`;
+    body += `</div>`;
+  }
+  for (const el of project.elements) body += `<div class="el ${el.type}">${esc(el.text || "")}</div>`;
+  const w = window.open("", "_blank");
+  if (!w) { setStatus("Tillåt popup-fönster för att skriva ut / spara som PDF."); return; }
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(t || "Manus")}</title><style>${css}</style></head><body onload="window.focus();window.print();">${body}</body></html>`);
+  w.document.close();
+};
+
 // ---- ändringar av befintligt innehåll: granska & godkänn ----
 let pendingEdits = null;
 function hideEditPreview() {
