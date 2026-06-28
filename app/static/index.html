@@ -200,7 +200,10 @@
           </div>
           <p class="hint editor-hint"><kbd>Enter</kbd> ny rad · <kbd>Shift</kbd>+<kbd>Enter</kbd> radbrytning · <kbd>Tab</kbd> byt typ · <kbd>⌫</kbd> först på raden slår ihop uppåt · skriv <kbd>INT.</kbd>/<kbd>EXT.</kbd> för scenrubrik</p>
           <div id="elements" class="elements"></div>
-          <div class="row">
+          <div class="row wrap">
+            <label class="filelabel">Importera manus (FDX/Fountain)
+              <input type="file" id="importFile" accept=".fdx,.fountain,.txt,.text" hidden>
+            </label>
             <button id="printBtn">🖨️ Skriv ut / PDF</button>
             <button id="exportBtn" class="primary">Exportera FDX</button>
             <span id="saveState" class="savestate"></span>

@@ -19,6 +19,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from app import access as access_mod
 from app import analyze as analyze_mod
 from app import auth as auth_mod
+from app import importer as importer_mod
 from app import jobs as jobs_mod
 from app import store
 from app import transcribe as transcribe_mod
@@ -623,6 +624,35 @@ def transcribe_job_status(job_id: str, uid: str = Depends(auth_mod.current_uid))
     if job is None:
         raise HTTPException(404, "Jobbet finns inte")
     return {"job_id": job.id, "status": job.status, "text": job.text, "error": job.error}
+
+
+@app.post("/api/projects/{project_id}/import")
+def import_screenplay(
+    project_id: str, file: UploadFile = File(...), uid: str = Depends(auth_mod.current_uid)
+) -> dict:
+    """Importera ett befintligt manus (FDX eller Fountain) och lägg till i slutet."""
+    project = store.load_project(uid, project_id)
+    if project is None:
+        raise HTTPException(404, "Projektet finns inte")
+    data = file.file.read()
+    file.file.close()
+    try:
+        text = data.decode("utf-8")
+    except UnicodeDecodeError:
+        text = data.decode("latin-1", errors="replace")
+    try:
+        parsed = importer_mod.parse_screenplay(file.filename or "", text)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    if not parsed:
+        raise HTTPException(400, "Hittade inget manusinnehåll i filen.")
+    store.save_version(uid, project_id, "Före import", project.elements)  # ångerbar
+    next_id = max((e.id for e in project.elements), default=-1) + 1
+    for item in parsed:
+        project.elements.append(ScreenplayElement(id=next_id, type=item["type"], text=item["text"]))
+        next_id += 1
+    store.save_project(uid, project)
+    return {"project": project, "added": len(parsed)}
 
 
 @app.post("/api/projects/{project_id}/export")
