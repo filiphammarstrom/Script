@@ -372,16 +372,11 @@ $("transcribeEngine").onchange = () => {
   // Modellvalet är bara relevant för OpenAI-motorn.
   $("transcribeModel").hidden = $("transcribeEngine").value !== "openai";
 };
-$("transcribeBtn").onclick = async () => {
-  const f = $("audioFile").files[0];
-  if (!f) {
-    setStatus("Välj en ljudfil först.");
-    return;
-  }
+async function uploadAudio(fileOrBlob, filename) {
   setStatus("Laddar upp ljud ...", true);
   try {
     const fd = new FormData();
-    fd.append("file", f);
+    fd.append("file", fileOrBlob, filename);
     const engine = $("transcribeEngine").value;
     const params = new URLSearchParams();
     if (engine) params.set("backend", engine);
@@ -391,12 +386,62 @@ $("transcribeBtn").onclick = async () => {
     const res = await fetch(url, { method: "POST", body: fd });
     if (!res.ok) throw new Error((await res.text()) || res.status);
     const { job_id } = await res.json();
-    $("audioFile").value = "";
-    $("audioName").textContent = "";
     pollTranscription(job_id);
   } catch (e) {
     setStatus("Fel vid uppladdning: " + e.message);
   }
+}
+$("transcribeBtn").onclick = async () => {
+  const f = $("audioFile").files[0];
+  if (!f) { setStatus("Välj en ljudfil först."); return; }
+  await uploadAudio(f, f.name);
+  $("audioFile").value = "";
+  $("audioName").textContent = "";
+};
+
+// ---- spela in direkt från mikrofonen ----
+let mediaRecorder = null, recChunks = [], recStream = null, recTimer = null, recSeconds = 0;
+function stopRecTracks() {
+  if (recStream) recStream.getTracks().forEach((t) => t.stop());
+  recStream = null;
+  clearInterval(recTimer);
+}
+$("recordBtn").onclick = async () => {
+  if (mediaRecorder && mediaRecorder.state === "recording") { mediaRecorder.stop(); return; }
+  if (!navigator.mediaDevices || !window.MediaRecorder) {
+    setStatus("Inspelning stöds inte i den här webbläsaren – ladda upp en ljudfil i stället.");
+    return;
+  }
+  if (!project) { setStatus("Öppna ett projekt först."); return; }
+  try {
+    recStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (e) {
+    setStatus("Fick inte tillgång till mikrofonen: " + (e.message || e.name));
+    return;
+  }
+  recChunks = [];
+  mediaRecorder = new MediaRecorder(recStream);
+  mediaRecorder.ondataavailable = (ev) => { if (ev.data && ev.data.size) recChunks.push(ev.data); };
+  mediaRecorder.onstop = async () => {
+    stopRecTracks();
+    $("recordBtn").classList.remove("recording");
+    $("recordBtn").textContent = "🎙️ Spela in";
+    const mime = (mediaRecorder && mediaRecorder.mimeType) || "audio/webm";
+    const blob = new Blob(recChunks, { type: mime });
+    mediaRecorder = null;
+    if (!blob.size) { setStatus("Tom inspelning."); return; }
+    await uploadAudio(blob, "inspelning." + (mime.includes("mp4") ? "mp4" : "webm"));
+  };
+  mediaRecorder.start();
+  recSeconds = 0;
+  $("recordBtn").classList.add("recording");
+  $("recordBtn").textContent = "⏹ Stoppa (0:00)";
+  recTimer = setInterval(() => {
+    recSeconds++;
+    const m = Math.floor(recSeconds / 60), s = String(recSeconds % 60).padStart(2, "0");
+    $("recordBtn").textContent = `⏹ Stoppa (${m}:${s})`;
+  }, 1000);
+  setStatus("Spelar in – prata på, tryck ⏹ när du är klar.");
 };
 
 function pollTranscription(jobId) {
