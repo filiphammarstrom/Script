@@ -163,7 +163,8 @@ pytest tests/test_fdx.py
    fungerar som Final Draft/Arc Studio: **Enter** ny rad (rätt typ automatiskt), **Shift+Enter**
    radbrytning, **Tab** växlar typ, **Backspace** först på raden slår ihop uppåt, **INT./EXT.**
    blir scenrubrik, och karaktärsnamn/scenrubriker/övergångar autokompletteras (SmartType).
-6. **Exportera FDX** och öppna `.fdx`-filen i Final Draft.
+6. **Exportera FDX** och öppna `.fdx`-filen i Final Draft. Du kan även **importera** ett
+   befintligt manus (FDX eller Fountain) – det läggs till sist i manuset (ångerbart via versionshistoriken).
 7. **Dela skrivskyddat** (Projektinställningar → *Dela skrivskyddat*): skapa en länk så
    andra kan *läsa* manuset och lämna kommentarer utan att kunna ändra något. Tittarnas
    kommentarer dyker upp i din kommentarslista under Manus. *Sluta dela* återkallar länken.

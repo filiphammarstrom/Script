@@ -1101,6 +1101,35 @@ $("exportBtn").onclick = async () => {
   URL.revokeObjectURL(a.href);
 };
 
+// ---- importera befintligt manus (FDX / Fountain) ----
+$("importFile").onchange = async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  if (project.elements.length &&
+      !confirm(`Importera "${file.name}" och lägga till sist i manuset?\n\n(En version sparas automatiskt så du kan ångra.)`)) {
+    e.target.value = "";
+    return;
+  }
+  setStatus(`Importerar ${file.name} ...`, true);
+  try {
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await fetch(`/api/projects/${project.id}/import`, { method: "POST", body: fd });
+    if (!res.ok) {
+      let msg = await res.text();
+      try { msg = JSON.parse(msg).detail || msg; } catch (_) { /* visa råtext */ }
+      throw new Error(msg);
+    }
+    const data = await res.json();
+    project = data.project;
+    renderElements();
+    setStatus(`Importerade ${data.added} rader från ${file.name} ✓`);
+  } catch (err) {
+    setStatus("Kunde inte importera: " + err.message);
+  }
+  e.target.value = "";
+};
+
 // ---- versionshistorik ----
 async function loadVersions() {
   if (!project) return;
