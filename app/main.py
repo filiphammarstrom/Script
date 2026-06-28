@@ -79,6 +79,18 @@ class VersionIn(BaseModel):
     label: str = ""
 
 
+class CommentIn(BaseModel):
+    text: str
+    scene: int | None = None
+
+
+def _author_name(uid: str) -> str:
+    if not auth_mod.auth_enabled():
+        return "Du"
+    user = store.load_user(uid) or {}
+    return user.get("name") or user.get("email") or "Användare"
+
+
 def _ai_key(uid: str, provider: str | None) -> str | None:
     """Användarens egen nyckel för vald AI-motor."""
     secrets = store.load_secrets(uid)
@@ -409,6 +421,34 @@ def restore_version(
     project.elements = elements
     store.save_project(uid, project)
     return {"project": project, "versions": store.list_versions(uid, project_id)}
+
+
+@app.get("/api/projects/{project_id}/comments")
+def get_comments(project_id: str, uid: str = Depends(auth_mod.current_uid)) -> dict:
+    if store.load_project(uid, project_id) is None:
+        raise HTTPException(404, "Projektet finns inte")
+    return {"comments": store.list_comments(uid, project_id)}
+
+
+@app.post("/api/projects/{project_id}/comments")
+def add_comment_endpoint(
+    project_id: str, body: CommentIn, uid: str = Depends(auth_mod.current_uid)
+) -> dict:
+    if store.load_project(uid, project_id) is None:
+        raise HTTPException(404, "Projektet finns inte")
+    if not body.text.strip():
+        raise HTTPException(400, "Tom kommentar.")
+    comments = store.add_comment(uid, project_id, _author_name(uid), body.text.strip(), body.scene)
+    return {"comments": comments}
+
+
+@app.delete("/api/projects/{project_id}/comments/{comment_id}")
+def delete_comment_endpoint(
+    project_id: str, comment_id: str, uid: str = Depends(auth_mod.current_uid)
+) -> dict:
+    if store.load_project(uid, project_id) is None:
+        raise HTTPException(404, "Projektet finns inte")
+    return {"comments": store.delete_comment(uid, project_id, comment_id)}
 
 
 @app.post("/api/projects/{project_id}/ask")
