@@ -259,10 +259,34 @@ select { width: auto; min-width: 0; }
 .iconbtn { padding: 5px 9px; font-size: 13px; line-height: 1; background: var(--panel-2); color: var(--muted); }
 .iconbtn:hover { border-color: var(--accent); color: var(--ink); transform: none; }
 
-/* Projektvyn (manuset) får mer bredd än övriga vyer, så sidan + kontrollerna
-   ryms bredvid varandra. */
-main:has(#view-project:not([hidden])) { max-width: 1200px; }
+/* Projektvyn (app-skal: sidomeny + huvudyta) får mer bredd än övriga vyer. */
+main:has(#view-project:not([hidden])) { max-width: 1320px; }
 .elements { max-width: 100%; }
+
+/* ---- app-skal: sidomeny + huvudyta ---- */
+.app-shell { display: grid; grid-template-columns: 224px minmax(0, 1fr); gap: 22px; align-items: start; }
+.sidebar {
+  position: sticky; top: 80px; align-self: start;
+  display: flex; flex-direction: column; gap: 14px;
+  background: linear-gradient(180deg, var(--panel), var(--bg-soft));
+  border: 1px solid var(--line); border-radius: var(--radius); padding: 14px;
+  box-shadow: var(--shadow); max-height: calc(100vh - 96px); overflow: auto;
+}
+.back-link { text-align: left; padding: 0; }
+.proj-side-title { font-size: 16px; text-transform: none; letter-spacing: 0; color: var(--ink); margin: 0; font-weight: 680; word-break: break-word; }
+.side-menu { display: flex; flex-direction: column; gap: 2px; }
+.side-item { background: none; border: 1px solid transparent; border-radius: 8px; text-align: left; padding: 8px 10px; color: var(--muted); font-size: 14px; }
+.side-item:hover { background: var(--panel-2); color: var(--ink); transform: none; border-color: transparent; }
+.side-item.active { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #0b0d11; font-weight: 600; }
+.side-scenes { border-top: 1px solid var(--line); padding-top: 10px; }
+.side-scenes-head { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-bottom: 8px; }
+.side-scenes-head .hint { text-transform: none; letter-spacing: 0; font-size: 11px; }
+.side-scenes .scene-outline { max-height: none; }
+.outline-empty { list-style: none; color: var(--muted); font-size: 13px; padding: 6px 2px; }
+.app-main { min-width: 0; }
+.section-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+.section-title { font-size: 18px; text-transform: none; letter-spacing: 0; color: var(--ink); margin: 0; font-weight: 680; }
+.side-toggle { display: none; }
 .scenes-bar {
   position: sticky; top: 52px; z-index: 5;
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
@@ -524,6 +548,16 @@ kbd {
   .topnav { flex-wrap: wrap; }
   .panel { padding: 13px; }
   .row.wrap { gap: 6px; }
+
+  /* app-skal: sidomenyn blir en uppfällbar låda via ☰-knappen */
+  .app-shell { grid-template-columns: 1fr; gap: 0; }
+  .side-toggle { display: inline-block; margin-bottom: 10px; }
+  .sidebar {
+    position: fixed; top: 0; left: 0; bottom: 0; z-index: 60;
+    width: 82%; max-width: 300px; border-radius: 0; max-height: 100vh;
+    transform: translateX(-100%); transition: transform .2s ease;
+  }
+  .sidebar.open { transform: translateX(0); }
 
   /* sidan i full bredd; kontrollerna in i kortet (railen ryms inte) */
   .scene { width: 100%; }
