@@ -61,3 +61,20 @@ def test_empty_screenplay_is_valid_xml():
     root = ET.fromstring(to_fdx([]))
     assert root.find("Content") is not None
     assert root.find("Content").findall("Paragraph") == []
+
+
+def test_title_page_is_added_when_metadata_given():
+    xml = to_fdx([E("action", "x")], title="Mitt Manus", author="Anna A", contact="anna@x.se")
+    root = ET.fromstring(xml)
+    tp = root.find("TitlePage")
+    assert tp is not None
+    texts = [p.find("Text").text or "" for p in tp.find("Content").findall("Paragraph")]
+    assert "MITT MANUS" in texts
+    assert "Written by" in texts
+    assert "Anna A" in texts
+    assert "anna@x.se" in texts
+
+
+def test_no_title_page_without_metadata():
+    root = ET.fromstring(to_fdx([E("action", "x")]))
+    assert root.find("TitlePage") is None

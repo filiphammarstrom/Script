@@ -45,6 +45,8 @@ class CreateProjectIn(BaseModel):
 
 class ProjectUpdateIn(BaseModel):
     title: str | None = None
+    author: str | None = None
+    contact: str | None = None
     context: str | None = None
     directives: str | None = None
     story_bible: StoryBible | None = None
@@ -452,7 +454,7 @@ def export_project(project_id: str, uid: str = Depends(auth_mod.current_uid)) ->
     project = store.load_project(uid, project_id)
     if project is None:
         raise HTTPException(404, "Projektet finns inte")
-    xml = to_fdx(project.elements)
+    xml = to_fdx(project.elements, title=project.title, author=project.author, contact=project.contact)
     safe = "".join(c if c.isalnum() or c in "-_" else "_" for c in (project.title or "manus"))
     return Response(
         content=xml,
