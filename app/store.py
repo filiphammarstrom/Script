@@ -175,6 +175,87 @@ def delete_project(uid: str, project_id: str) -> bool:
     return True
 
 
+# ---- versionshistorik (ögonblicksbilder av manuset) ----
+def _versions_dir(uid: str, project_id: str) -> Path:
+    return _user_dir(uid) / "versions" / _safe_uid(project_id)
+
+
+def _version_meta(data: dict, fallback_id: str) -> dict:
+    els = data.get("elements", [])
+    return {
+        "id": data.get("id", fallback_id),
+        "ts": data.get("ts", ""),
+        "label": data.get("label", ""),
+        "scenes": sum(1 for e in els if e.get("type") == "scene_heading"),
+        "rows": len(els),
+    }
+
+
+def save_version(uid: str, project_id: str, label: str, elements) -> dict:
+    """Spara en ögonblicksbild av elementen. label="" = automatisk version."""
+    import json
+    import time
+    from datetime import datetime, timezone
+
+    d = _versions_dir(uid, project_id)
+    d.mkdir(parents=True, exist_ok=True)
+    vid = str(time.time_ns())
+    payload = {
+        "id": vid,
+        "ts": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M"),
+        "label": (label or "").strip(),
+        "elements": [e.model_dump() for e in elements],
+    }
+    (d / f"{vid}.json").write_text(json.dumps(payload, ensure_ascii=False, indent=2), "utf-8")
+    _prune_versions(d)
+    return _version_meta(payload, vid)
+
+
+def list_versions(uid: str, project_id: str) -> list[dict]:
+    import json
+
+    d = _versions_dir(uid, project_id)
+    if not d.exists():
+        return []
+    out: list[dict] = []
+    for p in d.glob("*.json"):
+        try:
+            out.append(_version_meta(json.loads(p.read_text("utf-8")), p.stem))
+        except Exception:
+            continue
+    out.sort(key=lambda v: v["id"], reverse=True)  # nyast först
+    return out
+
+
+def load_version_elements(uid: str, project_id: str, version_id: str):
+    import json
+
+    p = _versions_dir(uid, project_id) / f"{_safe_uid(version_id)}.json"
+    if not p.exists():
+        return None
+    data = json.loads(p.read_text("utf-8"))
+    return [ScreenplayElement.model_validate(e) for e in data.get("elements", [])]
+
+
+def _prune_versions(d: Path, keep_auto: int = 30) -> None:
+    """Behåll alla namngivna versioner + de senaste `keep_auto` automatiska."""
+    import json
+
+    autos = []
+    for p in sorted(d.glob("*.json"), key=lambda p: p.stem):  # äldst först
+        try:
+            label = json.loads(p.read_text("utf-8")).get("label", "")
+        except Exception:
+            label = ""
+        if not label:
+            autos.append(p)
+    for p in autos[:-keep_auto] if len(autos) > keep_auto else []:
+        try:
+            p.unlink()
+        except Exception:
+            pass
+
+
 def list_projects(uid: str) -> list[dict]:
     _ensure_user(uid)
     out: list[dict] = []
