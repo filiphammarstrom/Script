@@ -260,6 +260,8 @@ function openProject(p) {
   $("findDetails").open = false;
   findCursor = -1;
   setFindStatus("");
+  $("reportDetails").open = false;
+  $("reportBody").innerHTML = "";
   $("askAnswer").hidden = true;
   setStatus("");
   setProjSetStatus("");
@@ -1254,6 +1256,102 @@ async function deleteComment(cid) {
   }
 }
 $("commentsDetails").ontoggle = () => { if ($("commentsDetails").open) loadComments(); };
+
+// ---- rapporter (karaktärer & scener) ----
+function cleanCue(text) {
+  // "ANNA (CONT'D)" / "ANNA (V.O.)" → "ANNA"
+  return (text || "").trim().toUpperCase().replace(/\s*\(.*\)\s*$/, "").trim();
+}
+function characterReport() {
+  const stats = {};
+  let sceneNo = 0, cur = null;
+  for (const el of project.elements) {
+    if (el.type === "scene_heading") { sceneNo++; cur = null; continue; }
+    if (el.type === "character") {
+      const name = cleanCue(el.text);
+      cur = name || null;
+      if (!name) continue;
+      const s = stats[name] || (stats[name] = { speeches: 0, words: 0, scenes: new Set() });
+      s.speeches++;
+      if (sceneNo) s.scenes.add(sceneNo);
+    } else if (el.type === "dialogue" && cur) {
+      const s = stats[cur];
+      if (s) {
+        s.words += (el.text || "").trim().split(/\s+/).filter(Boolean).length;
+        if (sceneNo) s.scenes.add(sceneNo);
+      }
+    } else if (el.type === "action") {
+      cur = null;  // handling bryter repliken
+    }
+  }
+  return Object.entries(stats)
+    .map(([name, s]) => ({ name, speeches: s.speeches, words: s.words, scenes: [...s.scenes].sort((a, b) => a - b) }))
+    .sort((a, b) => b.speeches - a.speeches || b.words - a.words);
+}
+function sceneReport() {
+  const groups = groupScenes();
+  let runningLines = 0, no = 0;
+  const rows = [];
+  for (const g of groups) {
+    const startPage = Math.floor(runningLines / LINES_PER_PAGE) + 1;
+    const chars = new Set();
+    for (const el of g.items) if (el.type === "character") { const nm = cleanCue(el.text); if (nm) chars.add(nm); }
+    runningLines += g.items.reduce((m, el) => m + linesFor(el), 0);
+    if (g.heading) {
+      no++;
+      rows.push({ no, heading: g.heading.text || "(scenrubrik)", id: g.heading.id, page: startPage, rows: g.items.length, chars: [...chars] });
+    }
+  }
+  return rows;
+}
+function renderReports() {
+  const box = $("reportBody");
+  box.innerHTML = "";
+  if (!project.elements.length) { box.innerHTML = '<p class="hint">Inget manus än.</p>'; return; }
+
+  const chars = characterReport();
+  const ch = document.createElement("div");
+  ch.className = "report-section";
+  ch.innerHTML = `<div class="report-title">Karaktärer (${chars.length})</div>`;
+  if (!chars.length) {
+    ch.innerHTML += '<p class="hint">Inga karaktärer med repliker än.</p>';
+  } else {
+    const list = document.createElement("div");
+    list.className = "report-list";
+    for (const c of chars) {
+      const row = document.createElement("div");
+      row.className = "report-row";
+      row.innerHTML = `<span class="rr-name">${esc(c.name)}</span>` +
+        `<span class="rr-meta">${c.speeches} repliker · ${c.words} ord · ${c.scenes.length} ${c.scenes.length === 1 ? "scen" : "scener"}</span>`;
+      list.appendChild(row);
+    }
+    ch.appendChild(list);
+  }
+  box.appendChild(ch);
+
+  const scenes = sceneReport();
+  const sc = document.createElement("div");
+  sc.className = "report-section";
+  sc.innerHTML = `<div class="report-title">Scener (${scenes.length})</div>`;
+  if (!scenes.length) {
+    sc.innerHTML += '<p class="hint">Inga scenrubriker än.</p>';
+  } else {
+    const list = document.createElement("div");
+    list.className = "report-list";
+    for (const s of scenes) {
+      const row = document.createElement("div");
+      row.className = "report-row clickable";
+      row.innerHTML = `<span class="rr-no">${s.no}</span>` +
+        `<span class="rr-heading">${esc(s.heading)}</span>` +
+        `<span class="rr-meta">s. ${s.page} · ${s.rows} rader${s.chars.length ? " · " + esc(s.chars.join(", ")) : ""}</span>`;
+      row.onclick = () => highlightElement(s.id);
+      list.appendChild(row);
+    }
+    sc.appendChild(list);
+  }
+  box.appendChild(sc);
+}
+$("reportDetails").ontoggle = () => { if ($("reportDetails").open) renderReports(); };
 
 // ---- sök & ersätt (i hela manuset) ----
 const setFindStatus = mkStatus("findStatus");
