@@ -69,6 +69,12 @@ class ApplyEditsIn(BaseModel):
     operations: list[DictateOp] = []
 
 
+class AskIn(BaseModel):
+    question: str
+    model: str | None = None
+    provider: str | None = None
+
+
 def _ai_key(uid: str, provider: str | None) -> str | None:
     """Användarens egen nyckel för vald AI-motor."""
     secrets = store.load_secrets(uid)
@@ -363,6 +369,26 @@ def apply_edits_project(
     store.apply_edits(project, body.operations)
     store.save_project(uid, project)
     return {"project": project}
+
+
+@app.post("/api/projects/{project_id}/ask")
+def ask_project(
+    project_id: str, body: AskIn, uid: str = Depends(auth_mod.current_uid)
+) -> dict:
+    """Fritextfråga om manuset – AI:n svarar utifrån innehållet."""
+    project = store.load_project(uid, project_id)
+    if project is None:
+        raise HTTPException(404, "Projektet finns inte")
+    if not body.question.strip():
+        raise HTTPException(400, "Tom fråga.")
+    try:
+        answer = analyze_mod.ask(
+            project, body.question,
+            model=body.model, api_key=_ai_key(uid, body.provider), provider=body.provider or "anthropic",
+        )
+    except Exception as exc:  # saknad API-nyckel, nätverksfel, modellfel ...
+        raise HTTPException(502, f"Frågan misslyckades: {exc}")
+    return {"answer": answer}
 
 
 def _run_transcription(
