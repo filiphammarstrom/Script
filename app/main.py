@@ -75,6 +75,10 @@ class AskIn(BaseModel):
     provider: str | None = None
 
 
+class VersionIn(BaseModel):
+    label: str = ""
+
+
 def _ai_key(uid: str, provider: str | None) -> str | None:
     """Användarens egen nyckel för vald AI-motor."""
     secrets = store.load_secrets(uid)
@@ -348,6 +352,7 @@ def dictate_project(
         )
     except Exception as exc:  # saknad API-nyckel, nätverksfel, modellfel ...
         raise HTTPException(502, f"Dikteringen misslyckades: {exc}")
+    store.save_version(uid, project_id, "", project.elements)  # auto-snapshot före diktering
     project, pending = store.apply_dictation(project, result)
     store.save_project(uid, project)
     return {
@@ -366,9 +371,44 @@ def apply_edits_project(
     project = store.load_project(uid, project_id)
     if project is None:
         raise HTTPException(404, "Projektet finns inte")
+    store.save_version(uid, project_id, "", project.elements)  # auto-snapshot före ändring
     store.apply_edits(project, body.operations)
     store.save_project(uid, project)
     return {"project": project}
+
+
+@app.get("/api/projects/{project_id}/versions")
+def get_versions(project_id: str, uid: str = Depends(auth_mod.current_uid)) -> dict:
+    if store.load_project(uid, project_id) is None:
+        raise HTTPException(404, "Projektet finns inte")
+    return {"versions": store.list_versions(uid, project_id)}
+
+
+@app.post("/api/projects/{project_id}/versions")
+def create_version(
+    project_id: str, body: VersionIn, uid: str = Depends(auth_mod.current_uid)
+) -> dict:
+    project = store.load_project(uid, project_id)
+    if project is None:
+        raise HTTPException(404, "Projektet finns inte")
+    meta = store.save_version(uid, project_id, body.label or "Sparad version", project.elements)
+    return {"version": meta, "versions": store.list_versions(uid, project_id)}
+
+
+@app.post("/api/projects/{project_id}/versions/{version_id}/restore")
+def restore_version(
+    project_id: str, version_id: str, uid: str = Depends(auth_mod.current_uid)
+) -> dict:
+    project = store.load_project(uid, project_id)
+    if project is None:
+        raise HTTPException(404, "Projektet finns inte")
+    elements = store.load_version_elements(uid, project_id, version_id)
+    if elements is None:
+        raise HTTPException(404, "Versionen finns inte")
+    store.save_version(uid, project_id, "Före återställning", project.elements)  # gör återställningen ångerbar
+    project.elements = elements
+    store.save_project(uid, project)
+    return {"project": project, "versions": store.list_versions(uid, project_id)}
 
 
 @app.post("/api/projects/{project_id}/ask")

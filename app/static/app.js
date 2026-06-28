@@ -47,6 +47,7 @@ const setStatus = mkStatus("status");
 const setGlobalStatus = mkStatus("globalStatus");
 const setProjSetStatus = mkStatus("projSetStatus");
 const setAskStatus = mkStatus("askStatus");
+const setVersionStatus = mkStatus("versionStatus");
 const setBaseStatus = mkStatus("baseStatus");
 const setAccessStatus = mkStatus("accessStatus");
 const setKeysStatus = mkStatus("keysStatus");
@@ -234,6 +235,9 @@ function openProject(p) {
   hideEditPreview();
   undoSnapshot = null;
   $("undoBtn").hidden = true;
+  $("versionsDetails").open = false;
+  $("versionsList").innerHTML = "";
+  $("askAnswer").hidden = true;
   setStatus("");
   setProjSetStatus("");
   showProjectTab("manus");
@@ -910,6 +914,60 @@ $("exportBtn").onclick = async () => {
   a.click();
   URL.revokeObjectURL(a.href);
 };
+
+// ---- versionshistorik ----
+async function loadVersions() {
+  if (!project) return;
+  try {
+    renderVersions((await api("GET", `/api/projects/${project.id}/versions`)).versions || []);
+  } catch (_) { /* tyst */ }
+}
+function renderVersions(versions) {
+  const box = $("versionsList");
+  box.innerHTML = "";
+  if (!versions.length) {
+    box.innerHTML = '<p class="hint">Inga sparade versioner än.</p>';
+    return;
+  }
+  for (const v of versions) {
+    const label = v.label || "Auto";
+    const row = document.createElement("div");
+    row.className = "version-row";
+    row.innerHTML = `<span class="ver-label">${esc(label)}</span>` +
+      `<span class="ver-meta">${esc(v.ts)} · ${v.scenes} scener · ${v.rows} rader</span>`;
+    const btn = document.createElement("button");
+    btn.className = "linkbtn";
+    btn.textContent = "Återställ";
+    btn.onclick = () => restoreVersion(v.id, label);
+    row.appendChild(btn);
+    box.appendChild(row);
+  }
+}
+$("saveVersionBtn").onclick = async () => {
+  setVersionStatus("Sparar ...", true);
+  try {
+    const data = await api("POST", `/api/projects/${project.id}/versions`, { label: $("versionLabel").value });
+    $("versionLabel").value = "";
+    renderVersions(data.versions || []);
+    setVersionStatus("Version sparad ✓");
+  } catch (e) {
+    setVersionStatus("Kunde inte spara: " + e.message);
+  }
+};
+async function restoreVersion(vid, label) {
+  if (!confirm(`Återställ manuset till "${label}"?\n\nNuvarande version sparas automatiskt så du kan ångra.`)) return;
+  setVersionStatus("Återställer ...", true);
+  try {
+    const data = await api("POST", `/api/projects/${project.id}/versions/${vid}/restore`, {});
+    project = data.project;
+    renderElements();
+    renderVersions(data.versions || []);
+    setVersionStatus("Återställd ✓");
+  } catch (e) {
+    setVersionStatus("Kunde inte återställa: " + e.message);
+  }
+}
+$("versionsDetails").ontoggle = () => { if ($("versionsDetails").open) loadVersions(); };
 
 // ---- fråga manuset (AI-assistent) ----
 $("askBtn").onclick = async () => {

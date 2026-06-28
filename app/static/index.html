@@ -187,6 +187,18 @@
           <div id="askAnswer" class="ask-answer" hidden></div>
         </section>
 
+        <section class="panel">
+          <details id="versionsDetails">
+            <summary><strong>Versionshistorik</strong> <span class="hint">(en version sparas automatiskt före varje AI-ändring)</span></summary>
+            <div class="row version-save">
+              <input id="versionLabel" placeholder="Namnge denna version (valfritt)">
+              <button id="saveVersionBtn">💾 Spara version</button>
+              <span id="versionStatus" class="status"></span>
+            </div>
+            <div id="versionsList" class="versions-list"></div>
+          </details>
+        </section>
+
         <section class="panel" id="editPreviewPanel" hidden>
           <h2>Ändringar att godkänna</h2>
           <p class="hint">Dikteringen vill ändra <em>befintligt</em> innehåll. Nytt material är redan inlagt – granska och godkänn ändringarna nedan.</p>
