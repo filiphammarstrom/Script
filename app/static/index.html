@@ -131,199 +131,231 @@
       </section>
     </section>
 
-    <!-- ===== VY: Projekt (med flikar) ===== -->
+    <!-- ===== VY: Projekt (app-skal: sidomeny + huvudyta) ===== -->
     <section id="view-project" class="view" hidden>
-      <div class="projhead">
-        <button id="backToProjects" class="linkbtn">← Alla projekt</button>
-        <h2 id="projHeadTitle" class="projtitle"></h2>
-        <div class="tabs">
-          <button id="tabManusBtn" class="tab">Manus</button>
-          <button id="tabSettingsBtn" class="tab">Projektinställningar</button>
+      <button id="sideToggle" class="side-toggle">☰ Meny</button>
+      <div class="app-shell">
+        <aside class="sidebar" id="sidebar">
+          <button id="backToProjects" class="linkbtn back-link">← Alla projekt</button>
+          <h2 id="projHeadTitle" class="proj-side-title"></h2>
+          <nav class="side-menu">
+            <button class="side-item" data-section="manus">📝 Manus</button>
+            <button class="side-item" data-section="board">🗂️ Korktavla</button>
+            <button class="side-item" data-section="find">🔍 Sök &amp; ersätt</button>
+            <button class="side-item" data-section="ask">💬 Fråga AI</button>
+            <button class="side-item" data-section="comments">🗒️ Kommentarer</button>
+            <button class="side-item" data-section="versions">🕑 Versioner</button>
+            <button class="side-item" data-section="reports">📊 Rapporter</button>
+            <button class="side-item" data-section="share">🔗 Dela</button>
+            <button class="side-item" data-section="projset">⚙️ Inställningar</button>
+          </nav>
+          <div class="side-scenes">
+            <div class="side-scenes-head">Scener <span class="hint">(klicka · dra)</span></div>
+            <ol id="sceneOutline" class="scene-outline"></ol>
+          </div>
+        </aside>
+
+        <div class="app-main">
+          <!-- SEKTION: Manus (diktering + editor) -->
+          <div class="proj-section" data-section="manus">
+            <div class="section-head">
+              <h2 class="section-title">Manus</h2>
+              <button id="paperToggle" class="linkbtn" title="Växla mellan vitt papper och mörkt läge">📄 Vitt papper</button>
+            </div>
+
+            <section class="panel">
+              <h2>Diktering / transkription</h2>
+              <div class="row wrap">
+                <button id="recordBtn" title="Spela in från mikrofonen och transkribera">🎙️ Spela in</button>
+                <label class="filelabel">Välj ljudfil
+                  <input type="file" id="audioFile" accept="audio/*" hidden>
+                </label>
+                <select id="transcribeEngine" title="Transkriberingsmotor">
+                  <option value="">Automatiskt (din inställning)</option>
+                  <option value="local">Lokalt (gratis)</option>
+                  <option value="watch">Bevakad mapp (auto)</option>
+                  <option value="openai">Moln: OpenAI</option>
+                  <option value="assemblyai">Moln: AssemblyAI (diarisering)</option>
+                </select>
+                <select id="transcribeModel" title="OpenAI-modell" hidden>
+                  <option value="gpt-4o-mini-transcribe">Diktering – 1 röst (billigast)</option>
+                  <option value="gpt-4o-transcribe">1 röst (hög kvalitet)</option>
+                  <option value="gpt-4o-transcribe-diarize">Flera talare (diarisering)</option>
+                </select>
+                <button id="transcribeBtn">Transkribera</button>
+                <label class="filelabel">Importera transkript
+                  <input type="file" id="transcriptFile" accept=".txt,.srt,.vtt,.text" hidden>
+                </label>
+                <span id="audioName" class="status"></span>
+              </div>
+              <p class="hint">Diktera vidare på manuset. Du kan lägga till sist, <em>infoga på en plats</em> ("den här scenen ska in mellan scen 23 och 24") eller <em>ändra/ta bort</em> ("ändra repliken i scen 12 till …") – allt i samma ruta.</p>
+              <textarea id="inputText" rows="6" placeholder="Diktera/klistra in – fortsätt scenen, 'lägg in en scen mellan 23 och 24 …', eller 'ändra repliken i scen 12 till …'"></textarea>
+              <div class="row">
+                <button id="analyzeBtn" class="primary">Lägg till / ändra</button>
+                <button id="undoBtn" hidden>↶ Ångra senaste</button>
+                <select id="aiEngine" title="AI-motor för manusbygget">
+                  <option value="anthropic">AI: Claude</option>
+                  <option value="openai">AI: GPT (OpenAI)</option>
+                </select>
+                <span id="status" class="status"></span>
+              </div>
+            </section>
+
+            <section class="panel" id="clarPanel" hidden>
+              <h2>Otydligt – AI:n undrar</h2>
+              <p class="hint">Frivilligt. Klicka på en fråga för att hoppa till elementet. Du kan exportera ändå.</p>
+              <div id="clarifications"></div>
+            </section>
+
+            <section class="panel" id="editPreviewPanel" hidden>
+              <h2>Ändringar att godkänna</h2>
+              <p class="hint">Dikteringen vill ändra <em>befintligt</em> innehåll. Nytt material är redan inlagt – granska och godkänn ändringarna nedan.</p>
+              <div id="editPreview" class="revise-preview"></div>
+            </section>
+
+            <section class="panel">
+              <p class="hint editor-hint" id="editorHint"><kbd>Enter</kbd> ny rad · <kbd>Shift</kbd>+<kbd>Enter</kbd> radbrytning · <kbd>Tab</kbd> byt typ · <kbd>⌫</kbd> först på raden slår ihop uppåt · skriv <kbd>INT.</kbd>/<kbd>EXT.</kbd> för scenrubrik</p>
+              <div id="elements" class="elements"></div>
+              <div class="row wrap">
+                <label class="filelabel">Importera manus (FDX/Fountain)
+                  <input type="file" id="importFile" accept=".fdx,.fountain,.txt,.text" hidden>
+                </label>
+                <button id="printBtn">🖨️ Skriv ut / PDF</button>
+                <button id="exportBtn" class="primary">Exportera FDX</button>
+                <span id="saveState" class="savestate"></span>
+              </div>
+            </section>
+          </div>
+
+          <!-- SEKTION: Korktavla -->
+          <div class="proj-section" data-section="board" hidden>
+            <div class="section-head">
+              <h2 class="section-title">Korktavla</h2>
+              <span class="hint">dra korten för att flytta scener · klicka för att hoppa</span>
+            </div>
+            <section class="panel">
+              <div id="corkboard" class="corkboard"></div>
+            </section>
+          </div>
+
+          <!-- SEKTION: Sök & ersätt -->
+          <div class="proj-section" data-section="find" hidden>
+            <div class="section-head"><h2 class="section-title">Sök &amp; ersätt</h2></div>
+            <section class="panel">
+              <p class="hint">T.ex. byt namn på en karaktär i hela manuset.</p>
+              <div class="row wrap find-row">
+                <input id="findText" placeholder="Sök ...">
+                <input id="findReplace" placeholder="Ersätt med ...">
+                <label class="inline-check"><input type="checkbox" id="findMatchCase"> Skilj på stora/små</label>
+              </div>
+              <div class="row wrap">
+                <button id="findNextBtn">Nästa träff</button>
+                <button id="replaceOneBtn">Ersätt</button>
+                <button id="replaceAllBtn" class="primary">Ersätt alla</button>
+                <span id="findStatus" class="status"></span>
+              </div>
+            </section>
+          </div>
+
+          <!-- SEKTION: Fråga AI -->
+          <div class="proj-section" data-section="ask" hidden>
+            <div class="section-head"><h2 class="section-title">Fråga AI</h2></div>
+            <section class="panel">
+              <p class="hint">Ställ en fråga om manuset – AI:n svarar utifrån innehållet.</p>
+              <div class="row">
+                <input id="askInput" placeholder="T.ex. 'hur lång är akt 1?', 'sammanfatta scen 3', 'hitta kontinuitetsfel'">
+                <button id="askBtn" class="primary">Fråga</button>
+                <span id="askStatus" class="status"></span>
+              </div>
+              <div id="askAnswer" class="ask-answer" hidden></div>
+            </section>
+          </div>
+
+          <!-- SEKTION: Kommentarer -->
+          <div class="proj-section" data-section="comments" hidden>
+            <div class="section-head"><h2 class="section-title">Kommentarer</h2></div>
+            <section class="panel">
+              <div id="commentsList" class="comments-list"></div>
+              <div class="row comment-add">
+                <input id="commentScene" type="number" min="1" placeholder="Scen #" class="comment-scene">
+                <input id="commentText" placeholder="Skriv en kommentar ...">
+                <button id="addCommentBtn" class="primary">Lägg till</button>
+                <span id="commentStatus" class="status"></span>
+              </div>
+            </section>
+          </div>
+
+          <!-- SEKTION: Versioner -->
+          <div class="proj-section" data-section="versions" hidden>
+            <div class="section-head"><h2 class="section-title">Versioner</h2></div>
+            <section class="panel">
+              <p class="hint">En version sparas automatiskt före varje AI-ändring.</p>
+              <div class="row version-save">
+                <input id="versionLabel" placeholder="Namnge denna version (valfritt)">
+                <button id="saveVersionBtn">💾 Spara version</button>
+                <span id="versionStatus" class="status"></span>
+              </div>
+              <div id="versionsList" class="versions-list"></div>
+            </section>
+          </div>
+
+          <!-- SEKTION: Rapporter -->
+          <div class="proj-section" data-section="reports" hidden>
+            <div class="section-head"><h2 class="section-title">Rapporter</h2></div>
+            <section class="panel">
+              <div id="reportBody" class="report-body"></div>
+            </section>
+          </div>
+
+          <!-- SEKTION: Dela skrivskyddat -->
+          <div class="proj-section" data-section="share" hidden>
+            <div class="section-head"><h2 class="section-title">Dela skrivskyddat</h2></div>
+            <section class="panel">
+              <p class="hint">Skapa en länk så andra kan <em>läsa</em> manuset och lämna kommentarer – utan att kunna ändra något. Kommentarerna dyker upp under Kommentarer.</p>
+              <div class="row wrap">
+                <button id="createShareBtn" class="primary">🔗 Skapa delningslänk</button>
+                <button id="revokeShareBtn" class="linkbtn danger" hidden>Sluta dela</button>
+                <span id="shareStatus" class="status"></span>
+              </div>
+              <div id="shareLinkRow" class="row wrap" hidden>
+                <input id="shareLink" readonly>
+                <button id="copyShareBtn">Kopiera länk</button>
+              </div>
+            </section>
+          </div>
+
+          <!-- SEKTION: Projektinställningar -->
+          <div class="proj-section" data-section="projset" hidden>
+            <div class="section-head"><h2 class="section-title">Projektinställningar</h2></div>
+            <section class="panel">
+              <label>Titel <input id="projTitle"></label>
+              <div class="row wrap">
+                <label>Författare <input id="projAuthor" placeholder="För titelsidan"></label>
+              </div>
+              <label>Kontaktuppgifter (titelsidan – en rad per rad)
+                <textarea id="projContact" rows="3" placeholder="Namn&#10;e-post&#10;telefon"></textarea>
+              </label>
+              <label>Synopsis / kontext
+                <textarea id="projContext" rows="5" placeholder="Vad handlar det om? Karaktärer, värld, ton ..."></textarea>
+              </label>
+              <div class="row wrap">
+                <label class="filelabel">Ladda upp synopsis (PDF/TXT)
+                  <input type="file" id="synopsisFile" accept=".pdf,.txt,.md,.text" hidden>
+                </label>
+                <span id="projSetStatus" class="status"></span>
+              </div>
+              <label>Projektets instruktioner till AI:n (kan uppdateras när som helst)
+                <textarea id="projDirectives" rows="4" placeholder="T.ex. 'Karaktären stavas Mikael', 'tonen är mörk', 'översätt action till engelska' ..."></textarea>
+              </label>
+              <button id="saveProjectBtn" class="primary">Spara projekt</button>
+            </section>
+
+            <section class="panel">
+              <h2>Story-bibel <span class="hint">(AI:ns minne – växer med projektet)</span></h2>
+              <div id="storyBible" class="bible"></div>
+            </section>
+          </div>
         </div>
-      </div>
-
-      <!-- FLIK: Manus -->
-      <div id="tab-manus" class="tab-panel">
-        <section class="panel">
-          <h2>Diktering / transkription</h2>
-          <div class="row wrap">
-            <button id="recordBtn" title="Spela in från mikrofonen och transkribera">🎙️ Spela in</button>
-            <label class="filelabel">Välj ljudfil
-              <input type="file" id="audioFile" accept="audio/*" hidden>
-            </label>
-            <select id="transcribeEngine" title="Transkriberingsmotor">
-              <option value="">Automatiskt (din inställning)</option>
-              <option value="local">Lokalt (gratis)</option>
-              <option value="watch">Bevakad mapp (auto)</option>
-              <option value="openai">Moln: OpenAI</option>
-              <option value="assemblyai">Moln: AssemblyAI (diarisering)</option>
-            </select>
-            <select id="transcribeModel" title="OpenAI-modell" hidden>
-              <option value="gpt-4o-mini-transcribe">Diktering – 1 röst (billigast)</option>
-              <option value="gpt-4o-transcribe">1 röst (hög kvalitet)</option>
-              <option value="gpt-4o-transcribe-diarize">Flera talare (diarisering)</option>
-            </select>
-            <button id="transcribeBtn">Transkribera</button>
-            <label class="filelabel">Importera transkript
-              <input type="file" id="transcriptFile" accept=".txt,.srt,.vtt,.text" hidden>
-            </label>
-            <span id="audioName" class="status"></span>
-          </div>
-          <p class="hint">Diktera vidare på manuset. Du kan lägga till sist, <em>infoga på en plats</em> ("den här scenen ska in mellan scen 23 och 24") eller <em>ändra/ta bort</em> ("ändra repliken i scen 12 till …") – allt i samma ruta.</p>
-          <textarea id="inputText" rows="8" placeholder="Diktera/klistra in – fortsätt scenen, 'lägg in en scen mellan 23 och 24 …', eller 'ändra repliken i scen 12 till …'"></textarea>
-          <div class="row">
-            <button id="analyzeBtn" class="primary">Lägg till / ändra</button>
-            <button id="undoBtn" hidden>↶ Ångra senaste</button>
-            <select id="aiEngine" title="AI-motor för manusbygget">
-              <option value="anthropic">AI: Claude</option>
-              <option value="openai">AI: GPT (OpenAI)</option>
-            </select>
-            <span id="status" class="status"></span>
-          </div>
-        </section>
-
-        <section class="panel" id="clarPanel" hidden>
-          <h2>Otydligt – AI:n undrar</h2>
-          <p class="hint">Frivilligt. Klicka på en fråga för att hoppa till elementet. Du kan exportera ändå.</p>
-          <div id="clarifications"></div>
-        </section>
-
-        <section class="panel" id="outlinePanel" hidden>
-          <h2>Scenöversikt <span class="hint">(klicka för att hoppa · dra för att flytta scen)</span></h2>
-          <ol id="sceneOutline" class="scene-outline"></ol>
-        </section>
-
-        <section class="panel">
-          <div class="panel-head">
-            <div class="view-toggle">
-              <button id="viewScriptBtn" class="seg active">📄 Manus</button>
-              <button id="viewBoardBtn" class="seg">🗂️ Korktavla</button>
-            </div>
-            <button id="paperToggle" class="linkbtn" title="Växla mellan vitt papper och mörkt läge">📄 Vitt papper</button>
-          </div>
-          <p class="hint editor-hint" id="editorHint"><kbd>Enter</kbd> ny rad · <kbd>Shift</kbd>+<kbd>Enter</kbd> radbrytning · <kbd>Tab</kbd> byt typ · <kbd>⌫</kbd> först på raden slår ihop uppåt · skriv <kbd>INT.</kbd>/<kbd>EXT.</kbd> för scenrubrik</p>
-          <div id="elements" class="elements"></div>
-          <div id="corkboard" class="corkboard" hidden></div>
-          <div class="row wrap">
-            <label class="filelabel">Importera manus (FDX/Fountain)
-              <input type="file" id="importFile" accept=".fdx,.fountain,.txt,.text" hidden>
-            </label>
-            <button id="printBtn">🖨️ Skriv ut / PDF</button>
-            <button id="exportBtn" class="primary">Exportera FDX</button>
-            <span id="saveState" class="savestate"></span>
-          </div>
-        </section>
-
-        <section class="panel">
-          <details id="findDetails">
-            <summary><strong>Sök &amp; ersätt</strong> <span class="hint">(t.ex. byt namn på en karaktär i hela manuset)</span></summary>
-            <div class="row wrap find-row">
-              <input id="findText" placeholder="Sök ...">
-              <input id="findReplace" placeholder="Ersätt med ...">
-              <label class="inline-check"><input type="checkbox" id="findMatchCase"> Skilj på stora/små</label>
-            </div>
-            <div class="row wrap">
-              <button id="findNextBtn">Nästa träff</button>
-              <button id="replaceOneBtn">Ersätt</button>
-              <button id="replaceAllBtn" class="primary">Ersätt alla</button>
-              <span id="findStatus" class="status"></span>
-            </div>
-          </details>
-        </section>
-
-        <section class="panel">
-          <h2>Fråga manuset <span class="hint">(AI-assistent)</span></h2>
-          <div class="row">
-            <input id="askInput" placeholder="T.ex. 'hur lång är akt 1?', 'sammanfatta scen 3', 'hitta kontinuitetsfel'">
-            <button id="askBtn" class="primary">Fråga</button>
-            <span id="askStatus" class="status"></span>
-          </div>
-          <div id="askAnswer" class="ask-answer" hidden></div>
-        </section>
-
-        <section class="panel">
-          <details id="versionsDetails">
-            <summary><strong>Versionshistorik</strong> <span class="hint">(en version sparas automatiskt före varje AI-ändring)</span></summary>
-            <div class="row version-save">
-              <input id="versionLabel" placeholder="Namnge denna version (valfritt)">
-              <button id="saveVersionBtn">💾 Spara version</button>
-              <span id="versionStatus" class="status"></span>
-            </div>
-            <div id="versionsList" class="versions-list"></div>
-          </details>
-        </section>
-
-        <section class="panel">
-          <details id="commentsDetails">
-            <summary><strong>Kommentarer</strong> <span class="hint">(noteringar till manuset)</span></summary>
-            <div id="commentsList" class="comments-list"></div>
-            <div class="row comment-add">
-              <input id="commentScene" type="number" min="1" placeholder="Scen #" class="comment-scene">
-              <input id="commentText" placeholder="Skriv en kommentar ...">
-              <button id="addCommentBtn" class="primary">Lägg till</button>
-              <span id="commentStatus" class="status"></span>
-            </div>
-          </details>
-        </section>
-
-        <section class="panel">
-          <details id="reportDetails">
-            <summary><strong>Rapporter</strong> <span class="hint">(karaktärer &amp; scener)</span></summary>
-            <div id="reportBody" class="report-body"></div>
-          </details>
-        </section>
-
-        <section class="panel" id="editPreviewPanel" hidden>
-          <h2>Ändringar att godkänna</h2>
-          <p class="hint">Dikteringen vill ändra <em>befintligt</em> innehåll. Nytt material är redan inlagt – granska och godkänn ändringarna nedan.</p>
-          <div id="editPreview" class="revise-preview"></div>
-        </section>
-      </div>
-
-      <!-- FLIK: Projektinställningar -->
-      <div id="tab-projset" class="tab-panel" hidden>
-        <section class="panel">
-          <h2>Projektinställningar</h2>
-          <label>Titel <input id="projTitle"></label>
-          <div class="row wrap">
-            <label>Författare <input id="projAuthor" placeholder="För titelsidan"></label>
-          </div>
-          <label>Kontaktuppgifter (titelsidan – en rad per rad)
-            <textarea id="projContact" rows="3" placeholder="Namn&#10;e-post&#10;telefon"></textarea>
-          </label>
-          <label>Synopsis / kontext
-            <textarea id="projContext" rows="5" placeholder="Vad handlar det om? Karaktärer, värld, ton ..."></textarea>
-          </label>
-          <div class="row wrap">
-            <label class="filelabel">Ladda upp synopsis (PDF/TXT)
-              <input type="file" id="synopsisFile" accept=".pdf,.txt,.md,.text" hidden>
-            </label>
-            <span id="projSetStatus" class="status"></span>
-          </div>
-          <label>Projektets instruktioner till AI:n (kan uppdateras när som helst)
-            <textarea id="projDirectives" rows="4" placeholder="T.ex. 'Karaktären stavas Mikael', 'tonen är mörk', 'översätt action till engelska' ..."></textarea>
-          </label>
-          <button id="saveProjectBtn" class="primary">Spara projekt</button>
-        </section>
-
-        <section class="panel">
-          <h2>Dela skrivskyddat</h2>
-          <p class="hint">Skapa en länk så andra kan <em>läsa</em> manuset och lämna kommentarer – utan att kunna ändra något. Kommentarerna dyker upp i din kommentarslista under Manus.</p>
-          <div class="row wrap">
-            <button id="createShareBtn" class="primary">🔗 Skapa delningslänk</button>
-            <button id="revokeShareBtn" class="linkbtn danger" hidden>Sluta dela</button>
-            <span id="shareStatus" class="status"></span>
-          </div>
-          <div id="shareLinkRow" class="row wrap" hidden>
-            <input id="shareLink" readonly>
-            <button id="copyShareBtn">Kopiera länk</button>
-          </div>
-        </section>
-
-        <section class="panel">
-          <h2>Story-bibel <span class="hint">(AI:ns minne – växer med projektet)</span></h2>
-          <div id="storyBible" class="bible"></div>
-        </section>
       </div>
     </section>
   </main>

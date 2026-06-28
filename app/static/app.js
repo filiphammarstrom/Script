@@ -245,39 +245,39 @@ function openProject(p) {
   $("projDirectives").value = p.directives;
   renderBible();
   renderElements();
-  setManusView("script");  // alltid manusvy när ett projekt öppnas
   $("clarPanel").hidden = true;
   $("clarifications").innerHTML = "";
   $("inputText").value = "";
   hideEditPreview();
   undoSnapshot = null;
   $("undoBtn").hidden = true;
-  $("versionsDetails").open = false;
   $("versionsList").innerHTML = "";
-  $("commentsDetails").open = false;
   $("commentsList").innerHTML = "";
   renderShareState(null);
   setShareStatus("");
-  $("findDetails").open = false;
   findCursor = -1;
   setFindStatus("");
-  $("reportDetails").open = false;
   $("reportBody").innerHTML = "";
   $("askAnswer").hidden = true;
   setStatus("");
   setProjSetStatus("");
-  showProjectTab("manus");
+  showSection("manus");
   setSaveState("");
   showView("project");
 }
-function showProjectTab(name) {
-  $("tab-manus").hidden = name !== "manus";
-  $("tab-projset").hidden = name !== "projset";
-  $("tabManusBtn").classList.toggle("active", name === "manus");
-  $("tabSettingsBtn").classList.toggle("active", name === "projset");
+// Byt sektion i projekt-app-skalet (sidomenyn). Laddar innehåll vid behov.
+function showSection(name) {
+  for (const s of document.querySelectorAll("#view-project .proj-section")) s.hidden = s.dataset.section !== name;
+  for (const b of document.querySelectorAll(".side-item")) b.classList.toggle("active", b.dataset.section === name);
+  if (name === "comments") loadComments();
+  else if (name === "versions") loadVersions();
+  else if (name === "reports") renderReports();
+  else if (name === "board") renderCorkboard();
+  else if (name === "share") loadShareStatus();
+  $("sidebar").classList.remove("open");  // stäng mobilmenyn efter val
 }
-$("tabManusBtn").onclick = () => showProjectTab("manus");
-$("tabSettingsBtn").onclick = () => { showProjectTab("projset"); loadShareStatus(); };
+document.querySelectorAll(".side-item").forEach((b) => { b.onclick = () => showSection(b.dataset.section); });
+$("sideToggle").onclick = () => $("sidebar").classList.toggle("open");
 $("backToProjects").onclick = async () => {
   flushSave();
   await loadProjectList();
@@ -728,7 +728,7 @@ function renderElements() {
     startBtn.onclick = appendElement;  // skapar en första scenrubrik och sätter fokus
     wrap.appendChild(startBtn);
     box.appendChild(wrap);
-    $("outlinePanel").hidden = true;
+    renderOutline();  // töm scenlistan i sidofältet
     return;
   }
 
@@ -821,9 +821,11 @@ function renderOutline() {
   const ol = $("sceneOutline");
   const groups = groupScenes();
   const headedCount = groups.filter((g) => g.heading).length;
-  $("outlinePanel").hidden = headedCount < 2;  // visa bara när det finns något att navigera
   ol.innerHTML = "";
-  if (headedCount < 2) return;
+  if (!headedCount) {  // scenlistan i sidofältet är alltid synlig – visa tom-hint
+    ol.innerHTML = '<li class="outline-empty">Inga scener än</li>';
+    return;
+  }
   let runningLines = 0;
   let sceneNo = 0;
   for (const g of groups) {
@@ -869,19 +871,7 @@ function reorderScene(from, to) {
   highlightElement(moved.heading.id);
 }
 
-// ---- korktavla (scener som index-kort) ----
-let manusView = "script";
-function setManusView(v) {
-  manusView = v;
-  const board = v === "board";
-  $("elements").hidden = board;
-  $("corkboard").hidden = !board;
-  $("editorHint").hidden = board;
-  $("paperToggle").hidden = board;
-  $("viewScriptBtn").classList.toggle("active", !board);
-  $("viewBoardBtn").classList.toggle("active", board);
-  if (board) renderCorkboard();
-}
+// ---- korktavla (scener som index-kort, egen sektion) ----
 function scenePreview(headingId) {
   const els = project.elements;
   const i = els.findIndex((e) => e.id === headingId);
@@ -914,7 +904,7 @@ function renderCorkboard() {
       `<div class="card-title">${esc(s.heading)}</div>` +
       `<div class="card-body">${esc(scenePreview(s.id))}</div>` +
       `<div class="card-foot">${s.rows} rader${s.chars.length ? " · " + esc(s.chars.join(", ")) : ""}</div>`;
-    card.onclick = () => { setManusView("script"); highlightElement(s.id); };
+    card.onclick = () => { showSection("manus"); highlightElement(s.id); };
     card.ondragstart = (e) => { e.dataTransfer.setData("text/plain", String(s.no)); card.classList.add("dragging"); };
     card.ondragend = () => card.classList.remove("dragging");
     card.ondragover = (e) => { e.preventDefault(); card.classList.add("dragover"); };
@@ -928,8 +918,6 @@ function renderCorkboard() {
     box.appendChild(card);
   }
 }
-$("viewScriptBtn").onclick = () => setManusView("script");
-$("viewBoardBtn").onclick = () => setManusView("board");
 
 // ---- levande "Sida X / Y" medan man scrollar ----
 let pageScrollBound = false;
@@ -1107,7 +1095,7 @@ function appendElement() {
   scheduleSave();
 }
 function highlightElement(id) {
-  showProjectTab("manus");
+  showSection("manus");
   const row = document.querySelector(`.fel[data-id="${id}"]`);
   if (!row) return;
   const scene = row.closest(".scene");
@@ -1248,7 +1236,6 @@ async function restoreVersion(vid, label) {
     setVersionStatus("Kunde inte återställa: " + e.message);
   }
 }
-$("versionsDetails").ontoggle = () => { if ($("versionsDetails").open) loadVersions(); };
 
 // ---- kommentarer ----
 function sceneHeadingId(n) {
@@ -1319,7 +1306,6 @@ async function deleteComment(cid) {
     setCommentStatus("Fel: " + e.message);
   }
 }
-$("commentsDetails").ontoggle = () => { if ($("commentsDetails").open) loadComments(); };
 
 // ---- rapporter (karaktärer & scener) ----
 function cleanCue(text) {
@@ -1415,7 +1401,6 @@ function renderReports() {
   }
   box.appendChild(sc);
 }
-$("reportDetails").ontoggle = () => { if ($("reportDetails").open) renderReports(); };
 
 // ---- sök & ersätt (i hela manuset) ----
 const setFindStatus = mkStatus("findStatus");
