@@ -773,21 +773,6 @@ $("exportBtn").onclick = async () => {
   URL.revokeObjectURL(a.href);
 };
 
-$("segmentBtn").onclick = async () => {
-  if (!project || !project.elements.length) { setStatus("Inget manus att dela in än."); return; }
-  setStatus("Delar in i scener ...", true);
-  try {
-    const data = await api("POST", `/api/projects/${project.id}/segment`, { provider: $("aiEngine").value });
-    const ops = data.operations || [];
-    if (!ops.length) { setStatus(data.summary || "Inga scengränser hittades."); return; }
-    undoSnapshot = JSON.parse(JSON.stringify(project.elements));  // för ångra efter godkännande
-    showEditPreview(ops);
-    setStatus(data.summary || `${ops.length} scenrubriker att godkänna.`);
-  } catch (e) {
-    setStatus("Fel: " + e.message);
-  }
-};
-
 // ---- ändringar av befintligt innehåll: granska & godkänn ----
 let pendingEdits = null;
 function hideEditPreview() {
