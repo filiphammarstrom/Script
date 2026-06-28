@@ -395,3 +395,29 @@ main:has(#view-project:not([hidden])) { max-width: 1200px; }
 #googleBtn { display: flex; justify-content: center; margin: 18px 0 8px; min-height: 44px; }
 .userarea { display: inline-flex; align-items: center; gap: 8px; margin-left: 8px; padding-left: 12px; border-left: 1px solid var(--line); }
 .userarea .uname { color: var(--muted); font-size: 13px; }
+
+/* ---- mobil / smala skärmar ---- */
+@media (max-width: 760px) {
+  main, main:has(#view-project:not([hidden])) { max-width: 100%; padding: 12px 10px 56px; }
+  header { padding: 10px 12px; }
+  header h1 { font-size: 15px; }
+  .brand-tagline { display: none; }
+  .topnav { flex-wrap: wrap; }
+  .panel { padding: 13px; }
+  .row.wrap { gap: 6px; }
+
+  /* sidan i full bredd; kontrollerna in i kortet (railen ryms inte) */
+  .scene { width: 100%; }
+  .scene-body { padding: 12px 8px 16px 14px; }
+  .elements.paper .scene-body { padding: 18px 10px 22px 18px; }
+  .elements > .page-break { width: 100%; }
+  .scenes-bar { top: 44px; }
+
+  .fel-tools { left: auto; right: 4px; margin-left: 0; opacity: 0; }
+  .fel:focus-within .fel-tools { opacity: 1; }
+
+  /* mindre indrag så dialog/karaktär inte blir trångt på liten skärm */
+  .fel-character .fel-text { margin-left: 8ch; max-width: none; }
+  .fel-dialogue .fel-text { margin-left: 4ch; max-width: none; }
+  .fel-parenthetical .fel-text { margin-left: 6ch; max-width: none; }
+}
