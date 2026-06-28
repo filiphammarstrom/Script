@@ -58,6 +58,7 @@ function showView(name) {
   $("navAdmin").classList.toggle("active", name === "admin");
 }
 $("navProjects").onclick = async () => {
+  flushSave();
   await loadProjectList();
   showView("projects");
 };
@@ -216,6 +217,7 @@ $("newProjectBtn").onclick = async () => {
 
 // ---- projektvy ----
 function openProject(p) {
+  flushSave();  // spara ev. väntande ändringar i föregående projekt
   project = p;
   $("projHeadTitle").textContent = p.title;
   $("projTitle").value = p.title;
@@ -232,6 +234,7 @@ function openProject(p) {
   setStatus("");
   setProjSetStatus("");
   showProjectTab("manus");
+  setSaveState("");
   showView("project");
 }
 function showProjectTab(name) {
@@ -243,6 +246,7 @@ function showProjectTab(name) {
 $("tabManusBtn").onclick = () => showProjectTab("manus");
 $("tabSettingsBtn").onclick = () => showProjectTab("projset");
 $("backToProjects").onclick = async () => {
+  flushSave();
   await loadProjectList();
   showView("projects");
 };
@@ -517,7 +521,8 @@ function elementRow(el) {
   ta.className = "fel-text";
   ta.rows = 1;
   ta.value = el.text;
-  ta.oninput = () => { el.text = ta.value; autogrow(ta); };
+  ta.oninput = () => { el.text = ta.value; autogrow(ta); scheduleSave(); };
+  ta.onblur = flushSave;
   row.appendChild(ta);
 
   const tools = document.createElement("div");
@@ -530,7 +535,7 @@ function elementRow(el) {
     if (t === el.type) o.selected = true;
     sel.appendChild(o);
   }
-  sel.onchange = () => { el.type = sel.value; renderElements(); };  // typbyte kan ändra scenindelning
+  sel.onchange = () => { el.type = sel.value; renderElements(); scheduleSave(); };  // typbyte kan ändra scenindelning
   tools.appendChild(sel);
   tools.appendChild(iconBtn("+", "Infoga rad under", () => insertElementAfter(el)));
   tools.appendChild(iconBtn("↑", "Flytta upp", () => moveElement(el, -1)));
@@ -704,7 +709,7 @@ function moveElement(el, dir) {
   if (i < 0 || j < 0 || j >= project.elements.length) return;
   [project.elements[i], project.elements[j]] = [project.elements[j], project.elements[i]];
   renderElements();
-  setStatus('Flyttad – glöm inte "Spara ändringar".');
+  scheduleSave();
 }
 function deleteElement(el) {
   const i = project.elements.indexOf(el);
@@ -712,7 +717,7 @@ function deleteElement(el) {
   if (!confirm(`Ta bort raden?\n\n${(el.text || "").slice(0, 80)}`)) return;
   project.elements.splice(i, 1);
   renderElements();
-  setStatus('Rad borttagen – glöm inte "Spara ändringar".');
+  scheduleSave();
 }
 // ---- manuellt lägga till rader (som i Final Draft) ----
 function newBlankElement(type) {
@@ -730,7 +735,7 @@ function insertElementAfter(el) {
   project.elements.splice(i + 1, 0, ne);
   renderElements();
   focusElement(ne.id);
-  setStatus('Ny rad – välj typ, skriv, och "Spara ändringar".');
+  scheduleSave();
 }
 function appendElement() {
   if (!project) return;
@@ -738,7 +743,7 @@ function appendElement() {
   project.elements.push(ne);
   renderElements();
   focusElement(ne.id);
-  setStatus('Ny rad – välj typ, skriv, och "Spara ändringar".');
+  scheduleSave();
 }
 $("addRowBtn").onclick = appendElement;
 function highlightElement(id) {
@@ -752,11 +757,40 @@ function highlightElement(id) {
   setTimeout(() => row.classList.remove("flash"), 1500);
 }
 
-$("saveElementsBtn").onclick = async () => {
-  project = await api("PUT", `/api/projects/${project.id}`, { elements: project.elements });
-  renderElements();
-  setStatus("Ändringar sparade.");
-};
+// ---- autospar (debounce + vid blur/navigering) ----
+let saveTimer = null;
+function setSaveState(state, msg) {
+  const el = $("saveState");
+  if (!el) return;
+  el.className = "savestate" + (state === "saved" ? " ok" : state === "error" ? " err" : "");
+  el.textContent = state === "dirty" ? "Osparat …"
+    : state === "saving" ? "Sparar …"
+    : state === "saved" ? "Sparat ✓"
+    : state === "error" ? "Kunde inte spara: " + (msg || "")
+    : "";
+}
+function scheduleSave() {
+  if (!project) return;
+  setSaveState("dirty");
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveNow, 900);
+}
+async function saveNow() {
+  clearTimeout(saveTimer);
+  saveTimer = null;
+  if (!project) return;
+  setSaveState("saving");
+  try {
+    // Sparar bara elementen; behåller lokala element-objekt (DOM-bindningarna) intakta.
+    await api("PUT", `/api/projects/${project.id}`, { elements: project.elements });
+    setSaveState("saved");
+  } catch (e) {
+    setSaveState("error", e.message);
+  }
+}
+function flushSave() {
+  if (saveTimer) saveNow();
+}
 
 // ---- export ----
 $("exportBtn").onclick = async () => {
