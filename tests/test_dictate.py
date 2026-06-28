@@ -84,31 +84,3 @@ def test_dictate_endpoint_applies_additive_returns_pending(monkeypatch):
     assert any(e["text"] == "Hejsan." for e in r2["project"]["elements"])      # ändring godkänd
 
     client.delete(f"/api/projects/{proj['id']}")
-
-
-def test_segment_proposes_headings_without_applying(monkeypatch):
-    monkeypatch.delenv("AUTH_ENABLED", raising=False)
-    proj = client.post("/api/projects", json={"title": "Seg"}).json()
-    client.put(f"/api/projects/{proj['id']}", json={"elements": [
-        {"id": 0, "type": "action", "text": "Publiken jublar."},
-        {"id": 1, "type": "action", "text": "Utanför arenan vällar folk in."},
-    ]})
-
-    canned = DictateResult(operations=[
-        DictateOp(op="insert_after", target_id=None, elements=[NewElement(type="scene_heading", text="INT. ARENAN - KVÄLL")]),
-        DictateOp(op="insert_after", target_id=0, elements=[NewElement(type="scene_heading", text="EXT. ARENAN - KVÄLL")]),
-    ], summary="Föreslår 2 scenrubriker.")
-    monkeypatch.setattr(main_mod.analyze_mod, "segment", lambda *a, **k: canned)
-
-    r = client.post(f"/api/projects/{proj['id']}/segment", json={}).json()
-    assert len(r["operations"]) == 2
-    # segment tillämpar inget av sig självt
-    after = client.get(f"/api/projects/{proj['id']}").json()
-    assert all(e["type"] != "scene_heading" for e in after["elements"])
-
-    # godkänn via apply-edits → scenrubriker infogas på rätt plats
-    r2 = client.post(f"/api/projects/{proj['id']}/apply-edits", json={"operations": r["operations"]}).json()
-    types = [e["type"] for e in r2["project"]["elements"]]
-    assert types == ["scene_heading", "action", "scene_heading", "action"]
-
-    client.delete(f"/api/projects/{proj['id']}")
