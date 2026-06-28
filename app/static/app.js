@@ -10,6 +10,17 @@ const TYPE_LABELS = {
   transition: "Övergång",
   general: "Allmänt",
 };
+// Vilken typ en ny rad får när man trycker Enter (som i Final Draft / Arc Studio):
+// efter karaktär kommer dialog, efter scenrubrik kommer action, osv.
+const NEXT_TYPE = {
+  scene_heading: "action",
+  action: "action",
+  character: "dialogue",
+  dialogue: "action",
+  parenthetical: "dialogue",
+  transition: "scene_heading",
+  general: "action",
+};
 let scenesCollapsed = false;
 let project = null;
 let undoSnapshot = null;  // manusets element FÖRE senaste diktering (för ångra)
@@ -586,6 +597,21 @@ function elementRow(el) {
   ta.value = el.text;
   ta.oninput = () => { el.text = ta.value; autogrow(ta); scheduleSave(); };
   ta.onblur = flushSave;
+  // Enter = ny rad (nästa element), som i Final Draft/Arc Studio. Shift+Enter =
+  // radbrytning inom samma stycke. Står markören mitt i texten delas raden.
+  ta.onkeydown = (e) => {
+    if (e.key !== "Enter" || e.shiftKey) return;
+    e.preventDefault();
+    const pos = ta.selectionStart;
+    if (pos < ta.value.length) {  // dela: behåll texten före markören, flytta resten ned
+      const after = ta.value.slice(pos);
+      el.text = ta.value.slice(0, pos);
+      ta.value = el.text;
+      insertElementAfter(el, el.type, after);
+    } else {  // markören sist: lägg till en tom rad av nästa naturliga typ
+      insertElementAfter(el, NEXT_TYPE[el.type] || "action", "");
+    }
+  };
   row.appendChild(ta);
 
   const tools = document.createElement("div");
@@ -656,7 +682,16 @@ function renderElements() {
   const box = $("elements");
   box.innerHTML = "";
   if (!project.elements.length) {
-    box.innerHTML = '<p class="hint">Inget manus än – diktera/klistra in text, eller tryck <strong>+ Lägg till rad</strong>.</p>';
+    box.innerHTML = "";
+    const wrap = document.createElement("div");
+    wrap.className = "empty-state";
+    wrap.innerHTML = '<p class="hint">Inget manus än – diktera/klistra in text ovan, eller börja skriva för hand.</p>';
+    const startBtn = document.createElement("button");
+    startBtn.className = "primary";
+    startBtn.textContent = "✍️ Börja skriva";
+    startBtn.onclick = appendElement;  // skapar en första scenrubrik och sätter fokus
+    wrap.appendChild(startBtn);
+    box.appendChild(wrap);
     $("outlinePanel").hidden = true;
     return;
   }
@@ -845,14 +880,16 @@ function focusElement(id) {
   const ta = document.querySelector(`.fel[data-id="${id}"] .fel-text`);
   if (ta) { ta.focus(); autogrow(ta); }
 }
-function insertElementAfter(el) {
+function insertElementAfter(el, type, text = "") {
   const i = project.elements.indexOf(el);
-  if (i < 0) return;
-  const ne = newBlankElement(el.type === "character" ? "dialogue" : "action");
+  if (i < 0) return null;
+  const ne = newBlankElement(type || NEXT_TYPE[el.type] || "action");
+  ne.text = text;
   project.elements.splice(i + 1, 0, ne);
   renderElements();
   focusElement(ne.id);
   scheduleSave();
+  return ne;
 }
 function appendElement() {
   if (!project) return;
@@ -862,7 +899,6 @@ function appendElement() {
   focusElement(ne.id);
   scheduleSave();
 }
-$("addRowBtn").onclick = appendElement;
 function highlightElement(id) {
   showProjectTab("manus");
   const row = document.querySelector(`.fel[data-id="${id}"]`);
