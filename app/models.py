@@ -90,6 +90,8 @@ class StoryBible(BaseModel):
 class Project(BaseModel):
     id: str
     title: str = "Namnlöst projekt"
+    author: str = ""  # för titelsidan i exporten
+    contact: str = ""  # kontaktuppgifter (titelsidan), en rad per rad
     context: str = ""  # synopsis/bakgrund
     directives: str = ""  # användarens stående instruktioner för DETTA projekt
     story_bible: StoryBible = Field(default_factory=StoryBible)

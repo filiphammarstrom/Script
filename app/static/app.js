@@ -221,6 +221,8 @@ function openProject(p) {
   project = p;
   $("projHeadTitle").textContent = p.title;
   $("projTitle").value = p.title;
+  $("projAuthor").value = p.author || "";
+  $("projContact").value = p.contact || "";
   $("projContext").value = p.context;
   $("projDirectives").value = p.directives;
   renderBible();
@@ -256,6 +258,8 @@ $("saveProjectBtn").onclick = async () => {
   try {
     project = await api("PUT", `/api/projects/${project.id}`, {
       title: $("projTitle").value,
+      author: $("projAuthor").value,
+      contact: $("projContact").value,
       context: $("projContext").value,
       directives: $("projDirectives").value,
       story_bible: project.story_bible,
