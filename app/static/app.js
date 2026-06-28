@@ -611,12 +611,14 @@ function renderElements() {
   let sceneNo = 0;
   let runningLines = 0;
   let lastPage = 1;
+  let nextMilestone = 5;
   for (const g of groups) {
     const startPage = Math.floor(runningLines / LINES_PER_PAGE) + 1;
-    if (startPage > lastPage) {  // sidbrytning vid scengräns – på toppnivå, syns även när scener är ihopfällda
-      lastPage = startPage;
+    if (startPage >= nextMilestone) {  // grov sidlinjal (~var 5:e sida) på toppnivå – syns även ihopfällt
       box.appendChild(pageBreakDivider(startPage));
+      nextMilestone = Math.floor(startPage / 5) * 5 + 5;
     }
+    lastPage = startPage;  // mid-scen-brytningar jämförs mot scenens startsida
     const scene = document.createElement("div");
     scene.className = "scene";
     scene.dataset.page = startPage;
