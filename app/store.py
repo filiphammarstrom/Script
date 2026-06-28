@@ -221,6 +221,69 @@ def delete_comment(uid: str, project_id: str, comment_id: str) -> list[dict]:
     return comments
 
 
+# ---- skrivskyddad delning (delningslänkar) ----
+# Ett globalt index token -> {uid, project_id}. Token:en är "nyckeln": vem som
+# helst med länken kan läsa manuset och lämna kommentarer, men inte ändra något.
+def _shares_path() -> Path:
+    return DATA_DIR / "shares.json"
+
+
+def _load_shares() -> dict:
+    import json
+
+    p = _shares_path()
+    if not p.exists():
+        return {}
+    try:
+        return json.loads(p.read_text("utf-8"))
+    except Exception:
+        return {}
+
+
+def _save_shares(shares: dict) -> None:
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    _shares_path().write_text(_dumps(shares), "utf-8")
+
+
+def share_token_for(uid: str, project_id: str) -> str | None:
+    """Befintlig delningstoken för ett projekt, annars None."""
+    uid_s, pid_s = _safe_uid(uid), _safe_uid(project_id)
+    for token, ref in _load_shares().items():
+        if ref.get("uid") == uid_s and ref.get("project_id") == pid_s:
+            return token
+    return None
+
+
+def create_share(uid: str, project_id: str) -> str:
+    """Skapa (eller återanvänd) en delningstoken för projektet."""
+    existing = share_token_for(uid, project_id)
+    if existing:
+        return existing
+    shares = _load_shares()
+    token = uuid.uuid4().hex[:16]
+    shares[token] = {"uid": _safe_uid(uid), "project_id": _safe_uid(project_id)}
+    _save_shares(shares)
+    return token
+
+
+def revoke_share(uid: str, project_id: str) -> bool:
+    """Ta bort alla delningstokens för projektet (befintliga länkar slutar fungera)."""
+    uid_s, pid_s = _safe_uid(uid), _safe_uid(project_id)
+    shares = _load_shares()
+    targets = [t for t, r in shares.items() if r.get("uid") == uid_s and r.get("project_id") == pid_s]
+    for t in targets:
+        shares.pop(t, None)
+    if targets:
+        _save_shares(shares)
+    return bool(targets)
+
+
+def resolve_share(token: str) -> dict | None:
+    """Slå upp en delningstoken → {uid, project_id} eller None."""
+    ref = _load_shares().get(token)
+    return ref if ref else None
+
+
 # ---- versionshistorik (ögonblicksbilder av manuset) ----
 def _versions_dir(uid: str, project_id: str) -> Path:
     return _user_dir(uid) / "versions" / _safe_uid(project_id)

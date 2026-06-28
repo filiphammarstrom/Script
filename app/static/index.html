@@ -101,6 +101,36 @@
       </section>
     </section>
 
+    <!-- ===== VY: Delad läsvy (skrivskyddad, ingen inloggning) ===== -->
+    <section id="view-shared" class="view" hidden>
+      <div class="shared-head">
+        <span class="shared-badge">🔗 Delad läsvy · skrivskyddad</span>
+        <h2 id="sharedTitle" class="projtitle"></h2>
+        <p id="sharedAuthor" class="hint"></p>
+      </div>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Manus</h2>
+          <button id="sharedPaperToggle" class="linkbtn" title="Växla mellan vitt papper och mörkt läge">📄 Vitt papper</button>
+        </div>
+        <div id="sharedScript" class="elements ro"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Kommentarer</h2>
+        <p class="hint">Du kan läsa manuset och lämna kommentarer – men inte ändra något.</p>
+        <div id="sharedCommentsList" class="comments-list"></div>
+        <div class="row comment-add wrap">
+          <input id="sharedCommentAuthor" placeholder="Ditt namn" class="shared-author">
+          <input id="sharedCommentScene" type="number" min="1" placeholder="Scen #" class="comment-scene">
+          <input id="sharedCommentText" placeholder="Skriv en kommentar ...">
+          <button id="sharedAddCommentBtn" class="primary">Lägg till</button>
+          <span id="sharedCommentStatus" class="status"></span>
+        </div>
+      </section>
+    </section>
+
     <!-- ===== VY: Projekt (med flikar) ===== -->
     <section id="view-project" class="view" hidden>
       <div class="projhead">
@@ -243,6 +273,20 @@
             <textarea id="projDirectives" rows="4" placeholder="T.ex. 'Karaktären stavas Mikael', 'tonen är mörk', 'översätt action till engelska' ..."></textarea>
           </label>
           <button id="saveProjectBtn" class="primary">Spara projekt</button>
+        </section>
+
+        <section class="panel">
+          <h2>Dela skrivskyddat</h2>
+          <p class="hint">Skapa en länk så andra kan <em>läsa</em> manuset och lämna kommentarer – utan att kunna ändra något. Kommentarerna dyker upp i din kommentarslista under Manus.</p>
+          <div class="row wrap">
+            <button id="createShareBtn" class="primary">🔗 Skapa delningslänk</button>
+            <button id="revokeShareBtn" class="linkbtn danger" hidden>Sluta dela</button>
+            <span id="shareStatus" class="status"></span>
+          </div>
+          <div id="shareLinkRow" class="row wrap" hidden>
+            <input id="shareLink" readonly>
+            <button id="copyShareBtn">Kopiera länk</button>
+          </div>
         </section>
 
         <section class="panel">

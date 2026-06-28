@@ -161,6 +161,9 @@ pytest tests/test_fdx.py
    **Ångra senaste** återställer dikteringen. Scennummer och en ungefärlig sidräknare visas i manuset.
 5. Svara ev. på AI:ns frågor (frivilligt) eller redigera elementen direkt.
 6. **Exportera FDX** och öppna `.fdx`-filen i Final Draft.
+7. **Dela skrivskyddat** (Projektinställningar → *Dela skrivskyddat*): skapa en länk så
+   andra kan *läsa* manuset och lämna kommentarer utan att kunna ändra något. Tittarnas
+   kommentarer dyker upp i din kommentarslista under Manus. *Sluta dela* återkallar länken.
 
 ## Status / nästa steg
 
