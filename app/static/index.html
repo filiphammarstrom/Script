@@ -199,6 +199,19 @@
           </details>
         </section>
 
+        <section class="panel">
+          <details id="commentsDetails">
+            <summary><strong>Kommentarer</strong> <span class="hint">(noteringar till manuset)</span></summary>
+            <div id="commentsList" class="comments-list"></div>
+            <div class="row comment-add">
+              <input id="commentScene" type="number" min="1" placeholder="Scen #" class="comment-scene">
+              <input id="commentText" placeholder="Skriv en kommentar ...">
+              <button id="addCommentBtn" class="primary">Lägg till</button>
+              <span id="commentStatus" class="status"></span>
+            </div>
+          </details>
+        </section>
+
         <section class="panel" id="editPreviewPanel" hidden>
           <h2>Ändringar att godkänna</h2>
           <p class="hint">Dikteringen vill ändra <em>befintligt</em> innehåll. Nytt material är redan inlagt – granska och godkänn ändringarna nedan.</p>

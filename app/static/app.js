@@ -48,6 +48,7 @@ const setGlobalStatus = mkStatus("globalStatus");
 const setProjSetStatus = mkStatus("projSetStatus");
 const setAskStatus = mkStatus("askStatus");
 const setVersionStatus = mkStatus("versionStatus");
+const setCommentStatus = mkStatus("commentStatus");
 const setBaseStatus = mkStatus("baseStatus");
 const setAccessStatus = mkStatus("accessStatus");
 const setKeysStatus = mkStatus("keysStatus");
@@ -237,6 +238,8 @@ function openProject(p) {
   $("undoBtn").hidden = true;
   $("versionsDetails").open = false;
   $("versionsList").innerHTML = "";
+  $("commentsDetails").open = false;
+  $("commentsList").innerHTML = "";
   $("askAnswer").hidden = true;
   setStatus("");
   setProjSetStatus("");
@@ -968,6 +971,77 @@ async function restoreVersion(vid, label) {
   }
 }
 $("versionsDetails").ontoggle = () => { if ($("versionsDetails").open) loadVersions(); };
+
+// ---- kommentarer ----
+function sceneHeadingId(n) {
+  let i = 0;
+  for (const el of project.elements) {
+    if (el.type === "scene_heading") { i += 1; if (i === n) return el.id; }
+  }
+  return null;
+}
+async function loadComments() {
+  if (!project) return;
+  try {
+    renderComments((await api("GET", `/api/projects/${project.id}/comments`)).comments || []);
+  } catch (_) { /* tyst */ }
+}
+function renderComments(comments) {
+  const box = $("commentsList");
+  box.innerHTML = "";
+  if (!comments.length) { box.innerHTML = '<p class="hint">Inga kommentarer än.</p>'; return; }
+  for (const c of comments) {
+    const row = document.createElement("div");
+    row.className = "comment-row";
+    const head = document.createElement("div");
+    head.className = "comment-head";
+    head.innerHTML = `<span class="c-author">${esc(c.author || "")}</span><span class="c-meta">${esc(c.ts || "")}</span>`;
+    if (c.scene) {
+      const tag = document.createElement("button");
+      tag.className = "linkbtn c-scene";
+      tag.textContent = `Scen ${c.scene}`;
+      tag.onclick = () => { const id = sceneHeadingId(c.scene); if (id != null) highlightElement(id); };
+      head.appendChild(tag);
+    }
+    const del = document.createElement("button");
+    del.className = "linkbtn danger";
+    del.textContent = "✕";
+    del.title = "Ta bort";
+    del.onclick = () => deleteComment(c.id);
+    head.appendChild(del);
+    const body = document.createElement("div");
+    body.className = "comment-text";
+    body.textContent = c.text;
+    row.append(head, body);
+    box.appendChild(row);
+  }
+}
+$("addCommentBtn").onclick = async () => {
+  const text = $("commentText").value.trim();
+  if (!text) { setCommentStatus("Skriv en kommentar först."); return; }
+  const sceneVal = parseInt($("commentScene").value, 10);
+  setCommentStatus("Sparar ...", true);
+  try {
+    const data = await api("POST", `/api/projects/${project.id}/comments`, {
+      text, scene: Number.isFinite(sceneVal) ? sceneVal : null,
+    });
+    $("commentText").value = "";
+    $("commentScene").value = "";
+    renderComments(data.comments || []);
+    setCommentStatus("");
+  } catch (e) {
+    setCommentStatus("Fel: " + e.message);
+  }
+};
+$("commentText").onkeydown = (e) => { if (e.key === "Enter") $("addCommentBtn").click(); };
+async function deleteComment(cid) {
+  try {
+    renderComments((await api("DELETE", `/api/projects/${project.id}/comments/${cid}`)).comments || []);
+  } catch (e) {
+    setCommentStatus("Fel: " + e.message);
+  }
+}
+$("commentsDetails").ontoggle = () => { if ($("commentsDetails").open) loadComments(); };
 
 // ---- fråga manuset (AI-assistent) ----
 $("askBtn").onclick = async () => {

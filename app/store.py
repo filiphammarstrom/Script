@@ -175,6 +175,52 @@ def delete_project(uid: str, project_id: str) -> bool:
     return True
 
 
+# ---- kommentarer (per projekt) ----
+def _comments_path(uid: str, project_id: str) -> Path:
+    return _user_dir(uid) / "comments" / f"{_safe_uid(project_id)}.json"
+
+
+def list_comments(uid: str, project_id: str) -> list[dict]:
+    import json
+
+    p = _comments_path(uid, project_id)
+    if not p.exists():
+        return []
+    try:
+        return json.loads(p.read_text("utf-8"))
+    except Exception:
+        return []
+
+
+def add_comment(uid: str, project_id: str, author: str, text: str, scene: int | None = None) -> list[dict]:
+    import json
+    import time
+    from datetime import datetime, timezone
+
+    p = _comments_path(uid, project_id)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    comments = list_comments(uid, project_id)
+    comments.append({
+        "id": str(time.time_ns()),
+        "ts": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M"),
+        "author": author,
+        "text": text,
+        "scene": scene,
+    })
+    p.write_text(json.dumps(comments, ensure_ascii=False, indent=2), "utf-8")
+    return comments
+
+
+def delete_comment(uid: str, project_id: str, comment_id: str) -> list[dict]:
+    import json
+
+    comments = [c for c in list_comments(uid, project_id) if c.get("id") != comment_id]
+    p = _comments_path(uid, project_id)
+    if p.exists():
+        p.write_text(json.dumps(comments, ensure_ascii=False, indent=2), "utf-8")
+    return comments
+
+
 # ---- versionshistorik (ögonblicksbilder av manuset) ----
 def _versions_dir(uid: str, project_id: str) -> Path:
     return _user_dir(uid) / "versions" / _safe_uid(project_id)

@@ -273,6 +273,14 @@ main:has(#view-project:not([hidden])) { max-width: 1200px; }
 .script-stats b { color: var(--accent); font-weight: 700; }
 .ask-answer { white-space: pre-wrap; margin-top: 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); line-height: 1.55; }
 .version-save { margin-top: 12px; }
+.comments-list { display: flex; flex-direction: column; gap: 8px; margin: 10px 0; max-height: 320px; overflow: auto; }
+.comment-row { border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); padding: 8px 10px; }
+.comment-head { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+.c-author { font-weight: 600; color: var(--ink); }
+.c-meta { margin-right: auto; }
+.comment-text { white-space: pre-wrap; margin-top: 4px; }
+.comment-scene { max-width: 90px; flex: 0 0 auto; }
+.comment-add { margin-top: 8px; }
 .versions-list { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; max-height: 320px; overflow: auto; }
 .version-row { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); }
 .ver-label { font-weight: 600; flex: 0 0 auto; }
