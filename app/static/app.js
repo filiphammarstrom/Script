@@ -595,21 +595,50 @@ function elementRow(el) {
   ta.className = "fel-text";
   ta.rows = 1;
   ta.value = el.text;
-  ta.oninput = () => { el.text = ta.value; autogrow(ta); scheduleSave(); };
-  ta.onblur = flushSave;
-  // Enter = ny rad (nästa element), som i Final Draft/Arc Studio. Shift+Enter =
-  // radbrytning inom samma stycke. Står markören mitt i texten delas raden.
+  ta.oninput = () => { el.text = ta.value; autogrow(ta); updateAutocomplete(el, ta); scheduleSave(); };
+  ta.onblur = () => { hideAutocomplete(); flushSave(); };
   ta.onkeydown = (e) => {
-    if (e.key !== "Enter" || e.shiftKey) return;
-    e.preventDefault();
-    const pos = ta.selectionStart;
-    if (pos < ta.value.length) {  // dela: behåll texten före markören, flytta resten ned
-      const after = ta.value.slice(pos);
-      el.text = ta.value.slice(0, pos);
-      ta.value = el.text;
-      insertElementAfter(el, el.type, after);
-    } else {  // markören sist: lägg till en tom rad av nästa naturliga typ
-      insertElementAfter(el, NEXT_TYPE[el.type] || "action", "");
+    // Autocomplete (SmartType) har företräde när menyn är öppen.
+    if (acOpen() && acTa === ta) {
+      if (e.key === "ArrowDown") { e.preventDefault(); acMove(1); return; }
+      if (e.key === "ArrowUp") { e.preventDefault(); acMove(-1); return; }
+      if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); acceptAutocomplete(); return; }
+      if (e.key === "Escape") { e.preventDefault(); hideAutocomplete(); return; }
+    }
+    // Enter = ny rad (nästa element), som i Final Draft/Arc Studio. Shift+Enter =
+    // radbrytning inom samma stycke. Står markören mitt i texten delas raden.
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      applyAutoType(el);  // ev. "INT./EXT. …" → scenrubrik, "CUT TO:" → övergång
+      const pos = ta.selectionStart;
+      if (pos < ta.value.length) {  // dela: behåll texten före markören, flytta resten ned
+        const after = ta.value.slice(pos);
+        el.text = ta.value.slice(0, pos);
+        insertElementAfter(el, el.type, after);
+      } else {  // markören sist: lägg till en tom rad av nästa naturliga typ
+        insertElementAfter(el, NEXT_TYPE[el.type] || "action", "");
+      }
+      return;
+    }
+    // Tab / Shift+Tab = växla elementets typ (som Final Drafts Tab).
+    if (e.key === "Tab") {
+      e.preventDefault();
+      cycleType(el, e.shiftKey ? -1 : 1);
+      return;
+    }
+    // Backspace längst fram = slå ihop raden med den ovanför.
+    if (e.key === "Backspace" && ta.selectionStart === 0 && ta.selectionEnd === 0) {
+      const i = project.elements.indexOf(el);
+      if (i > 0) {
+        e.preventDefault();
+        const prev = project.elements[i - 1];
+        const caret = (prev.text || "").length;
+        prev.text = (prev.text || "") + (el.text || "");
+        project.elements.splice(i, 1);
+        renderElements();
+        focusElement(prev.id, caret);
+        scheduleSave();
+      }
     }
   };
   row.appendChild(ta);
@@ -679,6 +708,7 @@ function pageBreakDivider(page) {
   return pb;
 }
 function renderElements() {
+  hideAutocomplete();  // gammal meny pekar på en rad som nu byggs om
   const box = $("elements");
   box.innerHTML = "";
   if (!project.elements.length) {
@@ -839,6 +869,7 @@ function bindPageScroll() {
   pageScrollBound = true;
   let ticking = false;
   window.addEventListener("scroll", () => {
+    hideAutocomplete();  // menyn är fast positionerad – följ inte med vid scroll
     if (ticking) return;
     ticking = true;
     requestAnimationFrame(() => { updatePageIndicator(); ticking = false; });
@@ -876,9 +907,116 @@ function newBlankElement(type) {
   const id = project.elements.reduce((m, e) => Math.max(m, e.id), -1) + 1;
   return { id, type: type || "action", text: "", confidence: "high", is_gap: false };
 }
-function focusElement(id) {
+function focusElement(id, pos) {
   const ta = document.querySelector(`.fel[data-id="${id}"] .fel-text`);
-  if (ta) { ta.focus(); autogrow(ta); }
+  if (!ta) return;
+  ta.focus();
+  autogrow(ta);
+  if (pos != null) ta.selectionStart = ta.selectionEnd = pos;
+}
+// Tab/Shift+Tab växlar elementets typ i tur och ordning (TYPES-ordningen).
+function cycleType(el, dir) {
+  const i = TYPES.indexOf(el.type);
+  el.type = TYPES[(i + dir + TYPES.length) % TYPES.length];
+  renderElements();  // typbyte kan ändra scenindelningen
+  focusElement(el.id, (el.text || "").length);
+  scheduleSave();
+}
+
+// ---- SmartType: känn igen scenrubrik/övergång på textens form ----
+function detectType(el) {
+  // Bara fritt typade rader får auto-typas om – aldrig redan satta typer.
+  if (el.type !== "action" && el.type !== "general") return null;
+  const t = (el.text || "").trim();
+  if (!t) return null;
+  if (/^(INT|EXT|INT\.?\/EXT|EXT\.?\/INT|I\/E)[.\s]/i.test(t)) return "scene_heading";
+  if (/^FADE IN:/i.test(t) || /\b(CUT TO|DISSOLVE TO|SMASH CUT TO|MATCH CUT TO|FADE TO|FADE OUT)\b:?\.?\s*$/i.test(t)) return "transition";
+  return null;
+}
+function applyAutoType(el) {
+  const nt = detectType(el);
+  if (nt && nt !== el.type) { el.type = nt; return true; }
+  return false;
+}
+
+// ---- Autocomplete (SmartType): komplettera namn/scenrubriker/övergångar ----
+let acMenu = null, acItems = [], acIndex = -1, acTa = null, acEl = null;
+const AC_TYPES = new Set(["character", "scene_heading", "transition"]);
+const AC_TRANSITIONS = ["CUT TO:", "DISSOLVE TO:", "SMASH CUT TO:", "MATCH CUT TO:", "FADE OUT.", "FADE IN:"];
+function acOpen() { return !!acMenu && !acMenu.hidden; }
+function acPool(type) {
+  const set = new Set();
+  if (type === "character") {
+    for (const c of (project.story_bible?.characters || [])) {
+      if (c.name) set.add(c.name.toUpperCase());
+      for (const a of (c.aliases || [])) if (a) set.add(a.toUpperCase());
+    }
+  } else if (type === "scene_heading") {
+    for (const l of (project.story_bible?.locations || [])) if (l) set.add(l);
+  } else if (type === "transition") {
+    for (const x of AC_TRANSITIONS) set.add(x);
+  }
+  for (const el of project.elements) {
+    if (el.type === type && (el.text || "").trim()) {
+      set.add(type === "character" ? el.text.trim().toUpperCase() : el.text.trim());
+    }
+  }
+  return [...set];
+}
+function updateAutocomplete(el, ta) {
+  if (!AC_TYPES.has(el.type)) { hideAutocomplete(); return; }
+  const val = ta.value.trim();
+  if (!val) { hideAutocomplete(); return; }
+  const ci = el.type === "character";
+  const needle = ci ? val.toUpperCase() : val.toLowerCase();
+  const matches = acPool(el.type).filter((x) => {
+    const cmp = ci ? x.toUpperCase() : x.toLowerCase();
+    return cmp.startsWith(needle) && cmp !== needle;
+  }).slice(0, 6);
+  if (!matches.length) { hideAutocomplete(); return; }
+  showAutocomplete(el, ta, matches);
+}
+function showAutocomplete(el, ta, matches) {
+  if (!acMenu) {
+    acMenu = document.createElement("div");
+    acMenu.className = "ac-menu";
+    document.body.appendChild(acMenu);
+  }
+  acItems = matches; acIndex = 0; acTa = ta; acEl = el;
+  acMenu.innerHTML = "";
+  matches.forEach((m, i) => {
+    const item = document.createElement("div");
+    item.className = "ac-item" + (i === 0 ? " active" : "");
+    item.textContent = m;
+    item.onmousedown = (e) => { e.preventDefault(); acceptAutocomplete(i); };  // behåll fokus
+    acMenu.appendChild(item);
+  });
+  const r = ta.getBoundingClientRect();
+  acMenu.style.left = r.left + "px";
+  acMenu.style.top = (r.bottom + 2) + "px";
+  acMenu.style.minWidth = Math.max(140, r.width) + "px";
+  acMenu.hidden = false;
+}
+function hideAutocomplete() {
+  if (acMenu) acMenu.hidden = true;
+  acItems = []; acIndex = -1; acTa = null; acEl = null;
+}
+function acMove(d) {
+  if (!acOpen()) return;
+  acIndex = (acIndex + d + acItems.length) % acItems.length;
+  [...acMenu.children].forEach((c, i) => c.classList.toggle("active", i === acIndex));
+}
+function acceptAutocomplete(i) {
+  const val = acItems[i != null ? i : acIndex];
+  const ta = acTa, el = acEl;
+  hideAutocomplete();
+  if (val == null || !el || !ta) return;
+  el.text = val;
+  ta.value = val;
+  autogrow(ta);
+  ta.focus();
+  ta.selectionStart = ta.selectionEnd = val.length;
+  scheduleSave();
 }
 function insertElementAfter(el, type, text = "") {
   const i = project.elements.indexOf(el);
