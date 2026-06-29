@@ -375,13 +375,22 @@ main:has(#view-project:not([hidden])) { max-width: 1320px; }
   font: 14px/1.6 "Courier New", ui-monospace, monospace;
 }
 .page > .fel:first-child { margin-top: 0; }
-/* Scennummer i båda marginalerna, i höjd med scenrubriken (som i ett riktigt manus). */
-.fel-scene_heading::before, .fel-scene_heading::after {
-  content: attr(data-scene); position: absolute; top: 1px;
+/* Scennummer i högermarginalen (vänster sköts av hopfäll-knappen). */
+.fel-scene_heading::after {
+  content: attr(data-scene); position: absolute; top: 1px; right: -0.3em;
   font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums;
 }
-.fel-scene_heading::before { left: -2.9em; }
-.fel-scene_heading::after { right: -0.3em; }
+/* Hopfäll-knapp + scennummer i vänstermarginalen. */
+.scene-toggle {
+  position: absolute; left: -3.7em; top: -1px; display: inline-flex; align-items: baseline; gap: 5px;
+  background: none; border: none; padding: 0; margin: 0; cursor: pointer;
+  color: var(--muted); font-family: inherit; font-size: inherit; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.scene-toggle:hover { color: var(--accent); transform: none; border: none; }
+.scene-toggle .st-chev { font-size: .72em; }
+/* "N rader dolda" under en ihopfälld scen – klicka för att fälla ut. */
+.scene-collapsed-note { margin: 2px 0; padding: 1px 4px; color: var(--muted); font-style: italic; font-size: .92em; cursor: pointer; }
+.scene-collapsed-note:hover { color: var(--accent); }
 
 /* (Skrivskyddade delade vyn använder fortfarande .scene/.scene-body nedan.) */
 .scene { width: 620px; max-width: 100%; border: 1px solid var(--line); border-radius: 10px; margin-bottom: 10px; overflow: visible; background: var(--panel-2); }
@@ -484,7 +493,10 @@ kbd {
 .elements.paper .scene-body { background: #ffffff; color: #111; padding: 40px 24px 48px 52px; }
 /* Editorns ark i pappersläge. */
 .elements.paper .page { background: #ffffff; color: #111; border-color: #d9d2c4; box-shadow: 0 6px 22px rgba(0, 0, 0, .22); }
-.elements.paper .fel-scene_heading::before, .elements.paper .fel-scene_heading::after { color: #777; }
+.elements.paper .fel-scene_heading::after { color: #777; }
+.elements.paper .scene-toggle { color: #777; }
+.elements.paper .scene-toggle:hover, .elements.paper .scene-collapsed-note:hover { color: var(--accent); }
+.elements.paper .scene-collapsed-note { color: #777; }
 .elements.paper .fel-text { color: #111; }
 .elements.paper .fel-text:hover { border-color: #cfc8b8; }
 .elements.paper .fel-text:focus { background: #fff; border-color: var(--accent); }
