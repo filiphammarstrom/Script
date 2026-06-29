@@ -10,6 +10,16 @@ const TYPE_LABELS = {
   transition: "Övergång",
   general: "Allmänt",
 };
+// Korta etiketter i kontrollrailen (hela namnet visas som tooltip).
+const TYPE_ABBR = {
+  scene_heading: "S",
+  action: "A",
+  character: "K",
+  dialogue: "D",
+  parenthetical: "P",
+  transition: "Ö",
+  general: "G",
+};
 // Vilken typ en ny rad får när man trycker Enter (som i Final Draft / Arc Studio):
 // efter karaktär kommer dialog, efter scenrubrik kommer action, osv.
 const NEXT_TYPE = {
@@ -21,7 +31,6 @@ const NEXT_TYPE = {
   transition: "scene_heading",
   general: "action",
 };
-let scenesCollapsed = false;
 let project = null;
 let undoSnapshot = null;  // manusets element FÖRE senaste diktering (för ångra)
 const SHARE_TOKEN = new URLSearchParams(location.search).get("share");  // ?share=… = skrivskyddad tittarvy
@@ -652,10 +661,12 @@ function elementRow(el) {
   const tools = document.createElement("div");
   tools.className = "fel-tools";
   const sel = document.createElement("select");
+  sel.title = TYPE_LABELS[el.type] || el.type;  // hela namnet vid hover
   for (const t of TYPES) {
     const o = document.createElement("option");
     o.value = t;
-    o.textContent = TYPE_LABELS[t] || t;
+    o.textContent = TYPE_ABBR[t] || t;  // kort: S/A/K/D/P/Ö/G
+    o.title = TYPE_LABELS[t] || t;
     if (t === el.type) o.selected = true;
     sel.appendChild(o);
   }
@@ -738,80 +749,36 @@ function renderElements() {
 
   const bar = document.createElement("div");
   bar.className = "scenes-bar";
-  const toggleAll = document.createElement("button");
-  toggleAll.type = "button";
-  toggleAll.textContent = scenesCollapsed ? "Fäll ut alla" : "Fäll ihop alla";
-  toggleAll.onclick = () => { scenesCollapsed = !scenesCollapsed; renderElements(); };
   const stats = document.createElement("span");
   stats.className = "script-stats";
   stats.innerHTML = `Sida <b id="pageNow">1</b> / ${totalPages} · ${sceneTotal} ${sceneTotal === 1 ? "scen" : "scener"}`;
-  bar.append(toggleAll, stats);
+  bar.append(stats);
   box.appendChild(bar);
 
+  // Ett enda sammanhängande "ark" – elementen flödar som i ett riktigt manus.
+  const page = document.createElement("div");
+  page.className = "page";
   let sceneNo = 0;
   let runningLines = 0;
   let lastPage = 1;
-  let nextMilestone = 5;
-  for (const g of groups) {
-    const startPage = Math.floor(runningLines / LINES_PER_PAGE) + 1;
-    if (startPage >= nextMilestone) {  // grov sidlinjal (~var 5:e sida) på toppnivå – syns även ihopfällt
-      box.appendChild(pageBreakDivider(startPage));
-      nextMilestone = Math.floor(startPage / 5) * 5 + 5;
+  for (const el of project.elements) {
+    const elPage = Math.floor(runningLines / LINES_PER_PAGE) + 1;
+    if (elPage > lastPage) {  // sidbrytning rakt över arket
+      page.appendChild(pageBreakDivider(elPage));
+      lastPage = elPage;
     }
-    lastPage = startPage;  // mid-scen-brytningar jämförs mot scenens startsida
-    const scene = document.createElement("div");
-    scene.className = "scene";
-    scene.dataset.page = startPage;
-
-    const head = document.createElement("div");
-    head.className = "scene-head";
-    const chev = document.createElement("span");
-    chev.className = "chev";
-    const title = document.createElement("span");
-    title.className = "scene-title";
-    title.textContent = g.heading ? (g.heading.text || "(ny scenrubrik)") : "(Före första scenrubriken)";
-    const pageTag = document.createElement("span");
-    pageTag.className = "scene-page";
-    pageTag.textContent = "s. " + startPage;
-    pageTag.title = "Börjar på sida " + startPage;
-    const count = document.createElement("span");
-    count.className = "scene-count";
-    count.textContent = g.items.length + (g.items.length === 1 ? " rad" : " rader");
-    if (g.heading) {
+    const row = elementRow(el);
+    if (el.type === "scene_heading") {
       sceneNo += 1;
-      const num = document.createElement("span");
-      num.className = "scene-num";
-      num.textContent = sceneNo;
-      num.title = `Scen ${sceneNo}`;
-      head.append(chev, num, title, pageTag, count);
-    } else {
-      head.append(chev, title, pageTag, count);
+      row.dataset.page = elPage;   // referenspunkt för live "Sida X"-indikatorn
+      row.dataset.scene = sceneNo;  // CSS visar scennumret i båda marginalerna
     }
-
-    const body = document.createElement("div");
-    body.className = "scene-body";
-    g.items.forEach((el, idx) => {
-      const elPage = Math.floor(runningLines / LINES_PER_PAGE) + 1;
-      if (idx > 0 && elPage > lastPage) {  // sidbrytning mitt i en scen – inuti kroppen
-        lastPage = elPage;
-        body.appendChild(pageBreakDivider(elPage));
-      }
-      body.appendChild(elementRow(el));
-      runningLines += linesFor(el);
-    });
-
-    const setCollapsed = (collapsed) => {
-      scene.classList.toggle("collapsed", collapsed);
-      chev.textContent = collapsed ? "▸" : "▾";
-      if (!collapsed) body.querySelectorAll(".fel-text").forEach(autogrow);
-    };
-    head.onclick = () => setCollapsed(!scene.classList.contains("collapsed"));
-
-    scene.append(head, body);
-    box.appendChild(scene);
-    setCollapsed(scenesCollapsed);
+    page.appendChild(row);
+    runningLines += linesFor(el);
   }
-  box.querySelectorAll(".scene:not(.collapsed) .fel-text").forEach(autogrow);
+  box.appendChild(page);
+
+  page.querySelectorAll(".fel-text").forEach(autogrow);
   bindPageScroll();
   updatePageIndicator();
   renderOutline();
@@ -1098,8 +1065,6 @@ function highlightElement(id) {
   showSection("manus");
   const row = document.querySelector(`.fel[data-id="${id}"]`);
   if (!row) return;
-  const scene = row.closest(".scene");
-  if (scene && scene.classList.contains("collapsed")) scene.querySelector(".scene-head").click();
   row.scrollIntoView({ behavior: "smooth", block: "center" });
   row.classList.add("flash");
   setTimeout(() => row.classList.remove("flash"), 1500);
