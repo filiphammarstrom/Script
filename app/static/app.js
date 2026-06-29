@@ -33,6 +33,7 @@ const NEXT_TYPE = {
 };
 let project = null;
 let undoSnapshot = null;  // manusets element FÖRE senaste diktering (för ångra)
+const collapsedScenes = new Set();  // id:n på scenrubriker vars scen är ihopfälld i editorn
 const SHARE_TOKEN = new URLSearchParams(location.search).get("share");  // ?share=… = skrivskyddad tittarvy
 let sharedToken = null;  // aktiv delningstoken i tittarvyn
 
@@ -252,6 +253,7 @@ function openProject(p) {
   $("projContact").value = p.contact || "";
   $("projContext").value = p.context;
   $("projDirectives").value = p.directives;
+  collapsedScenes.clear();  // alla scener utfällda när ett projekt öppnas
   renderBible();
   renderElements();
   $("clarPanel").hidden = true;
@@ -743,45 +745,89 @@ function renderElements() {
     return;
   }
 
-  const groups = groupScenes();
-  const sceneTotal = groups.filter((g) => g.heading).length;
+  const headingIds = project.elements.filter((e) => e.type === "scene_heading").map((e) => e.id);
+  const sceneTotal = headingIds.length;
   const totalPages = Math.max(1, Math.ceil(estimatePages(project.elements)));
+  const allCollapsed = sceneTotal > 0 && headingIds.every((id) => collapsedScenes.has(id));
 
   const bar = document.createElement("div");
   bar.className = "scenes-bar";
+  const toggleAll = document.createElement("button");
+  toggleAll.type = "button";
+  toggleAll.textContent = allCollapsed ? "Fäll ut alla" : "Fäll ihop alla";
+  toggleAll.disabled = sceneTotal === 0;
+  toggleAll.onclick = () => {
+    if (allCollapsed) collapsedScenes.clear();
+    else headingIds.forEach((id) => collapsedScenes.add(id));
+    renderElements();
+  };
   const stats = document.createElement("span");
   stats.className = "script-stats";
   stats.innerHTML = `Sida <b id="pageNow">1</b> / ${totalPages} · ${sceneTotal} ${sceneTotal === 1 ? "scen" : "scener"}`;
-  bar.append(stats);
+  bar.append(toggleAll, stats);
   box.appendChild(bar);
 
   // Ett enda sammanhängande "ark" – elementen flödar som i ett riktigt manus.
+  // Scener kan fällas ihop: rubriken visas men resten av scenens rader döljs.
   const page = document.createElement("div");
   page.className = "page";
-  let sceneNo = 0;
-  let runningLines = 0;
-  let lastPage = 1;
+  let sceneNo = 0, runningLines = 0, lastPage = 1;
+  let collapsedNow = false, hiddenCount = 0, headRow = null, headId = null;
+  const flushHidden = () => {
+    if (headRow && hiddenCount > 0) {
+      const note = document.createElement("div");
+      note.className = "scene-collapsed-note";
+      note.textContent = `▸ ${hiddenCount} ${hiddenCount === 1 ? "rad" : "rader"} dolda`;
+      const id = headId;
+      note.onclick = () => toggleScene(id);
+      headRow.after(note);
+    }
+    hiddenCount = 0; headRow = null; headId = null;
+  };
   for (const el of project.elements) {
     const elPage = Math.floor(runningLines / LINES_PER_PAGE) + 1;
-    if (elPage > lastPage) {  // sidbrytning rakt över arket
-      page.appendChild(pageBreakDivider(elPage));
-      lastPage = elPage;
-    }
-    const row = elementRow(el);
     if (el.type === "scene_heading") {
+      flushHidden();
+      if (elPage > lastPage) { page.appendChild(pageBreakDivider(elPage)); lastPage = elPage; }
       sceneNo += 1;
+      const collapsed = collapsedScenes.has(el.id);
+      const row = elementRow(el);
       row.dataset.page = elPage;   // referenspunkt för live "Sida X"-indikatorn
-      row.dataset.scene = sceneNo;  // CSS visar scennumret i båda marginalerna
+      row.dataset.scene = sceneNo;  // CSS visar scennumret i högermarginalen
+      const tog = document.createElement("button");
+      tog.type = "button";
+      tog.className = "scene-toggle";
+      tog.innerHTML = `<span class="st-chev">${collapsed ? "▸" : "▾"}</span><span class="st-no">${sceneNo}</span>`;
+      tog.title = collapsed ? "Visa scenen" : "Dölj scenen";
+      const hid = el.id;
+      tog.onclick = (e) => { e.stopPropagation(); toggleScene(hid); };
+      row.appendChild(tog);
+      page.appendChild(row);
+      runningLines += linesFor(el);
+      collapsedNow = collapsed;
+      headRow = collapsed ? row : null;
+      headId = collapsed ? el.id : null;
+    } else if (collapsedNow) {
+      hiddenCount += 1;
+      runningLines += linesFor(el);  // räkna sidor även för dolda rader
+    } else {
+      if (elPage > lastPage) { page.appendChild(pageBreakDivider(elPage)); lastPage = elPage; }
+      page.appendChild(elementRow(el));
+      runningLines += linesFor(el);
     }
-    page.appendChild(row);
-    runningLines += linesFor(el);
   }
+  flushHidden();
   box.appendChild(page);
 
   page.querySelectorAll(".fel-text").forEach(autogrow);
   bindPageScroll();
   updatePageIndicator();
   renderOutline();
+}
+function toggleScene(id) {
+  if (collapsedScenes.has(id)) collapsedScenes.delete(id);
+  else collapsedScenes.add(id);
+  renderElements();
 }
 // ---- scen-navigator: hoppa mellan scener + dra för att flytta hela scener ----
 function renderOutline() {
