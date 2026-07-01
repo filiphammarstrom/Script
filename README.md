@@ -180,7 +180,7 @@ pytest tests/test_fdx.py
    knapparna bredvid papperslägesväxlaren i Manus-headern. **Översikt:** växla mellan **Manus**
    och **Korktavla** (scener som index-kort du drar om) i sidomenyn, och **Rapporter** (repliker/ord
    per karaktär, scenöversikt med sidor).
-
-## Status / nästa steg
-
-- Avancerade FDX-element (t.ex. Dual Dialogue, New Act/End of Act, låsta scennummer). Titelsidan finns redan.
+9. **Avancerade FDX-element:** klicka på ett scennummer i vänstermarginalen för att **låsa**
+   ett eget nummer (t.ex. "12A") i stället för den automatiska räkningen. **⇄**-knappen på en
+   karaktärsrad markerar repliken som **Dual Dialogue** (visas sida vid sida i exporten). Typerna
+   **Ny akt**/**Akt-slut** finns i typvalsmenyn (tryck **N**/**E**) för akt-brytningar i TV-manus.

@@ -1,6 +1,9 @@
 "use strict";
 const $ = (id) => document.getElementById(id);
-const TYPES = ["scene_heading", "action", "character", "dialogue", "parenthetical", "transition", "general"];
+const TYPES = [
+  "scene_heading", "action", "character", "dialogue", "parenthetical", "transition", "general",
+  "new_act", "end_of_act",
+];
 const TYPE_LABELS = {
   scene_heading: "Scenrubrik",
   action: "Action",
@@ -9,6 +12,8 @@ const TYPE_LABELS = {
   parenthetical: "Parentes",
   transition: "Övergång",
   general: "Allmänt",
+  new_act: "Ny akt",
+  end_of_act: "Akt-slut",
 };
 // Korta etiketter i kontrollrailen (hela namnet visas som tooltip).
 const TYPE_ABBR = {
@@ -19,6 +24,8 @@ const TYPE_ABBR = {
   parenthetical: "P",
   transition: "Ö",
   general: "G",
+  new_act: "N",
+  end_of_act: "E",
 };
 // Vilken typ en ny rad får när man trycker Enter (som i Final Draft / Arc Studio):
 // efter karaktär kommer dialog, efter scenrubrik kommer action, osv.
@@ -30,6 +37,8 @@ const NEXT_TYPE = {
   parenthetical: "dialogue",
   transition: "scene_heading",
   general: "action",
+  new_act: "scene_heading",
+  end_of_act: "new_act",
 };
 let project = null;
 let undoSnapshot = null;  // manusets element FÖRE senaste diktering (för ångra)
@@ -653,7 +662,7 @@ function iconBtn(label, title, fn) {
 }
 function elementRow(el) {
   const row = document.createElement("div");
-  row.className = "fel fel-" + el.type + (el.confidence !== "high" ? " low-conf" : "");
+  row.className = "fel fel-" + el.type + (el.confidence !== "high" ? " low-conf" : "") + (el.dual ? " dual" : "");
   row.dataset.id = el.id;
 
   const ta = document.createElement("textarea");
@@ -720,6 +729,17 @@ function elementRow(el) {
   typeBtn.onkeydown = (e) => typeBtnKeydown(e, el, typeBtn);
   typeBtn.onblur = () => hideTypeMenu();
   tools.appendChild(typeBtn);
+  if (el.type === "character") {
+    const dualBtn = iconBtn(
+      "⇄",
+      el.dual
+        ? "Del av Dual Dialogue – klicka för att ta bort repliken ur gruppen"
+        : "Markera repliken som Dual Dialogue (visas sida vid sida i FDX-exporten)",
+      () => toggleDual(el)
+    );
+    dualBtn.classList.toggle("active", !!el.dual);
+    tools.appendChild(dualBtn);
+  }
   tools.appendChild(iconBtn("+", "Infoga rad under", () => insertElementAfter(el)));
   tools.appendChild(iconBtn("↑", "Flytta upp", () => moveElement(el, -1)));
   tools.appendChild(iconBtn("↓", "Flytta ner", () => moveElement(el, 1)));
@@ -836,17 +856,29 @@ function renderElements() {
       flushHidden();
       if (elPage > lastPage) { page.appendChild(pageBreakDivider(elPage)); lastPage = elPage; }
       sceneNo += 1;
+      const displayNo = el.scene_number || sceneNo;
       const collapsed = collapsedScenes.has(el.id);
       const row = elementRow(el);
       row.dataset.page = elPage;   // referenspunkt för live "Sida X"-indikatorn
-      row.dataset.scene = sceneNo;  // CSS visar scennumret i högermarginalen
-      const tog = document.createElement("button");
-      tog.type = "button";
+      row.dataset.scene = displayNo;  // CSS visar scennumret i högermarginalen
+      const tog = document.createElement("span");
       tog.className = "scene-toggle";
-      tog.innerHTML = `<span class="st-chev">${collapsed ? "▸" : "▾"}</span><span class="st-no">${sceneNo}</span>`;
-      tog.title = collapsed ? "Visa scenen" : "Dölj scenen";
+      const chevBtn = document.createElement("button");
+      chevBtn.type = "button";
+      chevBtn.className = "st-chev";
+      chevBtn.textContent = collapsed ? "▸" : "▾";
+      chevBtn.title = collapsed ? "Visa scenen" : "Dölj scenen";
       const hid = el.id;
-      tog.onclick = (e) => { e.stopPropagation(); toggleScene(hid); };
+      chevBtn.onclick = (e) => { e.stopPropagation(); toggleScene(hid); };
+      const noBtn = document.createElement("button");
+      noBtn.type = "button";
+      noBtn.className = "st-no" + (el.scene_number ? " locked" : "");
+      noBtn.textContent = displayNo;
+      noBtn.title = el.scene_number
+        ? `Låst scennummer "${el.scene_number}" – klicka för att ändra eller låsa upp`
+        : "Klicka för att låsa ett eget scennummer (t.ex. \"12A\")";
+      noBtn.onclick = (e) => { e.stopPropagation(); editSceneNumber(el, sceneNo); };
+      tog.append(chevBtn, noBtn);
       row.appendChild(tog);
       page.appendChild(row);
       runningLines += linesFor(el);
@@ -875,6 +907,38 @@ function toggleScene(id) {
   else collapsedScenes.add(id);
   renderElements();
 }
+// Låser/ändrar/tar bort ett eget scennummer (exporteras som Number i FDX i stället
+// för den automatiska löpande räkningen, se app/fdx.py).
+function editSceneNumber(el, autoNo) {
+  const val = window.prompt(
+    `Scennummer för den här scenen (t.ex. "12A"). Lämna tomt för automatisk numrering (${autoNo}).`,
+    el.scene_number || ""
+  );
+  if (val === null) return;  // avbrutet
+  const trimmed = val.trim();
+  el.scene_number = trimmed || null;
+  renderElements();
+  scheduleSave();
+}
+// Dual Dialogue: en karaktärsreplik (karaktär + ev. parentes + dialog) markerad
+// dual=True. En sammanhängande följd av sådana element exporteras sida vid sida
+// i FDX (se app/fdx.py). Togglar hela repliken, inte bara karaktärsraden.
+function dualSpeechBlock(charEl) {
+  const i = project.elements.indexOf(charEl);
+  const block = [charEl];
+  for (let j = i + 1; j < project.elements.length; j++) {
+    const t = project.elements[j].type;
+    if (t === "dialogue" || t === "parenthetical") block.push(project.elements[j]);
+    else break;
+  }
+  return block;
+}
+function toggleDual(charEl) {
+  const turnOn = !charEl.dual;
+  dualSpeechBlock(charEl).forEach((e) => { e.dual = turnOn; });
+  renderElements();
+  scheduleSave();
+}
 // ---- scen-navigator: hoppa mellan scener + dra för att flytta hela scener ----
 function renderOutline() {
   const ol = $("sceneOutline");
@@ -891,11 +955,12 @@ function renderOutline() {
     const startPage = Math.floor(runningLines / LINES_PER_PAGE) + 1;
     if (g.heading) {
       sceneNo += 1;
-      const no = sceneNo;
+      const no = sceneNo;  // positionsindex – används av drag/drop-omsorteringen, INTE ett ev. låst scennummer
+      const displayNo = g.heading.scene_number || no;
       const li = document.createElement("li");
       li.className = "outline-item";
       li.draggable = true;
-      li.innerHTML = `<span class="ol-num">${no}</span>` +
+      li.innerHTML = `<span class="ol-num">${displayNo}</span>` +
         `<span class="ol-title">${esc(g.heading.text || "(ny scenrubrik)")}</span>` +
         `<span class="ol-page">s. ${startPage}</span>`;
       li.onclick = () => highlightElement(g.heading.id);
@@ -1669,12 +1734,13 @@ function renderSharedScript(elements) {
   let sceneNo = 0;
   let body = null;
   for (const el of elements) {
+    const displayNo = el.scene_number || sceneNo + 1;
     if (el.type === "scene_heading" || body === null) {
       const scene = document.createElement("div");
       scene.className = "scene ro-scene";
       body = document.createElement("div");
       body.className = "scene-body";
-      if (el.type === "scene_heading") scene.dataset.scene = sceneNo + 1;
+      if (el.type === "scene_heading") scene.dataset.scene = displayNo;
       scene.appendChild(body);
       box.appendChild(scene);
     }
@@ -1682,7 +1748,7 @@ function renderSharedScript(elements) {
     d.className = "ro-el ro-" + el.type;
     if (el.type === "scene_heading") {
       sceneNo += 1;
-      d.innerHTML = `<span class="ro-scene-num">${sceneNo}</span>` +
+      d.innerHTML = `<span class="ro-scene-num">${displayNo}</span>` +
         `<span class="ro-scene-text">${esc(el.text || "(scenrubrik)")}</span>`;
     } else {
       d.textContent = el.text || "";
