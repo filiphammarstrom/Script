@@ -168,18 +168,20 @@ pytest tests/test_fdx.py
    Varje rad har även en typknapp (**S A K D P Ö G**) i högerrailen – klicka eller tryck
    **Enter/mellanslag/piltangent** för att öppna en lista med hela namnen (Scenrubrik, Action,
    Karaktär, Dialog, Parentes, Övergång, Allmänt); tryck bokstaven för att hoppa direkt dit och
-   **Enter** för att välja. Dikteringsrutan är hopfällbar – den smala raden ligger fast ovanför
-   manuset när du skrollar, och fälls automatiskt ihop (men visar att inspelningen pågår) om du
-   skrollar medan du spelar in.
+   **Enter** för att välja.
 6. **Exportera FDX** och öppna `.fdx`-filen i Final Draft. Du kan även **importera** ett
    befintligt manus (FDX eller Fountain) – det läggs till sist i manuset (ångerbart via versionshistoriken).
 7. **Dela skrivskyddat** (Projektinställningar → *Dela skrivskyddat*): skapa en länk så
    andra kan *läsa* manuset och lämna kommentarer utan att kunna ändra något. Tittarnas
    kommentarer dyker upp i kommentarsrutan under Manus. *Sluta dela* återkallar länken.
-8. **Sök & ersätt**, **Kommentarer** och **Versioner** öppnas som rutor ovanpå manuset från
-   knapparna bredvid papperslägesväxlaren i Manus-headern. **Översikt:** växla mellan **Manus**
-   och **Korktavla** (scener som index-kort du drar om) i sidomenyn, och **Rapporter** (repliker/ord
-   per karaktär, scenöversikt med sidor).
+8. **Verktygsflikar** (Diktering, Sök & ersätt, Kommentarer, Versioner) ligger i en gemensam
+   rad ovanför manuset som alltid är synlig (fast/sticky) oavsett hur långt ner du skrollat.
+   Klicka en flik för att expandera dess innehåll nedanför raden; klicka igen för att fälla
+   ihop den tillbaka upp i raden – bara en flik åt gången är expanderad. Skrollar du i manuset
+   medan du spelar in dikteringen fälls den ihop automatiskt (men flikraden visar fortsatt att
+   inspelningen pågår). **Översikt:** växla mellan **Manus** och **Korktavla** (scener som
+   index-kort du drar om) i sidomenyn, och **Rapporter** (repliker/ord per karaktär,
+   scenöversikt med sidor).
 9. **Avancerade FDX-element:** klicka på ett scennummer i vänstermarginalen för att **låsa**
    ett eget nummer (t.ex. "12A") i stället för den automatiska räkningen. **⇄**-knappen på en
    karaktärsrad markerar repliken som **Dual Dialogue** (visas sida vid sida i exporten). Typerna
