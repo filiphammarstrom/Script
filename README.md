@@ -63,12 +63,25 @@ Modell: default `claude-sonnet-4-6`. Sätt `SCRIPT_MODEL=claude-opus-4-8` för s
 
 **AI-motor:** manusbygget (Analysera/Revidera) kan köras med **Claude** (default) eller **GPT (OpenAI)** – välj i appen vid Analysera-knappen. GPT använder din OpenAI-nyckel; default-modell är `gpt-4o` (ändra med `OPENAI_ANALYZE_MODEL`).
 
-### Transkribering: moln eller lokalt (gratis)
+### Transkribering: gratis live-diktering, moln eller lokalt
 
-`TRANSCRIBE_BACKEND` väljer motor:
+**Gratis live-diktering (default för en talare):** trycker du 🎙️ **Spela in** utan att kryssa
+i *Flera talare* används webbläsarens inbyggda taligenkänning (Web Speech API) – texten dyker
+upp **löpande i dikteringsrutan medan du pratar**, utan uppladdning och utan API-kostnad.
+Svenska stöds bra i Chrome/Edge/Safari. Skiljetecken kan bli glesa, men det gör inget:
+AI-steget (manussekreteraren) formaterar ändå om allt till manus. Ingen talarseparering –
+för det finns molnflödet nedan.
+
+**Flera talare (talarseparering):** kryssa i **Flera talare** vid inspelningsknappen så
+spelas ljudet in och skickas till en diariserande molnmotor som märker vem som säger vad
+(Speaker A/B ...). Med OpenAI-motorn väljs modell automatiskt av krysset:
+`gpt-4o-transcribe-diarize` (flera talare, ~$0,006/min) ikryssat, annars
+`gpt-4o-mini-transcribe` (billigast). AssemblyAI diariserar alltid.
+
+`TRANSCRIBE_BACKEND` väljer standardmotor för uppladdade filer:
 
 - `assemblyai` (default) – moln med diarisering (talar-etiketter). Kräver `ASSEMBLYAI_API_KEY`. Kostar per minut.
-- `openai` – moln via OpenAI. Kräver `OPENAI_API_KEY`. Modell väljs i appen per uppladdning (eller med `OPENAI_TRANSCRIBE_MODEL`): `gpt-4o-mini-transcribe` (billigast, 1 röst – när bara du dikterar), `gpt-4o-transcribe` (1 röst, hög kvalitet) eller `gpt-4o-transcribe-diarize` (flera talare, ~$0,006/min).
+- `openai` – moln via OpenAI. Kräver `OPENAI_API_KEY`. Modell styrs av *Flera talare*-krysset (eller `OPENAI_TRANSCRIBE_MODEL`).
 - `local` – lokal **Whisper-CLI** på din egen dator. Gratis, ingen moln-API (ingen diarisering – AI:n attribuerar talare från sammanhang).
 
 Uppladdning körs alltid som ett **bakgrundsjobb**: `POST .../transcribe` svarar direkt med ett `job_id`, och klienten pollar `GET /api/transcribe-jobs/{job_id}` var tredje sekund tills status blir `done`/`error`. **Mycket långa inspelningar delas automatiskt upp** i bitar (`TRANSCRIBE_CHUNK_SECONDS`, default 15 min) innan de skickas till motorn – dels för att OpenAI:s API stoppar filer över 25 MB, dels för att visa framstegsstatus ("Del 2 av 5") under körningen. Kräver **`ffmpeg`** i PATH (finns redan i Docker-imagen; installera lokalt med t.ex. `brew install ffmpeg`) – saknas det transkriberas filen odelad som tidigare. AssemblyAI delas aldrig upp (den hanterar långa filer själv i molnet).
@@ -101,7 +114,7 @@ export WATCH_OUT_EXT=.txt                     # eller .srt (tidskoder rensas)
 
 Ställ in transkriberingsappen att bevaka `WATCH_IN_DIR` och spara transkript (samma filnamn) till `WATCH_OUT_DIR`.
 
-I appen kan du även **välja motor per uppladdning** (Lokalt / Bevakad mapp / Moln: OpenAI / Moln: AssemblyAI) och **importera ett färdigt transkript** (`.txt/.srt/.vtt`) från en valfri app – tidskoder i SRT/VTT rensas automatiskt.
+I appen kan du även **välja motor per uppladdning** (Webbläsaren live / Lokalt / Bevakad mapp / Moln: OpenAI / Moln: AssemblyAI) och **importera ett färdigt transkript** (`.txt/.srt/.vtt`) från en valfri app – tidskoder i SRT/VTT rensas automatiskt.
 
 Ger din app **talar-etiketter** (t.ex. "Talare 1/2" eller "Speaker A/B" – många, som Whisper Transcription, gör det) behåller Script dem: AI:n knyter varje platshållare till rätt karaktär utifrån kontext och story-bibel och skriver ut det riktiga namnet (frågar om kopplingen är oklar).
 
@@ -168,7 +181,9 @@ pytest tests/test_fdx.py
    Varje rad har även en typknapp (**S A K D P Ö G**) i högerrailen – klicka eller tryck
    **Enter/mellanslag/piltangent** för att öppna en lista med hela namnen (Scenrubrik, Action,
    Karaktär, Dialog, Parentes, Övergång, Allmänt); tryck bokstaven för att hoppa direkt dit och
-   **Enter** för att välja.
+   **Enter** för att välja. Manuset sätts i **Courier Prime** (branschstandardtypsnittet,
+   self-hostat) och **🎯 Fokus**-knappen tonar ned allt utom scenen du skriver i och håller
+   raden centrerad (skrivmaskinsläge).
 6. **Exportera FDX** och öppna `.fdx`-filen i Final Draft. Du kan även **importera** ett
    befintligt manus (FDX eller Fountain) – det läggs till sist i manuset (ångerbart via versionshistoriken).
 7. **Dela skrivskyddat** (Projektinställningar → *Dela skrivskyddat*): skapa en länk så

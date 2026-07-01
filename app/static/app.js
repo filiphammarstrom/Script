@@ -317,6 +317,22 @@ function setActiveTab(tab) {
   else if (activeTab === "versions") loadVersions();
 }
 document.querySelectorAll(".tab-btn").forEach((b) => { b.onclick = () => setActiveTab(b.dataset.tab); });
+
+// Sticky-fästen: headern kan bli högre än standard (radbrytning, zoom, smal skärm) och
+// då hamnade flikraden BAKOM headern vid skroll (hårdkodad top: 52px). Mät den verkliga
+// höjden och exponera som CSS-variabler; "Fäll ihop alla"-raden staplas under flikraden.
+function syncStickyOffsets() {
+  const header = document.querySelector("header");
+  const bar = $("manusTabbar");
+  document.documentElement.style.setProperty("--sticky-top", (header ? header.offsetHeight : 52) + "px");
+  document.documentElement.style.setProperty("--tabbar-h", (bar ? bar.offsetHeight : 0) + "px");
+}
+const stickyObserver = new ResizeObserver(syncStickyOffsets);
+stickyObserver.observe(document.querySelector("header"));
+if ($("manusTabbar")) stickyObserver.observe($("manusTabbar"));
+window.addEventListener("resize", syncStickyOffsets);
+syncStickyOffsets();
+
 $("backToProjects").onclick = async () => {
   flushSave();
   await loadProjectList();
@@ -437,10 +453,11 @@ function renderBible() {
   box.append(bibleGroup("Anteckningar (en per rad)", notes));
 }
 
-// Fäller ihop Diktering-fliken om man skrollar i manuset medan man spelar in – den
-// smala flikraden ligger kvar fast ovanför manuset så man ser att inspelningen pågår.
+// Fäller ihop Diktering-fliken om man skrollar i manuset medan man spelar in (moln
+// eller live) – flikraden ligger kvar fast ovanför manuset med inspelningsindikatorn.
 window.addEventListener("scroll", () => {
-  if (activeTab === "dictate" && mediaRecorder && mediaRecorder.state === "recording") setActiveTab("dictate");
+  const recording = (mediaRecorder && mediaRecorder.state === "recording") || liveDictationActive();
+  if (activeTab === "dictate" && recording) setActiveTab("dictate");
 }, { passive: true });
 
 // ---- ljudtranskribering ----
@@ -448,19 +465,20 @@ $("audioFile").onchange = () => {
   const f = $("audioFile").files[0];
   $("audioName").textContent = f ? f.name : "";
 };
-$("transcribeEngine").onchange = () => {
-  // Modellvalet är bara relevant för OpenAI-motorn.
-  $("transcribeModel").hidden = $("transcribeEngine").value !== "openai";
-};
 async function uploadAudio(fileOrBlob, filename) {
   setStatus("Laddar upp ljud ...", true);
   try {
     const fd = new FormData();
     fd.append("file", fileOrBlob, filename);
-    const engine = $("transcribeEngine").value;
+    // Live-webbläsarmotorn kan bara lyssna på mikrofonen – för filer faller vi
+    // tillbaka på standardmotorn. "Flera talare" väljer diariseringsmodellen.
+    let engine = $("transcribeEngine").value;
+    if (engine === "webspeech") engine = "";
     const params = new URLSearchParams();
     if (engine) params.set("backend", engine);
-    if (engine === "openai") params.set("model", $("transcribeModel").value);
+    if (engine === "openai") {
+      params.set("model", $("multiSpeaker").checked ? "gpt-4o-transcribe-diarize" : "gpt-4o-mini-transcribe");
+    }
     const qs = params.toString();
     const url = `/api/projects/${project.id}/transcribe` + (qs ? `?${qs}` : "");
     const res = await fetch(url, { method: "POST", body: fd });
@@ -486,13 +504,93 @@ function stopRecTracks() {
   recStream = null;
   clearInterval(recTimer);
 }
+function setRecordingUI(on) {
+  $("recordBtn").classList.toggle("recording", on);
+  $("recIndicator").hidden = !on;
+  clearInterval(recTimer);
+  if (!on) { $("recordBtn").textContent = "🎙️ Spela in"; return; }
+  recSeconds = 0;
+  $("recordBtn").textContent = "⏹ Stoppa (0:00)";
+  $("recTime").textContent = "0:00";
+  recTimer = setInterval(() => {
+    recSeconds++;
+    const m = Math.floor(recSeconds / 60), s = String(recSeconds % 60).padStart(2, "0");
+    $("recordBtn").textContent = `⏹ Stoppa (${m}:${s})`;
+    $("recTime").textContent = `${m}:${s}`;
+  }, 1000);
+}
+
+// ---- live-diktering med webbläsarens taligenkänning (gratis, en talare) ----
+// Texten dyker upp löpande i dikteringsrutan medan man pratar – ingen uppladdning,
+// ingen API-kostnad. Skiljetecken kan bli glesa, men AI-steget (manussekreteraren)
+// formaterar ändå om allt till manus. Diarisering finns inte här – för flera
+// talare används molnflödet (kryssrutan "Flera talare").
+const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+let liveRec = null, liveWanted = false, liveBase = "", liveFinal = "";
+function liveDictationActive() { return liveWanted || !!liveRec; }
+function startLiveDictation() {
+  liveWanted = true;
+  liveFinal = "";
+  liveBase = $("inputText").value.trim();
+  const rec = new SpeechRec();
+  rec.lang = "sv-SE";
+  rec.continuous = true;
+  rec.interimResults = true;
+  rec.onresult = (ev) => {
+    let interim = "";
+    for (let i = ev.resultIndex; i < ev.results.length; i++) {
+      const r = ev.results[i];
+      if (r.isFinal) liveFinal += r[0].transcript + " ";
+      else interim += r[0].transcript;
+    }
+    const spoken = (liveFinal + interim).trim();
+    $("inputText").value = [liveBase, spoken].filter(Boolean).join("\n\n");
+    $("inputText").scrollTop = $("inputText").scrollHeight;
+  };
+  // Webbläsaren stoppar igenkänningen själv efter en stunds tystnad – starta om
+  // tyst så länge användaren inte tryckt ⏹.
+  rec.onend = () => {
+    if (liveWanted) { try { rec.start(); } catch (_) { /* redan igång */ } }
+    else liveRec = null;
+  };
+  rec.onerror = (ev) => {
+    if (ev.error === "not-allowed" || ev.error === "service-not-allowed") {
+      stopLiveDictation();
+      setStatus("Fick inte tillgång till mikrofonen/taligenkänningen – prova en molnmotor i stället.");
+    }
+  };
+  liveRec = rec;
+  rec.start();
+  setRecordingUI(true);
+  setStatus("Live-diktering – texten dyker upp medan du pratar. Tryck ⏹ när du är klar.");
+}
+function stopLiveDictation() {
+  liveWanted = false;
+  try { if (liveRec) liveRec.stop(); } catch (_) { /* redan stoppad */ }
+  liveRec = null;
+  setRecordingUI(false);
+  if ($("inputText").value.trim()) setStatus("Live-diktering klar – granska och tryck Lägg till / ändra.");
+  else setStatus("");
+}
+
 $("recordBtn").onclick = async () => {
+  if (liveDictationActive()) { stopLiveDictation(); return; }
   if (mediaRecorder && mediaRecorder.state === "recording") { mediaRecorder.stop(); return; }
+  if (!project) { setStatus("Öppna ett projekt först."); return; }
+  // En talare + Automatiskt/Webbläsaren → gratis live-diktering utan uppladdning.
+  const engine = $("transcribeEngine").value;
+  if (!$("multiSpeaker").checked && (engine === "" || engine === "webspeech") && SpeechRec) {
+    startLiveDictation();
+    return;
+  }
+  if (engine === "webspeech" && !SpeechRec) {
+    setStatus("Webbläsaren saknar taligenkänning – välj en molnmotor i stället.");
+    return;
+  }
   if (!navigator.mediaDevices || !window.MediaRecorder) {
     setStatus("Inspelning stöds inte i den här webbläsaren – ladda upp en ljudfil i stället.");
     return;
   }
-  if (!project) { setStatus("Öppna ett projekt först."); return; }
   try {
     recStream = await navigator.mediaDevices.getUserMedia({ audio: true });
   } catch (e) {
@@ -504,9 +602,7 @@ $("recordBtn").onclick = async () => {
   mediaRecorder.ondataavailable = (ev) => { if (ev.data && ev.data.size) recChunks.push(ev.data); };
   mediaRecorder.onstop = async () => {
     stopRecTracks();
-    $("recordBtn").classList.remove("recording");
-    $("recordBtn").textContent = "🎙️ Spela in";
-    $("recIndicator").hidden = true;
+    setRecordingUI(false);
     const mime = (mediaRecorder && mediaRecorder.mimeType) || "audio/webm";
     const blob = new Blob(recChunks, { type: mime });
     mediaRecorder = null;
@@ -514,17 +610,7 @@ $("recordBtn").onclick = async () => {
     await uploadAudio(blob, "inspelning." + (mime.includes("mp4") ? "mp4" : "webm"));
   };
   mediaRecorder.start();
-  recSeconds = 0;
-  $("recordBtn").classList.add("recording");
-  $("recordBtn").textContent = "⏹ Stoppa (0:00)";
-  $("recIndicator").hidden = false;
-  $("recTime").textContent = "0:00";
-  recTimer = setInterval(() => {
-    recSeconds++;
-    const m = Math.floor(recSeconds / 60), s = String(recSeconds % 60).padStart(2, "0");
-    $("recordBtn").textContent = `⏹ Stoppa (${m}:${s})`;
-    $("recTime").textContent = `${m}:${s}`;
-  }, 1000);
+  setRecordingUI(true);
   setStatus("Spelar in – prata på, tryck ⏹ när du är klar.");
 };
 
@@ -1848,6 +1934,7 @@ $("printBtn").onclick = () => {
     .dialogue { margin-left: 1in; max-width: 3.5in; }
     .parenthetical { margin-left: 1.6in; max-width: 2.5in; }
     .transition { text-transform: uppercase; text-align: right; margin-top: 1em; }
+    .new_act, .end_of_act { text-align: center; text-transform: uppercase; font-weight: bold; margin-top: 1.5em; }
     .character, .parenthetical, .dialogue { page-break-inside: avoid; }
   `;
   const t = (project.title || "").trim(), a = (project.author || "").trim(), c = (project.contact || "").trim();
@@ -2055,6 +2142,40 @@ $("paperToggle").onclick = () => {
   applyPaper();
 };
 
+// ---- fokusläge / skrivmaskinsläge (sparas) ----
+// Tonar ned allt utom scenen man skriver i och håller den aktiva raden lodrätt
+// centrerad, så blicken kan stanna på samma ställe medan manuset rullar förbi.
+const FOCUS_KEY = "scriptvoice_focus";
+function focusModeOn() { return localStorage.getItem(FOCUS_KEY) === "1"; }
+function applyFocusMode() {
+  const on = focusModeOn();
+  $("elements").classList.toggle("focus", on);
+  $("focusToggle").classList.toggle("active", on);
+  $("focusToggle").textContent = on ? "🎯 Fokus på" : "🎯 Fokus";
+  if (!on) document.querySelectorAll("#elements .fel.in-focus").forEach((r) => r.classList.remove("in-focus"));
+}
+function highlightFocusScene(row) {
+  const rows = [...document.querySelectorAll("#elements .fel")];
+  const i = rows.indexOf(row);
+  if (i < 0) return;
+  let start = i, end = i;
+  while (start > 0 && !rows[start].classList.contains("fel-scene_heading")) start--;
+  while (end + 1 < rows.length && !rows[end + 1].classList.contains("fel-scene_heading")) end++;
+  rows.forEach((r, j) => r.classList.toggle("in-focus", j >= start && j <= end));
+}
+$("elements").addEventListener("focusin", (e) => {
+  if (!focusModeOn()) return;
+  const row = e.target.closest(".fel");
+  if (!row) return;
+  highlightFocusScene(row);
+  row.scrollIntoView({ block: "center", behavior: "smooth" });
+});
+$("focusToggle").onclick = () => {
+  localStorage.setItem(FOCUS_KEY, focusModeOn() ? "0" : "1");
+  applyFocusMode();
+};
+
 // ---- init ----
 applyPaper();
+applyFocusMode();
 boot();

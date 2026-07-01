@@ -1,3 +1,26 @@
+/* Courier Prime – branschstandardtypsnittet för manus (self-hostat, funkar offline). */
+@font-face {
+  font-family: "Courier Prime";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("fonts/courier-prime-regular.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Courier Prime";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("fonts/courier-prime-bold.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Courier Prime";
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url("fonts/courier-prime-italic.woff2") format("woff2");
+}
+
 :root {
   --bg: #0f1115;
   --bg-soft: #14171d;
@@ -143,6 +166,7 @@ button.primary:hover { filter: brightness(1.06); }
   font-size: 13px;
 }
 .linkbtn:hover { color: var(--accent); transform: none; }
+.linkbtn.active { color: var(--accent); font-weight: 600; }
 
 .row { display: flex; gap: 10px; align-items: center; margin-top: 12px; }
 .row.wrap { flex-wrap: wrap; }
@@ -268,7 +292,7 @@ main:has(#view-project:not([hidden])) { max-width: 1320px; }
 /* ---- app-skal: sidomeny + huvudyta ---- */
 .app-shell { display: grid; grid-template-columns: 224px minmax(0, 1fr); gap: 22px; align-items: start; }
 .sidebar {
-  position: sticky; top: 80px; align-self: start;
+  position: sticky; top: calc(var(--sticky-top, 52px) + 28px); align-self: start;
   display: flex; flex-direction: column; gap: 14px;
   background: linear-gradient(180deg, var(--panel), var(--bg-soft));
   border: 1px solid var(--line); border-radius: var(--radius); padding: 14px;
@@ -294,7 +318,7 @@ main:has(#view-project:not([hidden])) { max-width: 1320px; }
    ovanför manuset (samma sticky-mönster som .scenes-bar) oavsett hur långt ner man
    skrollat. Varje flik expanderar sin .tab-content nedanför raden när den är aktiv. */
 .manus-tabbar {
-  position: sticky; top: 52px; z-index: 6; display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
+  position: sticky; top: var(--sticky-top, 52px); z-index: 6; display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
   margin-bottom: 12px; padding: 6px; background: linear-gradient(180deg, var(--panel), var(--bg-soft));
   border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow);
 }
@@ -305,7 +329,8 @@ main:has(#view-project:not([hidden])) { max-width: 1320px; }
 .manus-tabbar .tab-btn.active { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #0b0d11; }
 .rec-indicator { margin-left: auto; color: var(--warn); font-variant-numeric: tabular-nums; font-weight: 600; }
 .scenes-bar {
-  position: sticky; top: 52px; z-index: 5;
+  /* staplas under flikraden när båda fäster vid skroll */
+  position: sticky; top: calc(var(--sticky-top, 52px) + var(--tabbar-h, 54px) + 8px); z-index: 5;
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
   margin-bottom: 10px; padding: 7px 10px;
   background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
@@ -328,8 +353,8 @@ main:has(#view-project:not([hidden])) { max-width: 1320px; }
 .report-row.clickable { cursor: pointer; }
 .report-row.clickable:hover { border-color: var(--accent); }
 .rr-no { flex: 0 0 auto; min-width: 1.6em; text-align: center; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
-.rr-name { font-weight: 700; text-transform: uppercase; font-family: "Courier New", monospace; }
-.rr-heading { flex: 1; min-width: 0; text-transform: uppercase; font-family: "Courier New", monospace; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rr-name { font-weight: 700; text-transform: uppercase; font-family: "Courier Prime", "Courier New", monospace; }
+.rr-heading { flex: 1; min-width: 0; text-transform: uppercase; font-family: "Courier Prime", "Courier New", monospace; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rr-meta { margin-left: auto; color: var(--muted); font-size: 12px; flex: 0 0 auto; font-variant-numeric: tabular-nums; }
 .comments-list { display: flex; flex-direction: column; gap: 8px; margin: 10px 0; max-height: 320px; overflow: auto; }
 .comment-row { border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); padding: 8px 10px; }
@@ -354,7 +379,7 @@ main:has(#view-project:not([hidden])) { max-width: 1320px; }
 .outline-item.dragging { opacity: .45; }
 .outline-item.dragover { border-style: dashed; border-color: var(--accent); }
 .ol-num { flex: 0 0 auto; min-width: 1.6em; text-align: center; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
-.ol-title { flex: 1; min-width: 0; text-transform: uppercase; font-family: "Courier New", monospace; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ol-title { flex: 1; min-width: 0; text-transform: uppercase; font-family: "Courier Prime", "Courier New", monospace; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ol-page { flex: 0 0 auto; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
 #recordBtn.recording {
   background: #b23b3b; border-color: #d65a5a; color: #fff;
@@ -387,7 +412,7 @@ main:has(#view-project:not([hidden])) { max-width: 1320px; }
   position: relative; width: 700px; max-width: 100%;
   border: 1px solid var(--line); border-radius: 4px; background: #0c0e13;
   padding: 48px 28px 60px 104px; overflow: visible;
-  font: 14px/1.6 "Courier New", ui-monospace, monospace;
+  font: 14px/1.6 "Courier Prime", "Courier New", ui-monospace, monospace;
 }
 .page > .fel:first-child { margin-top: 0; }
 /* Scennummer i högermarginalen (vänster sköts av hopfäll-knappen). */
@@ -414,12 +439,12 @@ main:has(#view-project:not([hidden])) { max-width: 1320px; }
 .scene-head { display: flex; align-items: center; gap: 10px; padding: 12px 14px; cursor: pointer; user-select: none; }
 .scene-head:hover { background: rgba(110, 168, 254, .06); }
 .chev { color: var(--muted); width: 1em; flex: 0 0 auto; }
-.scene-title { font-weight: 600; text-transform: uppercase; letter-spacing: .02em; font-family: "Courier New", monospace; }
+.scene-title { font-weight: 600; text-transform: uppercase; letter-spacing: .02em; font-family: "Courier Prime", "Courier New", monospace; }
 .scene-count { margin-left: 10px; color: var(--muted); font-size: 12px; flex: 0 0 auto; }
 .scene.collapsed .scene-body { display: none; }
 
 /* scene-body = en manussida med liten vänstermarginal. */
-.scene-body { position: relative; padding: 12px 24px 18px 24px; border-radius: 0 0 9px 9px; background: #0c0e13; font-family: "Courier New", ui-monospace, monospace; }
+.scene-body { position: relative; padding: 12px 24px 18px 24px; border-radius: 0 0 9px 9px; background: #0c0e13; font-family: "Courier Prime", "Courier New", ui-monospace, monospace; }
 .fel { position: relative; display: flex; align-items: flex-start; }
 /* Lodrät rytm som ett manus: en tomrad före scenrubrik, handling, ny replikör
    och övergång – men repliken sitter tätt under karaktärsnamnet. */
@@ -447,6 +472,10 @@ main:has(#view-project:not([hidden])) { max-width: 1320px; }
 .fel-new_act .fel-text, .fel-end_of_act .fel-text { text-align: center; text-transform: uppercase; font-weight: 700; max-width: 56ch; }
 .fel.low-conf .fel-text { background: #2a2516; }
 .fel.flash .fel-text { background: var(--flash); transition: background .3s; }
+/* Fokusläge: tona ned allt utom scenen man skriver i (raderna märks .in-focus i JS). */
+.elements.focus .fel, .elements.focus .page-break, .elements.focus .scene-collapsed-note { opacity: .25; transition: opacity .18s ease; }
+.elements.focus .fel.in-focus { opacity: 1; }
+.elements.focus .fel:hover { opacity: .75; }
 .fel .gap { align-self: center; margin-left: 8px; color: var(--warn); font-weight: 600; font-size: 11px; flex: 0 0 auto; }
 
 /* Verktygen sitter i högerrailen (utanför sidtexten), i höjd med sitt element. */
@@ -463,7 +492,7 @@ main:has(#view-project:not([hidden])) { max-width: 1320px; }
 /* Tangentbordstips ovanför manuset + tomt-läge med startknapp. */
 .editor-hint { margin: 0 0 12px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 kbd {
-  font-family: ui-monospace, "Courier New", monospace; font-size: 11px; line-height: 1;
+  font-family: ui-monospace, "Courier Prime", "Courier New", monospace; font-size: 11px; line-height: 1;
   padding: 2px 6px; border: 1px solid var(--line); border-bottom-width: 2px;
   border-radius: 5px; background: var(--panel-2); color: var(--ink);
 }
@@ -474,7 +503,7 @@ kbd {
   position: fixed; z-index: 50; max-height: 220px; overflow: auto;
   background: var(--panel-2); border: 1px solid var(--accent); border-radius: 8px;
   box-shadow: var(--shadow); padding: 4px;
-  font-family: "Courier New", ui-monospace, monospace; font-size: 13px;
+  font-family: "Courier Prime", "Courier New", ui-monospace, monospace; font-size: 13px;
 }
 .ac-item { padding: 5px 10px; border-radius: 5px; cursor: pointer; white-space: nowrap; color: var(--muted); }
 .ac-item.active, .ac-item:hover { background: rgba(110, 168, 254, .18); color: var(--ink); }
@@ -495,7 +524,7 @@ kbd {
 .card-head { display: flex; align-items: center; justify-content: space-between; }
 .card-no { font-weight: 700; color: var(--accent); background: rgba(110, 168, 254, .14); border-radius: 6px; padding: 1px 8px; font-variant-numeric: tabular-nums; }
 .card-page { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
-.card-title { font-family: "Courier New", monospace; text-transform: uppercase; font-weight: 700; font-size: 13px; }
+.card-title { font-family: "Courier Prime", "Courier New", monospace; text-transform: uppercase; font-weight: 700; font-size: 13px; }
 .card-body { flex: 1; color: var(--muted); font-size: 13px; overflow: hidden;
   display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; }
 .card-foot { color: var(--muted); font-size: 11px; border-top: 1px solid var(--line); padding-top: 6px; }
@@ -571,7 +600,7 @@ kbd {
 .ro-scene { cursor: default; }
 .ro-scene .scene-body { padding: 16px 12px 22px 18px; }
 .ro-el {
-  font-family: "Courier New", ui-monospace, monospace; white-space: pre-wrap;
+  font-family: "Courier Prime", "Courier New", ui-monospace, monospace; white-space: pre-wrap;
   color: var(--ink); padding: 2px 6px; line-height: 1.5;
 }
 .scene-body > .ro-el:first-child { margin-top: 0; }
@@ -621,8 +650,6 @@ kbd {
   .scene-body { padding: 12px 8px 16px 14px; }
   .elements.paper .scene-body { padding: 18px 10px 22px 18px; }
   .elements > .page-break { width: 100%; }
-  .scenes-bar { top: 44px; }
-  .manus-tabbar { top: 44px; }
 
   .fel-tools { left: auto; right: 4px; margin-left: 0; opacity: 0; }
   .fel:focus-within .fel-tools { opacity: 1; }
