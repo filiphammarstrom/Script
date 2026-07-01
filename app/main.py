@@ -656,7 +656,10 @@ def import_screenplay(
     store.save_version(uid, project_id, "Före import", project.elements)  # ångerbar
     next_id = max((e.id for e in project.elements), default=-1) + 1
     for item in parsed:
-        project.elements.append(ScreenplayElement(id=next_id, type=item["type"], text=item["text"]))
+        project.elements.append(ScreenplayElement(
+            id=next_id, type=item["type"], text=item["text"],
+            scene_number=item.get("scene_number"), dual=item.get("dual", False),
+        ))
         next_id += 1
     store.save_project(uid, project)
     return {"project": project, "added": len(parsed)}

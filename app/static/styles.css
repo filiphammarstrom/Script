@@ -395,14 +395,16 @@ main:has(#view-project:not([hidden])) { max-width: 1320px; }
   content: attr(data-scene); position: absolute; top: 1px; right: -0.3em;
   font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums;
 }
-/* Hopfäll-knapp + scennummer i vänstermarginalen. */
+/* Hopfäll-knapp + scennummer i vänstermarginalen (två separata knappar i en rad:
+   chevronen fäller ihop/ut, scennumret öppnar redigering av ett låst nummer). */
 .scene-toggle {
   position: absolute; left: -3.7em; top: -1px; display: inline-flex; align-items: baseline; gap: 5px;
-  background: none; border: none; padding: 0; margin: 0; cursor: pointer;
   color: var(--muted); font-family: inherit; font-size: inherit; font-weight: 700; font-variant-numeric: tabular-nums;
 }
-.scene-toggle:hover { color: var(--accent); transform: none; border: none; }
+.scene-toggle button { all: unset; cursor: pointer; font: inherit; color: inherit; }
+.scene-toggle button:hover { color: var(--accent); }
 .scene-toggle .st-chev { font-size: .72em; }
+.scene-toggle .st-no.locked { color: var(--warn); text-decoration: underline dotted; text-underline-offset: 2px; }
 /* "N rader dolda" under en ihopfälld scen – klicka för att fälla ut. */
 .scene-collapsed-note { margin: 2px 0; padding: 1px 4px; color: var(--muted); font-style: italic; font-size: .92em; cursor: pointer; }
 .scene-collapsed-note:hover { color: var(--accent); }
@@ -422,8 +424,10 @@ main:has(#view-project:not([hidden])) { max-width: 1320px; }
 /* Lodrät rytm som ett manus: en tomrad före scenrubrik, handling, ny replikör
    och övergång – men repliken sitter tätt under karaktärsnamnet. */
 .fel.fel-scene_heading, .fel.fel-action, .fel.fel-character,
-.fel.fel-transition, .fel.fel-general { margin-top: 1.1em; }
+.fel.fel-transition, .fel.fel-general,
+.fel.fel-new_act, .fel.fel-end_of_act { margin-top: 1.1em; }
 .fel.fel-dialogue, .fel.fel-parenthetical { margin-top: 0; }
+.fel.dual { border-left: 2px solid var(--accent-2); padding-left: 6px; margin-left: -8px; }
 .scene-body > .fel:first-child { margin-top: 0; }
 .fel-text {
   flex: 1; background: transparent; border: 1px solid transparent; border-radius: 5px;
@@ -440,6 +444,7 @@ main:has(#view-project:not([hidden])) { max-width: 1320px; }
 .fel-dialogue .fel-text { margin-left: 10ch; max-width: 33ch; }
 .fel-parenthetical .fel-text { margin-left: 16ch; max-width: 24ch; font-style: italic; color: var(--muted); }
 .fel-transition .fel-text { text-transform: uppercase; text-align: right; }
+.fel-new_act .fel-text, .fel-end_of_act .fel-text { text-align: center; text-transform: uppercase; font-weight: 700; max-width: 56ch; }
 .fel.low-conf .fel-text { background: #2a2516; }
 .fel.flash .fel-text { background: var(--flash); transition: background .3s; }
 .fel .gap { align-self: center; margin-left: 8px; color: var(--warn); font-weight: 600; font-size: 11px; flex: 0 0 auto; }
@@ -453,6 +458,7 @@ main:has(#view-project:not([hidden])) { max-width: 1320px; }
 .fel:hover .fel-tools, .fel-text:focus + .fel-tools { opacity: 1; }
 .fel-tools .iconbtn { padding: 3px 7px; }
 .fel-tools .type-btn { font-weight: 700; }
+.fel-tools .iconbtn.active { color: var(--accent-2); border-color: var(--accent-2); }
 
 /* Sök & ersätt / Kommentarer / Versioner: flytande rutor ovanpå manuset, öppnade
    från verktygsraden i Manus-headern (positioneras i JS under den klickade knappen). */
@@ -598,6 +604,7 @@ kbd {
 .ro-dialogue { margin-left: 10ch; max-width: 35ch; }
 .ro-parenthetical { margin-left: 16ch; max-width: 26ch; font-style: italic; color: var(--muted); }
 .ro-transition { text-transform: uppercase; text-align: right; margin-top: 1.1em; }
+.ro-new_act, .ro-end_of_act { text-align: center; text-transform: uppercase; font-weight: 700; margin-top: 1.1em; }
 /* vitt papper-läge för tittarvyn (ärver .scene/.scene-body-reglerna ovan) */
 .elements.paper .ro-el { color: #111; }
 .elements.paper .ro-parenthetical { color: #555; }

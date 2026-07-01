@@ -18,25 +18,55 @@ FDX_TO_TYPE = {
     "Parenthetical": "parenthetical",
     "Transition": "transition",
     "General": "general",
+    "New Act": "new_act",
+    "End of Act": "end_of_act",
 }
 
 _SCENE_RE = re.compile(r"^(INT|EXT|EST|INT\.?/EXT|EXT\.?/INT|I/E)[.\s]", re.IGNORECASE)
 
 
+def _paragraph_to_item(para) -> dict | None:
+    """En enda <Paragraph> → vårt element. Bara DIREKTA <Text>-barn läses (inte
+    t.ex. nästlade ScriptNote-paragrafer), annars skulle deras text hänga med."""
+    ptype = para.get("Type", "Action")
+    text = "".join(node.text or "" for node in para.findall("Text")).strip()
+    if not text:
+        return None
+    item = {"type": FDX_TO_TYPE.get(ptype, "action"), "text": text}
+    number = para.get("Number")
+    if number and ptype == "Scene Heading":
+        item["scene_number"] = number
+    return item
+
+
 def from_fdx(xml_text: str) -> list[dict]:
-    """Final Draft XML → element. Läser bara manuskroppen (<Content>), inte titelsidan."""
+    """Final Draft XML → element. Läser bara manuskroppen (<Content>), inte titelsidan.
+
+    Dual Dialogue (<Paragraph Type="General"><DualDialogue>...) packas upp: de
+    nästlade Character/Dialogue-paragraferna blir vanliga element märkta dual=True,
+    i stället för att omslagets egen (tomma) text skulle läsas som ett eget element.
+    """
     try:
         root = ET.fromstring(xml_text)
     except ET.ParseError as exc:
         raise ValueError(f"Ogiltig FDX-fil: {exc}")
     content = root.find("Content")
-    paras = content.iter("Paragraph") if content is not None else root.iter("Paragraph")
+    top_level = list(content) if content is not None else list(root)
     out: list[dict] = []
-    for para in paras:
-        ptype = para.get("Type", "Action")
-        text = "".join(node.text or "" for node in para.iter("Text")).strip()
-        if text:
-            out.append({"type": FDX_TO_TYPE.get(ptype, "action"), "text": text})
+    for para in top_level:
+        if para.tag != "Paragraph":
+            continue
+        dual_wrap = para.find("DualDialogue")
+        if dual_wrap is not None:
+            for inner in dual_wrap.findall("Paragraph"):
+                item = _paragraph_to_item(inner)
+                if item:
+                    item["dual"] = True
+                    out.append(item)
+            continue
+        item = _paragraph_to_item(para)
+        if item:
+            out.append(item)
     return out
 
 

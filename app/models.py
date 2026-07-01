@@ -38,6 +38,8 @@ def _as_obj(v):
     return v
 
 # Våra elementtyper motsvarar Final Drafts Paragraph-typer (se app/fdx.py).
+# new_act/end_of_act är manuella formateringsval (aldrig något AI:n föreslår själv,
+# se SYSTEM_RULES i app/analyze.py som bara nämner de sju grundtyperna).
 ElementType = Literal[
     "scene_heading",
     "action",
@@ -46,6 +48,8 @@ ElementType = Literal[
     "parenthetical",
     "transition",
     "general",
+    "new_act",
+    "end_of_act",
 ]
 
 
@@ -56,6 +60,11 @@ class ScreenplayElement(BaseModel):
     confidence: Literal["high", "medium", "low"] = "high"
     # Markerar en medveten lucka i manuset. AI:n hittar aldrig på för att fylla den.
     is_gap: bool = False
+    # Låst scennummer (t.ex. "12A") för en scene_heading. Tomt = automatisk numrering.
+    scene_number: str | None = None
+    # Del av en Dual Dialogue-grupp (repliker sida vid sida i FDX-exporten). Sätts på
+    # en sammanhängande följd av character/parenthetical/dialogue-element.
+    dual: bool = False
 
 
 class Clarification(BaseModel):
