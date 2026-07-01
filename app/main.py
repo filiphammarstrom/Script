@@ -555,11 +555,18 @@ def _run_transcription(
     """Körs i en bakgrundstråd: transkriberar och uppdaterar jobbet."""
     jobs_mod.update_job(job_id, status="running")
     try:
+        resolved_backend = transcribe_mod.resolve_backend_name(backend)
         transcriber = transcribe_mod.get_transcriber(
-            backend, model, openai_key=openai_key, assemblyai_key=assemblyai_key, allow_local=allow_local
+            resolved_backend, model, openai_key=openai_key, assemblyai_key=assemblyai_key, allow_local=allow_local
         )
-        text = transcriber.transcribe(tmp_path, language=language)
-        jobs_mod.update_job(job_id, status="done", text=text)
+
+        def _on_progress(i: int, n: int) -> None:
+            jobs_mod.update_job(job_id, progress=f"Del {i} av {n}")
+
+        text = transcribe_mod.transcribe_with_chunking(
+            transcriber, tmp_path, resolved_backend, language=language, on_progress=_on_progress
+        )
+        jobs_mod.update_job(job_id, status="done", text=text, progress="")
     except Exception as exc:  # saknad nyckel, nätverksfel, transkriberingsfel ...
         jobs_mod.update_job(job_id, status="error", error=str(exc))
     finally:
@@ -623,7 +630,7 @@ def transcribe_job_status(job_id: str, uid: str = Depends(auth_mod.current_uid))
     job = jobs_mod.get_job(job_id)
     if job is None:
         raise HTTPException(404, "Jobbet finns inte")
-    return {"job_id": job.id, "status": job.status, "text": job.text, "error": job.error}
+    return {"job_id": job.id, "status": job.status, "text": job.text, "error": job.error, "progress": job.progress}
 
 
 @app.post("/api/projects/{project_id}/import")

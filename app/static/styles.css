@@ -288,7 +288,22 @@ main:has(#view-project:not([hidden])) { max-width: 1320px; }
 .app-main { min-width: 0; }
 .section-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
 .section-title { font-size: 18px; text-transform: none; letter-spacing: 0; color: var(--ink); margin: 0; font-weight: 680; }
+.section-tools { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
 .side-toggle { display: none; }
+
+/* Hopfällbar dikteringsrad: den smala raden ligger fast ovanför manuset (samma
+   sticky-mönster som .scenes-bar) oavsett hur långt ner i manuset man skrollat. */
+.dictate-summary {
+  all: unset; box-sizing: border-box; width: 100%; cursor: pointer; font: inherit; color: var(--ink);
+  display: flex; align-items: center; gap: 10px; padding: 12px 16px; margin-bottom: 12px;
+  position: sticky; top: 52px; z-index: 6;
+  background: linear-gradient(180deg, var(--panel), var(--bg-soft));
+  border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow);
+}
+.dictate-summary:hover { border-color: var(--accent); transform: none; }
+.ds-chev { flex: 0 0 auto; color: var(--muted); font-size: 12px; }
+.ds-title { flex: 0 0 auto; font-weight: 600; }
+.rec-indicator { color: var(--warn); font-variant-numeric: tabular-nums; font-weight: 600; }
 .scenes-bar {
   position: sticky; top: 52px; z-index: 5;
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
@@ -436,8 +451,21 @@ main:has(#view-project:not([hidden])) { max-width: 1320px; }
   padding: 3px; border-radius: 7px; border: 1px solid var(--line);
 }
 .fel:hover .fel-tools, .fel-text:focus + .fel-tools { opacity: 1; }
-.fel-tools select { width: auto; font-size: 12px; padding: 3px 6px; margin: 0; }
 .fel-tools .iconbtn { padding: 3px 7px; }
+.fel-tools .type-btn { font-weight: 700; }
+
+/* Sök & ersätt / Kommentarer / Versioner: flytande rutor ovanpå manuset, öppnade
+   från verktygsraden i Manus-headern (positioneras i JS under den klickade knappen). */
+.tool-popover {
+  position: fixed; z-index: 40; width: min(460px, 92vw); max-height: min(70vh, 620px);
+  overflow: auto; background: linear-gradient(180deg, var(--panel), var(--bg-soft));
+  border: 1px solid var(--accent); border-radius: var(--radius);
+  box-shadow: var(--shadow); padding: 16px 18px;
+}
+.tool-popover-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.tool-popover-head h3 { margin: 0; font-size: 16px; font-weight: 680; color: var(--ink); }
+.popover-close { all: unset; cursor: pointer; color: var(--muted); font-size: 15px; padding: 2px 8px; line-height: 1.6; border-radius: 6px; }
+.popover-close:hover { color: var(--ink); background: var(--panel-2); }
 
 /* Tangentbordstips ovanför manuset + tomt-läge med startknapp. */
 .editor-hint { margin: 0 0 12px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
@@ -600,6 +628,7 @@ kbd {
   .elements.paper .scene-body { padding: 18px 10px 22px 18px; }
   .elements > .page-break { width: 100%; }
   .scenes-bar { top: 44px; }
+  .dictate-summary { top: 44px; }
 
   .fel-tools { left: auto; right: 4px; margin-left: 0; opacity: 0; }
   .fel:focus-within .fel-tools { opacity: 1; }

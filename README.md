@@ -71,6 +71,8 @@ Modell: default `claude-sonnet-4-6`. Sätt `SCRIPT_MODEL=claude-opus-4-8` för s
 - `openai` – moln via OpenAI. Kräver `OPENAI_API_KEY`. Modell väljs i appen per uppladdning (eller med `OPENAI_TRANSCRIBE_MODEL`): `gpt-4o-mini-transcribe` (billigast, 1 röst – när bara du dikterar), `gpt-4o-transcribe` (1 röst, hög kvalitet) eller `gpt-4o-transcribe-diarize` (flera talare, ~$0,006/min).
 - `local` – lokal **Whisper-CLI** på din egen dator. Gratis, ingen moln-API (ingen diarisering – AI:n attribuerar talare från sammanhang).
 
+Uppladdning körs alltid som ett **bakgrundsjobb**: `POST .../transcribe` svarar direkt med ett `job_id`, och klienten pollar `GET /api/transcribe-jobs/{job_id}` var tredje sekund tills status blir `done`/`error`. **Mycket långa inspelningar delas automatiskt upp** i bitar (`TRANSCRIBE_CHUNK_SECONDS`, default 15 min) innan de skickas till motorn – dels för att OpenAI:s API stoppar filer över 25 MB, dels för att visa framstegsstatus ("Del 2 av 5") under körningen. Kräver **`ffmpeg`** i PATH (finns redan i Docker-imagen; installera lokalt med t.ex. `brew install ffmpeg`) – saknas det transkriberas filen odelad som tidigare. AssemblyAI delas aldrig upp (den hanterar långa filer själv i molnet).
+
 Lokalt läge, standard (openai-whisper):
 
 ```bash
@@ -163,16 +165,22 @@ pytest tests/test_fdx.py
    fungerar som Final Draft/Arc Studio: **Enter** ny rad (rätt typ automatiskt), **Shift+Enter**
    radbrytning, **Tab** växlar typ, **Backspace** först på raden slår ihop uppåt, **INT./EXT.**
    blir scenrubrik, och karaktärsnamn/scenrubriker/övergångar autokompletteras (SmartType).
+   Varje rad har även en typknapp (**S A K D P Ö G**) i högerrailen – klicka eller tryck
+   **Enter/mellanslag/piltangent** för att öppna en lista med hela namnen (Scenrubrik, Action,
+   Karaktär, Dialog, Parentes, Övergång, Allmänt); tryck bokstaven för att hoppa direkt dit och
+   **Enter** för att välja. Dikteringsrutan är hopfällbar – den smala raden ligger fast ovanför
+   manuset när du skrollar, och fälls automatiskt ihop (men visar att inspelningen pågår) om du
+   skrollar medan du spelar in.
 6. **Exportera FDX** och öppna `.fdx`-filen i Final Draft. Du kan även **importera** ett
    befintligt manus (FDX eller Fountain) – det läggs till sist i manuset (ångerbart via versionshistoriken).
 7. **Dela skrivskyddat** (Projektinställningar → *Dela skrivskyddat*): skapa en länk så
    andra kan *läsa* manuset och lämna kommentarer utan att kunna ändra något. Tittarnas
-   kommentarer dyker upp i din kommentarslista under Manus. *Sluta dela* återkallar länken.
-8. **Översikt:** växla mellan **Manus** och **Korktavla** (scener som index-kort du drar om),
-   sök & ersätt (t.ex. byt namn på en karaktär), och **Rapporter** (repliker/ord per karaktär,
-   scenöversikt med sidor).
+   kommentarer dyker upp i kommentarsrutan under Manus. *Sluta dela* återkallar länken.
+8. **Sök & ersätt**, **Kommentarer** och **Versioner** öppnas som rutor ovanpå manuset från
+   knapparna bredvid papperslägesväxlaren i Manus-headern. **Översikt:** växla mellan **Manus**
+   och **Korktavla** (scener som index-kort du drar om) i sidomenyn, och **Rapporter** (repliker/ord
+   per karaktär, scenöversikt med sidor).
 
 ## Status / nästa steg
 
-- Async/bakgrundsjobb + statuspoll för lång ljudtranskribering; chunkning av mycket långa transkriptioner.
-- Titelsida och avancerade FDX-element.
+- Avancerade FDX-element (t.ex. Dual Dialogue, New Act/End of Act, låsta scennummer). Titelsidan finns redan.
