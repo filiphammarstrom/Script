@@ -157,7 +157,10 @@
           <div class="proj-section" data-section="manus">
             <div class="section-head">
               <h2 class="section-title">Manus</h2>
-              <button id="paperToggle" class="linkbtn" title="Växla mellan vitt papper och mörkt läge">📄 Vitt papper</button>
+              <div class="section-tools">
+                <button id="focusToggle" class="linkbtn" title="Fokusläge – tona ned allt utom scenen du skriver i och håll raden centrerad">🎯 Fokus</button>
+                <button id="paperToggle" class="linkbtn" title="Växla mellan vitt papper och mörkt läge">📄 Vitt papper</button>
+              </div>
             </div>
 
             <!-- Verktygsflikar: alltid synliga (sticky) ovanför manuset, oavsett skroll.
@@ -177,17 +180,16 @@
                   <input type="file" id="audioFile" accept="audio/*" hidden>
                 </label>
                 <select id="transcribeEngine" title="Transkriberingsmotor">
-                  <option value="">Automatiskt (din inställning)</option>
-                  <option value="local">Lokalt (gratis)</option>
+                  <option value="">Automatiskt (live i webbläsaren när det går)</option>
+                  <option value="webspeech">Webbläsaren – live (gratis)</option>
+                  <option value="local">Lokalt: Whisper-CLI (gratis)</option>
                   <option value="watch">Bevakad mapp (auto)</option>
                   <option value="openai">Moln: OpenAI</option>
-                  <option value="assemblyai">Moln: AssemblyAI (diarisering)</option>
+                  <option value="assemblyai">Moln: AssemblyAI</option>
                 </select>
-                <select id="transcribeModel" title="OpenAI-modell" hidden>
-                  <option value="gpt-4o-mini-transcribe">Diktering – 1 röst (billigast)</option>
-                  <option value="gpt-4o-transcribe">1 röst (hög kvalitet)</option>
-                  <option value="gpt-4o-transcribe-diarize">Flera talare (diarisering)</option>
-                </select>
+                <label class="inline-check" title="Talarseparering: ljudet skickas till en molnmotor som märker vem som säger vad (Speaker A/B ...). Utan bock används gratis live-diktering i webbläsaren när det går.">
+                  <input type="checkbox" id="multiSpeaker"> Flera talare
+                </label>
                 <button id="transcribeBtn">Transkribera</button>
                 <label class="filelabel">Importera transkript
                   <input type="file" id="transcriptFile" accept=".txt,.srt,.vtt,.text" hidden>
