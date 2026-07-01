@@ -263,7 +263,7 @@ function openProject(p) {
   $("projContext").value = p.context;
   $("projDirectives").value = p.directives;
   collapsedScenes.clear();  // alla scener utfällda när ett projekt öppnas
-  setDictateCollapsed(true);  // dikteringsrutan börjar hopfälld
+  setActiveTab(null);  // alla verktygsflikar hopfällda när ett projekt öppnas
   showSection("manus");
   showView("project");  // måste synas INNAN renderElements(), annars mäts textareornas
                           // scrollHeight som 0 (dolt via [hidden]) och raderna blir osynliga
@@ -294,37 +294,29 @@ function showSection(name) {
   if (name === "reports") renderReports();
   else if (name === "board") renderCorkboard();
   else if (name === "share") loadShareStatus();
-  closeToolPopovers();  // "rutor ovanpå manuset" hör bara hemma i Manus-vyn
+  setActiveTab(null);  // verktygsflikarna hör bara hemma i Manus-vyn
   $("sidebar").classList.remove("open");  // stäng mobilmenyn efter val
 }
 document.querySelectorAll(".side-item").forEach((b) => { b.onclick = () => showSection(b.dataset.section); });
 $("sideToggle").onclick = () => $("sidebar").classList.toggle("open");
 
-// ---- Rutor ovanpå manuset: Sök & ersätt / Kommentarer / Versioner (öppnas via knapp i Manus-headern) ----
-function closeToolPopovers() {
-  document.querySelectorAll(".tool-popover").forEach((p) => { p.hidden = true; });
+// ---- Verktygsflikar ovanför manuset: Diktering / Sök & ersätt / Kommentarer / Versioner.
+// Raden ligger sticky (alltid synlig, se .manus-tabbar i styles.css) oavsett skroll. Klick på
+// en flik expanderar dess innehåll nedanför raden; klick på samma flik igen fäller ihop den
+// tillbaka upp i raden. Bara en flik är expanderad åt gången.
+let activeTab = null;
+function setActiveTab(tab) {
+  activeTab = activeTab === tab ? null : tab;
+  document.querySelectorAll(".tab-btn").forEach((b) => {
+    const on = b.dataset.tab === activeTab;
+    b.classList.toggle("active", on);
+    b.setAttribute("aria-expanded", String(on));
+  });
+  document.querySelectorAll(".tab-content").forEach((c) => { c.hidden = c.dataset.tab !== activeTab; });
+  if (activeTab === "comments") loadComments();
+  else if (activeTab === "versions") loadVersions();
 }
-function toggleToolPopover(id, btn) {
-  const panel = $(id);
-  const wasOpen = !panel.hidden;
-  closeToolPopovers();
-  if (wasOpen) return;
-  const r = btn.getBoundingClientRect();
-  panel.style.top = (r.bottom + 8) + "px";
-  panel.style.right = (window.innerWidth - r.right) + "px";
-  panel.hidden = false;
-  if (id === "commentsPanel") loadComments();
-  else if (id === "versionsPanel") loadVersions();
-}
-$("openFindBtn").onclick = () => toggleToolPopover("findPanel", $("openFindBtn"));
-$("openCommentsBtn").onclick = () => toggleToolPopover("commentsPanel", $("openCommentsBtn"));
-$("openVersionsBtn").onclick = () => toggleToolPopover("versionsPanel", $("openVersionsBtn"));
-document.querySelectorAll(".tool-popover .popover-close").forEach((b) => { b.onclick = closeToolPopovers; });
-document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeToolPopovers(); });
-document.addEventListener("mousedown", (e) => {
-  if (e.target.closest(".tool-popover") || e.target.closest(".section-tools")) return;
-  closeToolPopovers();
-});
+document.querySelectorAll(".tab-btn").forEach((b) => { b.onclick = () => setActiveTab(b.dataset.tab); });
 $("backToProjects").onclick = async () => {
   flushSave();
   await loadProjectList();
@@ -445,19 +437,10 @@ function renderBible() {
   box.append(bibleGroup("Anteckningar (en per rad)", notes));
 }
 
-// ---- hopfällbar dikteringsruta ----
-let dictateCollapsed = true;
-function setDictateCollapsed(collapsed) {
-  dictateCollapsed = collapsed;
-  $("dictateBody").hidden = collapsed;
-  $("dsChev").textContent = collapsed ? "▸" : "▾";
-  $("dictateSummary").setAttribute("aria-expanded", String(!collapsed));
-}
-$("dictateSummary").onclick = () => setDictateCollapsed(!dictateCollapsed);
-// Fäller ihop rutan om man skrollar i manuset medan man spelar in – den smala
-// raden ligger kvar fast ovanför manuset så man ser att inspelningen pågår.
+// Fäller ihop Diktering-fliken om man skrollar i manuset medan man spelar in – den
+// smala flikraden ligger kvar fast ovanför manuset så man ser att inspelningen pågår.
 window.addEventListener("scroll", () => {
-  if (!dictateCollapsed && mediaRecorder && mediaRecorder.state === "recording") setDictateCollapsed(true);
+  if (activeTab === "dictate" && mediaRecorder && mediaRecorder.state === "recording") setActiveTab("dictate");
 }, { passive: true });
 
 // ---- ljudtranskribering ----

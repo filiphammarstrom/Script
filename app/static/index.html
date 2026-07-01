@@ -157,69 +157,20 @@
           <div class="proj-section" data-section="manus">
             <div class="section-head">
               <h2 class="section-title">Manus</h2>
-              <div class="section-tools">
-                <button id="openFindBtn" class="linkbtn" title="Sök & ersätt i manuset">🔍 Sök &amp; ersätt</button>
-                <button id="openCommentsBtn" class="linkbtn" title="Kommentarer på projektet">🗒️ Kommentarer</button>
-                <button id="openVersionsBtn" class="linkbtn" title="Versionshistorik">🕑 Versioner</button>
-                <button id="paperToggle" class="linkbtn" title="Växla mellan vitt papper och mörkt läge">📄 Vitt papper</button>
-              </div>
+              <button id="paperToggle" class="linkbtn" title="Växla mellan vitt papper och mörkt läge">📄 Vitt papper</button>
             </div>
 
-            <!-- Rutor som dyker upp ovanpå manuset (stängs med ✕, Esc eller klick utanför) -->
-            <div id="findPanel" class="tool-popover" hidden>
-              <div class="tool-popover-head">
-                <h3>Sök &amp; ersätt</h3>
-                <button class="popover-close" title="Stäng">✕</button>
-              </div>
-              <p class="hint">T.ex. byt namn på en karaktär i hela manuset.</p>
-              <div class="row wrap find-row">
-                <input id="findText" placeholder="Sök ...">
-                <input id="findReplace" placeholder="Ersätt med ...">
-                <label class="inline-check"><input type="checkbox" id="findMatchCase"> Skilj på stora/små</label>
-              </div>
-              <div class="row wrap">
-                <button id="findNextBtn">Nästa träff</button>
-                <button id="replaceOneBtn">Ersätt</button>
-                <button id="replaceAllBtn" class="primary">Ersätt alla</button>
-                <span id="findStatus" class="status"></span>
-              </div>
-            </div>
-
-            <div id="commentsPanel" class="tool-popover" hidden>
-              <div class="tool-popover-head">
-                <h3>Kommentarer</h3>
-                <button class="popover-close" title="Stäng">✕</button>
-              </div>
-              <div id="commentsList" class="comments-list"></div>
-              <div class="row comment-add">
-                <input id="commentScene" type="number" min="1" placeholder="Scen #" class="comment-scene">
-                <input id="commentText" placeholder="Skriv en kommentar ...">
-                <button id="addCommentBtn" class="primary">Lägg till</button>
-                <span id="commentStatus" class="status"></span>
-              </div>
-            </div>
-
-            <div id="versionsPanel" class="tool-popover" hidden>
-              <div class="tool-popover-head">
-                <h3>Versioner</h3>
-                <button class="popover-close" title="Stäng">✕</button>
-              </div>
-              <p class="hint">En version sparas automatiskt före varje AI-ändring.</p>
-              <div class="row version-save">
-                <input id="versionLabel" placeholder="Namnge denna version (valfritt)">
-                <button id="saveVersionBtn">💾 Spara version</button>
-                <span id="versionStatus" class="status"></span>
-              </div>
-              <div id="versionsList" class="versions-list"></div>
-            </div>
-
-            <!-- Hopfällbar: den smala raden ligger fast ovanför manuset när man skrollar. -->
-            <button type="button" id="dictateSummary" class="dictate-summary" aria-expanded="true">
-              <span id="dsChev" class="ds-chev">▾</span>
-              <span class="ds-title">🎙️ Diktering / transkription</span>
+            <!-- Verktygsflikar: alltid synliga (sticky) ovanför manuset, oavsett skroll.
+                 Klick expanderar fliken nedåt; klick igen fäller ihop den tillbaka upp i raden. -->
+            <div class="manus-tabbar" id="manusTabbar">
+              <button type="button" class="tab-btn" data-tab="dictate" aria-expanded="false">🎙️ Diktering</button>
+              <button type="button" class="tab-btn" data-tab="find" aria-expanded="false">🔍 Sök &amp; ersätt</button>
+              <button type="button" class="tab-btn" data-tab="comments" aria-expanded="false">🗒️ Kommentarer</button>
+              <button type="button" class="tab-btn" data-tab="versions" aria-expanded="false">🕑 Versioner</button>
               <span id="recIndicator" class="rec-indicator" hidden>🔴 <span id="recTime">0:00</span></span>
-            </button>
-            <section class="panel dictate-body" id="dictateBody">
+            </div>
+
+            <section class="panel tab-content" data-tab="dictate" id="tabDictate" hidden>
               <div class="row wrap">
                 <button id="recordBtn" title="Spela in från mikrofonen och transkribera">🎙️ Spela in</button>
                 <label class="filelabel">Välj ljudfil
@@ -254,6 +205,41 @@
                 </select>
                 <span id="status" class="status"></span>
               </div>
+            </section>
+
+            <section class="panel tab-content" data-tab="find" id="tabFind" hidden>
+              <p class="hint">T.ex. byt namn på en karaktär i hela manuset.</p>
+              <div class="row wrap find-row">
+                <input id="findText" placeholder="Sök ...">
+                <input id="findReplace" placeholder="Ersätt med ...">
+                <label class="inline-check"><input type="checkbox" id="findMatchCase"> Skilj på stora/små</label>
+              </div>
+              <div class="row wrap">
+                <button id="findNextBtn">Nästa träff</button>
+                <button id="replaceOneBtn">Ersätt</button>
+                <button id="replaceAllBtn" class="primary">Ersätt alla</button>
+                <span id="findStatus" class="status"></span>
+              </div>
+            </section>
+
+            <section class="panel tab-content" data-tab="comments" id="tabComments" hidden>
+              <div id="commentsList" class="comments-list"></div>
+              <div class="row comment-add">
+                <input id="commentScene" type="number" min="1" placeholder="Scen #" class="comment-scene">
+                <input id="commentText" placeholder="Skriv en kommentar ...">
+                <button id="addCommentBtn" class="primary">Lägg till</button>
+                <span id="commentStatus" class="status"></span>
+              </div>
+            </section>
+
+            <section class="panel tab-content" data-tab="versions" id="tabVersions" hidden>
+              <p class="hint">En version sparas automatiskt före varje AI-ändring.</p>
+              <div class="row version-save">
+                <input id="versionLabel" placeholder="Namnge denna version (valfritt)">
+                <button id="saveVersionBtn">💾 Spara version</button>
+                <span id="versionStatus" class="status"></span>
+              </div>
+              <div id="versionsList" class="versions-list"></div>
             </section>
 
             <section class="panel" id="clarPanel" hidden>
