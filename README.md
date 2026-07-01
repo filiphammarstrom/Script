@@ -168,15 +168,18 @@ pytest tests/test_fdx.py
    Varje rad har även en typknapp (**S A K D P Ö G**) i högerrailen – klicka eller tryck
    **Enter/mellanslag/piltangent** för att öppna en lista med hela namnen (Scenrubrik, Action,
    Karaktär, Dialog, Parentes, Övergång, Allmänt); tryck bokstaven för att hoppa direkt dit och
-   **Enter** för att välja.
+   **Enter** för att välja. Dikteringsrutan är hopfällbar – den smala raden ligger fast ovanför
+   manuset när du skrollar, och fälls automatiskt ihop (men visar att inspelningen pågår) om du
+   skrollar medan du spelar in.
 6. **Exportera FDX** och öppna `.fdx`-filen i Final Draft. Du kan även **importera** ett
    befintligt manus (FDX eller Fountain) – det läggs till sist i manuset (ångerbart via versionshistoriken).
 7. **Dela skrivskyddat** (Projektinställningar → *Dela skrivskyddat*): skapa en länk så
    andra kan *läsa* manuset och lämna kommentarer utan att kunna ändra något. Tittarnas
-   kommentarer dyker upp i din kommentarslista under Manus. *Sluta dela* återkallar länken.
-8. **Översikt:** växla mellan **Manus** och **Korktavla** (scener som index-kort du drar om),
-   sök & ersätt (t.ex. byt namn på en karaktär), och **Rapporter** (repliker/ord per karaktär,
-   scenöversikt med sidor).
+   kommentarer dyker upp i kommentarsrutan under Manus. *Sluta dela* återkallar länken.
+8. **Sök & ersätt**, **Kommentarer** och **Versioner** öppnas som rutor ovanpå manuset från
+   knapparna bredvid papperslägesväxlaren i Manus-headern. **Översikt:** växla mellan **Manus**
+   och **Korktavla** (scener som index-kort du drar om) i sidomenyn, och **Rapporter** (repliker/ord
+   per karaktär, scenöversikt med sidor).
 
 ## Status / nästa steg
 

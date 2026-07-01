@@ -254,6 +254,10 @@ function openProject(p) {
   $("projContext").value = p.context;
   $("projDirectives").value = p.directives;
   collapsedScenes.clear();  // alla scener utfällda när ett projekt öppnas
+  setDictateCollapsed(true);  // dikteringsrutan börjar hopfälld
+  showSection("manus");
+  showView("project");  // måste synas INNAN renderElements(), annars mäts textareornas
+                          // scrollHeight som 0 (dolt via [hidden]) och raderna blir osynliga
   renderBible();
   renderElements();
   $("clarPanel").hidden = true;
@@ -272,23 +276,46 @@ function openProject(p) {
   $("askAnswer").hidden = true;
   setStatus("");
   setProjSetStatus("");
-  showSection("manus");
   setSaveState("");
-  showView("project");
 }
 // Byt sektion i projekt-app-skalet (sidomenyn). Laddar innehåll vid behov.
 function showSection(name) {
   for (const s of document.querySelectorAll("#view-project .proj-section")) s.hidden = s.dataset.section !== name;
   for (const b of document.querySelectorAll(".side-item")) b.classList.toggle("active", b.dataset.section === name);
-  if (name === "comments") loadComments();
-  else if (name === "versions") loadVersions();
-  else if (name === "reports") renderReports();
+  if (name === "reports") renderReports();
   else if (name === "board") renderCorkboard();
   else if (name === "share") loadShareStatus();
+  closeToolPopovers();  // "rutor ovanpå manuset" hör bara hemma i Manus-vyn
   $("sidebar").classList.remove("open");  // stäng mobilmenyn efter val
 }
 document.querySelectorAll(".side-item").forEach((b) => { b.onclick = () => showSection(b.dataset.section); });
 $("sideToggle").onclick = () => $("sidebar").classList.toggle("open");
+
+// ---- Rutor ovanpå manuset: Sök & ersätt / Kommentarer / Versioner (öppnas via knapp i Manus-headern) ----
+function closeToolPopovers() {
+  document.querySelectorAll(".tool-popover").forEach((p) => { p.hidden = true; });
+}
+function toggleToolPopover(id, btn) {
+  const panel = $(id);
+  const wasOpen = !panel.hidden;
+  closeToolPopovers();
+  if (wasOpen) return;
+  const r = btn.getBoundingClientRect();
+  panel.style.top = (r.bottom + 8) + "px";
+  panel.style.right = (window.innerWidth - r.right) + "px";
+  panel.hidden = false;
+  if (id === "commentsPanel") loadComments();
+  else if (id === "versionsPanel") loadVersions();
+}
+$("openFindBtn").onclick = () => toggleToolPopover("findPanel", $("openFindBtn"));
+$("openCommentsBtn").onclick = () => toggleToolPopover("commentsPanel", $("openCommentsBtn"));
+$("openVersionsBtn").onclick = () => toggleToolPopover("versionsPanel", $("openVersionsBtn"));
+document.querySelectorAll(".tool-popover .popover-close").forEach((b) => { b.onclick = closeToolPopovers; });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeToolPopovers(); });
+document.addEventListener("mousedown", (e) => {
+  if (e.target.closest(".tool-popover") || e.target.closest(".section-tools")) return;
+  closeToolPopovers();
+});
 $("backToProjects").onclick = async () => {
   flushSave();
   await loadProjectList();
@@ -409,6 +436,21 @@ function renderBible() {
   box.append(bibleGroup("Anteckningar (en per rad)", notes));
 }
 
+// ---- hopfällbar dikteringsruta ----
+let dictateCollapsed = true;
+function setDictateCollapsed(collapsed) {
+  dictateCollapsed = collapsed;
+  $("dictateBody").hidden = collapsed;
+  $("dsChev").textContent = collapsed ? "▸" : "▾";
+  $("dictateSummary").setAttribute("aria-expanded", String(!collapsed));
+}
+$("dictateSummary").onclick = () => setDictateCollapsed(!dictateCollapsed);
+// Fäller ihop rutan om man skrollar i manuset medan man spelar in – den smala
+// raden ligger kvar fast ovanför manuset så man ser att inspelningen pågår.
+window.addEventListener("scroll", () => {
+  if (!dictateCollapsed && mediaRecorder && mediaRecorder.state === "recording") setDictateCollapsed(true);
+}, { passive: true });
+
 // ---- ljudtranskribering ----
 $("audioFile").onchange = () => {
   const f = $("audioFile").files[0];
@@ -472,6 +514,7 @@ $("recordBtn").onclick = async () => {
     stopRecTracks();
     $("recordBtn").classList.remove("recording");
     $("recordBtn").textContent = "🎙️ Spela in";
+    $("recIndicator").hidden = true;
     const mime = (mediaRecorder && mediaRecorder.mimeType) || "audio/webm";
     const blob = new Blob(recChunks, { type: mime });
     mediaRecorder = null;
@@ -482,10 +525,13 @@ $("recordBtn").onclick = async () => {
   recSeconds = 0;
   $("recordBtn").classList.add("recording");
   $("recordBtn").textContent = "⏹ Stoppa (0:00)";
+  $("recIndicator").hidden = false;
+  $("recTime").textContent = "0:00";
   recTimer = setInterval(() => {
     recSeconds++;
     const m = Math.floor(recSeconds / 60), s = String(recSeconds % 60).padStart(2, "0");
     $("recordBtn").textContent = `⏹ Stoppa (${m}:${s})`;
+    $("recTime").textContent = `${m}:${s}`;
   }, 1000);
   setStatus("Spelar in – prata på, tryck ⏹ när du är klar.");
 };
