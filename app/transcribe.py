@@ -5,6 +5,14 @@ Default-backend är AssemblyAI (diarisering på). Texten formateras som rader
 
 assemblyai-SDK:t importeras "lazy" så att modulen – och enhetstesterna av
 formateringsfunktionen – kan användas utan att SDK:t är installerat.
+
+Mycket långa ljudfiler delas upp i bitar (`transcribe_with_chunking`) innan de
+skickas till en motor som annars skulle strula: OpenAI:s API stoppar filer över
+25 MB, och lokala/bevakade motorer ger annars ingen framstegsstatus under en
+lång körning. Kräver `ffmpeg`/`ffprobe` i PATH – annars faller det tillbaka på
+en vanlig (odelad) transkribering. AssemblyAI delas aldrig upp; den hanterar
+långa filer i sin egen molntjänst och en uppdelning skulle bara förstöra dess
+talarigenkänning (varje bit skulle börja om räkningen på "Speaker A").
 """
 from __future__ import annotations
 
@@ -285,6 +293,11 @@ class OpenAITranscriber:
         return text
 
 
+def resolve_backend_name(backend: str | None = None) -> str:
+    """Slå upp vilken motor som faktiskt avses: explicit `backend`, annars env, annars 'assemblyai'."""
+    return (backend or os.environ.get("TRANSCRIBE_BACKEND", "assemblyai")).lower()
+
+
 def get_transcriber(
     backend: str | None = None,
     model: str | None = None,
@@ -303,7 +316,7 @@ def get_transcriber(
       'local'/'whisper' = lokal Whisper-CLI på din dator (gratis).
       'watch' = helautomatiskt via en GUI-apps bevakade mapp (MacWhisper m.fl.).
     """
-    backend = (backend or os.environ.get("TRANSCRIBE_BACKEND", "assemblyai")).lower()
+    backend = resolve_backend_name(backend)
     if backend == "assemblyai":
         return AssemblyAITranscriber(api_key=assemblyai_key)
     if backend in ("openai", "gpt-4o", "gpt4o", "openai_diarize"):
@@ -334,3 +347,111 @@ def transcript_to_text(filename: str, text: str) -> str:
             lines.append(s)
         return "\n".join(lines).strip()
     return text.strip()
+
+
+# ---- Chunkning av mycket långa ljudfiler --------------------------------------------
+
+CHUNK_SECONDS_DEFAULT = int(os.environ.get("TRANSCRIBE_CHUNK_SECONDS", "900"))  # 15 min
+OPENAI_MAX_BYTES = 25 * 1024 * 1024  # OpenAI:s ljud-API accepterar inte större filer
+
+# AssemblyAI hanterar långa filer på egen hand i molnet; att dela upp den skulle bara
+# förstöra dess talarigenkänning (varje bit börjar om räkningen på "Speaker A").
+_NO_CHUNK_BACKENDS = {"assemblyai"}
+_SIZE_LIMITED_BACKENDS = {"openai", "gpt-4o", "gpt4o", "openai_diarize"}
+
+
+def probe_duration_seconds(path: str) -> float | None:
+    """Fråga ffprobe hur lång ljudfilen är (sekunder). None om ffprobe saknas/misslyckas."""
+    if shutil.which("ffprobe") is None:
+        return None
+    try:
+        result = subprocess.run(
+            [
+                "ffprobe", "-v", "error", "-show_entries", "format=duration",
+                "-of", "default=noprint_wrappers=1:nokey=1", path,
+            ],
+            capture_output=True, text=True, timeout=60,
+        )
+        return float(result.stdout.strip())
+    except (subprocess.SubprocessError, ValueError, OSError):
+        return None
+
+
+def split_audio_into_chunks(path: str, chunk_seconds: int, outdir: str) -> list[str]:
+    """Dela en ljudfil i ~chunk_seconds-långa bitar med ffmpeg (stream-copy, ingen omkodning)."""
+    if shutil.which("ffmpeg") is None:
+        raise RuntimeError(
+            "ffmpeg hittades inte – installera det för att transkribera mycket långa ljudfiler."
+        )
+    suffix = os.path.splitext(path)[1] or ".m4a"
+    pattern = os.path.join(outdir, f"chunk_%03d{suffix}")
+    try:
+        result = subprocess.run(
+            [
+                "ffmpeg", "-y", "-i", path, "-f", "segment",
+                "-segment_time", str(chunk_seconds), "-c", "copy", "-reset_timestamps", "1",
+                pattern,
+            ],
+            capture_output=True, text=True, timeout=1800,
+        )
+    except subprocess.SubprocessError as exc:
+        raise RuntimeError(f"ffmpeg misslyckades: {exc}")
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout or "").strip()[-500:]
+        raise RuntimeError(f"ffmpeg kunde inte dela upp ljudfilen (kod {result.returncode}): {detail}")
+    chunks = sorted(glob.glob(os.path.join(outdir, f"chunk_*{suffix}")))
+    if not chunks:
+        raise RuntimeError("ffmpeg delade inte upp ljudfilen (inga bitar skapades).")
+    return chunks
+
+
+def _needs_chunking(path: str, backend: str, duration: float | None) -> bool:
+    if backend in _NO_CHUNK_BACKENDS:
+        return False
+    if backend in _SIZE_LIMITED_BACKENDS and os.path.getsize(path) > OPENAI_MAX_BYTES:
+        return True
+    return bool(duration and duration > CHUNK_SECONDS_DEFAULT)
+
+
+def _target_chunk_seconds(path: str, backend: str, duration: float | None) -> int:
+    """Hur långa bitarna ska vara. Räknar ut en säker längd om det är filstorleken
+    (inte längden) som tvingar fram uppdelningen, annars standardlängden."""
+    if backend in _SIZE_LIMITED_BACKENDS and duration and duration > 0:
+        size = os.path.getsize(path)
+        if size > OPENAI_MAX_BYTES:
+            bytes_per_sec = size / duration
+            # 80% marginal mot gränsen (containerformat/headers tar lite extra per bit)
+            return max(30, int(OPENAI_MAX_BYTES * 0.8 / bytes_per_sec))
+    return CHUNK_SECONDS_DEFAULT
+
+
+def transcribe_with_chunking(
+    transcriber: Transcriber,
+    path: str,
+    backend: str,
+    language: str | None = None,
+    on_progress=None,
+) -> str:
+    """Transkribera en ljudfil – delar upp den i bitar först om den är mycket lång.
+
+    `on_progress(i, n)` anropas inför varje bit (1-indexerat) så anroparen kan visa
+    "del 2 av 5"-status under en lång körning. Behövs `ffmpeg`/`ffprobe` inte (filen är
+    kort nog, eller motorn ska aldrig delas upp) transkriberas filen som vanligt.
+    """
+    duration = probe_duration_seconds(path)
+    if not _needs_chunking(path, backend, duration):
+        return transcriber.transcribe(path, language=language)
+    chunk_seconds = _target_chunk_seconds(path, backend, duration)
+    with tempfile.TemporaryDirectory(prefix="script_chunks_") as workdir:
+        chunks = split_audio_into_chunks(path, chunk_seconds, workdir)
+        if len(chunks) <= 1:
+            return transcriber.transcribe(path, language=language)
+        total = len(chunks)
+        texts: list[str] = []
+        for i, chunk_path in enumerate(chunks, start=1):
+            if on_progress:
+                on_progress(i, total)
+            text = transcriber.transcribe(chunk_path, language=language)
+            if text:
+                texts.append(text)
+        return "\n".join(texts)

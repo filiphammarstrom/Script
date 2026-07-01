@@ -71,6 +71,8 @@ Modell: default `claude-sonnet-4-6`. Sätt `SCRIPT_MODEL=claude-opus-4-8` för s
 - `openai` – moln via OpenAI. Kräver `OPENAI_API_KEY`. Modell väljs i appen per uppladdning (eller med `OPENAI_TRANSCRIBE_MODEL`): `gpt-4o-mini-transcribe` (billigast, 1 röst – när bara du dikterar), `gpt-4o-transcribe` (1 röst, hög kvalitet) eller `gpt-4o-transcribe-diarize` (flera talare, ~$0,006/min).
 - `local` – lokal **Whisper-CLI** på din egen dator. Gratis, ingen moln-API (ingen diarisering – AI:n attribuerar talare från sammanhang).
 
+Uppladdning körs alltid som ett **bakgrundsjobb**: `POST .../transcribe` svarar direkt med ett `job_id`, och klienten pollar `GET /api/transcribe-jobs/{job_id}` var tredje sekund tills status blir `done`/`error`. **Mycket långa inspelningar delas automatiskt upp** i bitar (`TRANSCRIBE_CHUNK_SECONDS`, default 15 min) innan de skickas till motorn – dels för att OpenAI:s API stoppar filer över 25 MB, dels för att visa framstegsstatus ("Del 2 av 5") under körningen. Kräver **`ffmpeg`** i PATH (finns redan i Docker-imagen; installera lokalt med t.ex. `brew install ffmpeg`) – saknas det transkriberas filen odelad som tidigare. AssemblyAI delas aldrig upp (den hanterar långa filer själv i molnet).
+
 Lokalt läge, standard (openai-whisper):
 
 ```bash
@@ -174,5 +176,4 @@ pytest tests/test_fdx.py
 
 ## Status / nästa steg
 
-- Async/bakgrundsjobb + statuspoll för lång ljudtranskribering; chunkning av mycket långa transkriptioner.
-- Titelsida och avancerade FDX-element.
+- Avancerade FDX-element (t.ex. Dual Dialogue, New Act/End of Act, låsta scennummer). Titelsidan finns redan.

@@ -502,6 +502,8 @@ function pollTranscription(jobId) {
       } else if (job.status === "error") {
         setStatus("Fel vid transkribering: " + job.error);
       } else {
+        const suffix = job.progress ? ` (${job.progress})` : "";
+        setStatus(`Transkriberar ljud (kan ta en stund)${suffix} ...`, true);
         setTimeout(tick, 3000);
       }
     } catch (e) {

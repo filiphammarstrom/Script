@@ -16,6 +16,7 @@ class Job:
     status: str = "queued"
     text: str = ""
     error: str = ""
+    progress: str = ""  # t.ex. "Del 2 av 5" under en chunkad transkribering
 
 
 _jobs: dict[str, Job] = {}
