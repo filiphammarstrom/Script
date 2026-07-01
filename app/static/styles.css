@@ -436,8 +436,8 @@ main:has(#view-project:not([hidden])) { max-width: 1320px; }
   padding: 3px; border-radius: 7px; border: 1px solid var(--line);
 }
 .fel:hover .fel-tools, .fel-text:focus + .fel-tools { opacity: 1; }
-.fel-tools select { width: auto; font-size: 12px; padding: 3px 6px; margin: 0; }
 .fel-tools .iconbtn { padding: 3px 7px; }
+.fel-tools .type-btn { font-weight: 700; }
 
 /* Tangentbordstips ovanför manuset + tomt-läge med startknapp. */
 .editor-hint { margin: 0 0 12px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }

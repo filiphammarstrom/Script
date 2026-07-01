@@ -664,18 +664,16 @@ function elementRow(el) {
 
   const tools = document.createElement("div");
   tools.className = "fel-tools";
-  const sel = document.createElement("select");
-  sel.title = TYPE_LABELS[el.type] || el.type;  // hela namnet vid hover
-  for (const t of TYPES) {
-    const o = document.createElement("option");
-    o.value = t;
-    o.textContent = TYPE_ABBR[t] || t;  // kort: S/A/K/D/P/Ö/G
-    o.title = TYPE_LABELS[t] || t;
-    if (t === el.type) o.selected = true;
-    sel.appendChild(o);
-  }
-  sel.onchange = () => { el.type = sel.value; renderElements(); scheduleSave(); };  // typbyte kan ändra scenindelning
-  tools.appendChild(sel);
+  const typeBtn = document.createElement("button");
+  typeBtn.type = "button";
+  typeBtn.className = "iconbtn type-btn";
+  typeBtn.textContent = TYPE_ABBR[el.type] || el.type;  // kort: S/A/K/D/P/Ö/G
+  typeBtn.title = TYPE_LABELS[el.type] || el.type;  // hela namnet vid hover
+  typeBtn.setAttribute("aria-haspopup", "listbox");
+  typeBtn.onclick = () => toggleTypeMenu(el, typeBtn);
+  typeBtn.onkeydown = (e) => typeBtnKeydown(e, el, typeBtn);
+  typeBtn.onblur = () => hideTypeMenu();
+  tools.appendChild(typeBtn);
   tools.appendChild(iconBtn("+", "Infoga rad under", () => insertElementAfter(el)));
   tools.appendChild(iconBtn("↑", "Flytta upp", () => moveElement(el, -1)));
   tools.appendChild(iconBtn("↓", "Flytta ner", () => moveElement(el, 1)));
@@ -1089,6 +1087,81 @@ function acceptAutocomplete(i) {
   ta.focus();
   ta.selectionStart = ta.selectionEnd = val.length;
   scheduleSave();
+}
+// ---- Typvalsmeny (radens verktygsrail): visar hela namnet (Dialog, Action, ...) i den
+// öppna listan även om knappen bara visar bokstaven (S/A/K/D/P/Ö/G) hopfälld. Bokstaven
+// hoppar direkt till rätt rad i listan (som webbläsarens inbyggda val i en <select>).
+let typeMenu = null, typeMenuEl = null, typeMenuBtn = null, typeMenuIndex = -1;
+function typeMenuOpen() { return !!typeMenu && !typeMenu.hidden; }
+function toggleTypeMenu(el, btn) {
+  if (typeMenuOpen() && typeMenuBtn === btn) { hideTypeMenu(); return; }
+  openTypeMenu(el, btn);
+}
+function openTypeMenu(el, btn) {
+  if (!typeMenu) {
+    typeMenu = document.createElement("div");
+    typeMenu.className = "ac-menu";
+    document.body.appendChild(typeMenu);
+  }
+  typeMenuEl = el; typeMenuBtn = btn; typeMenuIndex = TYPES.indexOf(el.type);
+  typeMenu.innerHTML = "";
+  TYPES.forEach((t, i) => {
+    const item = document.createElement("div");
+    item.className = "ac-item" + (i === typeMenuIndex ? " active" : "");
+    item.textContent = `${TYPE_ABBR[t]} — ${TYPE_LABELS[t]}`;
+    item.onmousedown = (e) => { e.preventDefault(); applyType(t); };  // behåll fokus på knappen
+    typeMenu.appendChild(item);
+  });
+  const r = btn.getBoundingClientRect();
+  typeMenu.style.left = r.left + "px";
+  typeMenu.style.top = (r.bottom + 2) + "px";
+  typeMenu.style.minWidth = Math.max(150, r.width) + "px";
+  typeMenu.hidden = false;
+}
+function hideTypeMenu() {
+  if (typeMenu) typeMenu.hidden = true;
+  typeMenuEl = null; typeMenuBtn = null; typeMenuIndex = -1;
+}
+function highlightTypeMenu() {
+  [...typeMenu.children].forEach((c, i) => c.classList.toggle("active", i === typeMenuIndex));
+}
+function moveTypeMenu(d) {
+  typeMenuIndex = (typeMenuIndex + d + TYPES.length) % TYPES.length;
+  highlightTypeMenu();
+}
+function applyType(t) {
+  const el = typeMenuEl;
+  hideTypeMenu();
+  if (!el || el.type === t) return;
+  el.type = t;
+  renderElements();  // typbyte kan ändra scenindelning
+  scheduleSave();
+}
+function typeBtnKeydown(e, el, btn) {
+  if (typeMenuOpen() && typeMenuBtn === btn) {
+    if (e.key === "ArrowDown") { e.preventDefault(); moveTypeMenu(1); return; }
+    if (e.key === "ArrowUp") { e.preventDefault(); moveTypeMenu(-1); return; }
+    if (e.key === "Enter" || e.key === "Tab" || e.key === " ") {
+      e.preventDefault();
+      applyType(TYPES[typeMenuIndex]);
+      return;
+    }
+    if (e.key === "Escape") { e.preventDefault(); hideTypeMenu(); return; }
+  } else if (e.key === "Enter" || e.key === " " || e.key === "ArrowDown" || e.key === "ArrowUp") {
+    e.preventDefault();
+    openTypeMenu(el, btn);
+    return;
+  }
+  // Bokstavsgenväg: S/A/K/D/P/Ö/G hoppar direkt till den raden i listan (öppnar den om stängd).
+  if (e.key.length === 1) {
+    const idx = TYPES.findIndex((t) => TYPE_ABBR[t] === e.key.toUpperCase());
+    if (idx !== -1) {
+      e.preventDefault();
+      if (!typeMenuOpen()) openTypeMenu(el, btn);
+      typeMenuIndex = idx;
+      highlightTypeMenu();
+    }
+  }
 }
 function insertElementAfter(el, type, text = "") {
   const i = project.elements.indexOf(el);
