@@ -21,21 +21,25 @@
   src: url("fonts/courier-prime-italic.woff2") format("woff2");
 }
 
+/* Färgidentitet: "writers' room" – varm mörk trä/kol-ton med guld/bärnsten som
+   accent (skrivbordslampa, biografmarkis) i stället för den generiska blå/lila
+   appschablonen. Rubriker sätts i Courier Prime (samma skrivmaskinsfont som
+   manuset) – appens typografi ÄR manusets. */
 :root {
-  --bg: #0f1115;
-  --bg-soft: #14171d;
-  --panel: #1a1e26;
-  --panel-2: #20252f;
-  --ink: #eceef2;
-  --muted: #98a0ad;
-  --accent: #6ea8fe;
-  --accent-2: #8b7dfb;
-  --line: #2a2f3a;
-  --good: #6fcf97;
-  --warn: #e0b341;
+  --bg: #121009;
+  --bg-soft: #171410;
+  --panel: #1d1913;
+  --panel-2: #262019;
+  --ink: #f0e9dc;
+  --muted: #a89c88;
+  --accent: #e3a83a;
+  --accent-2: #cf7b33;
+  --line: #352d22;
+  --good: #7fc98b;
+  --warn: #e58a4f;
   --flash: #3a4a2e;
-  --radius: 12px;
-  --shadow: 0 8px 24px rgba(0, 0, 0, .28);
+  --radius: 10px;
+  --shadow: 0 8px 24px rgba(0, 0, 0, .32);
 }
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
@@ -46,7 +50,8 @@ html { scroll-behavior: smooth; }
 body {
   margin: 0;
   font: 15px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  background: radial-gradient(1200px 600px at 50% -200px, #1a2030 0%, var(--bg) 60%);
+  /* varmt lampsken uppifrån i stället för blå rymd-gradient */
+  background: radial-gradient(1200px 600px at 50% -200px, #262017 0%, var(--bg) 60%);
   color: var(--ink);
   min-height: 100vh;
 }
@@ -57,7 +62,7 @@ header {
   border-bottom: 1px solid var(--line);
   position: sticky;
   top: 0;
-  background: rgba(15, 17, 21, .82);
+  background: rgba(18, 16, 9, .85);
   backdrop-filter: blur(8px);
   z-index: 10;
   display: flex;
@@ -66,11 +71,15 @@ header {
   gap: 16px;
   flex-wrap: wrap;
 }
+/* Varumärket sätts i manusets egen skrivmaskinsfont – appens ansikte utåt är
+   samma typografi som det den producerar. */
 h1 {
+  font-family: "Courier Prime", "Courier New", monospace;
   font-size: 17px;
   margin: 0;
-  font-weight: 650;
-  letter-spacing: .01em;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
 }
 h1::before { content: "🎬 "; }
 .brand-tagline {
@@ -93,7 +102,7 @@ h1::before { content: "🎬 "; }
 }
 .navbtn:hover { color: var(--ink); background: var(--panel); }
 .navbtn.active {
-  color: #0b0d11;
+  color: #1c1206;
   background: linear-gradient(135deg, var(--accent), var(--accent-2));
   font-weight: 600;
 }
@@ -102,13 +111,16 @@ main { max-width: 900px; margin: 0 auto; padding: 26px 24px 60px; }
 .view { animation: fade .2s ease; }
 @keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 
+/* Panelrubrikerna sätts som sluglines i ett manus: Courier, versaler, spärrade –
+   det är appens typografiska signatur. */
 h2 {
-  font-size: 12px;
+  font-family: "Courier Prime", "Courier New", monospace;
+  font-size: 12.5px;
   margin: 0 0 12px;
   text-transform: uppercase;
-  letter-spacing: .08em;
+  letter-spacing: .1em;
   color: var(--muted);
-  font-weight: 600;
+  font-weight: 700;
 }
 .panel {
   background: linear-gradient(180deg, var(--panel), var(--bg-soft));
@@ -123,7 +135,7 @@ h2 {
 label { display: block; margin-bottom: 12px; color: var(--muted); font-size: 13px; }
 input, textarea, select {
   width: 100%;
-  background: #0c0e13;
+  background: #161209;
   color: var(--ink);
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -135,7 +147,7 @@ input, textarea, select {
 input:focus, textarea:focus, select:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(110, 168, 254, .15);
+  box-shadow: 0 0 0 3px rgba(227, 168, 58, .15);
 }
 textarea { resize: vertical; }
 
@@ -153,7 +165,7 @@ button {
 button:hover { border-color: var(--accent); transform: translateY(-1px); }
 button.primary {
   background: linear-gradient(135deg, var(--accent), var(--accent-2));
-  color: #0b0d11;
+  color: #1c1206;
   border-color: transparent;
   font-weight: 600;
 }
@@ -211,13 +223,18 @@ select { width: auto; min-width: 0; }
   transform: translateY(-2px);
   box-shadow: var(--shadow);
 }
-.projectcard::after { content: "→"; color: var(--muted); margin-left: auto; }
-.pc-title { font-weight: 600; font-size: 16px; }
+.projectcard::after { content: "→"; color: var(--muted); }
+.pc-title { flex: 1; min-width: 0; font-family: "Courier Prime", "Courier New", monospace; font-weight: 700; font-size: 15.5px; }
 .pc-meta { color: var(--muted); font-size: 13px; }
+/* Ta bort-knappen visas vid hover (alltid på pekskärm, som saknar hover). */
+.pc-delete { flex: 0 0 auto; padding: 4px 9px; opacity: 0; transition: opacity .12s ease; }
+.projectcard:hover .pc-delete, .projectcard:focus-within .pc-delete { opacity: 1; }
+.pc-delete:hover { color: #e06a6a; border-color: #e06a6a; }
+@media (hover: none) { .pc-delete { opacity: 1; } }
 
 /* ---- projekthuvud + flikar ---- */
 .projhead { margin-bottom: 18px; }
-.projtitle { font-size: 22px; text-transform: none; letter-spacing: 0; color: var(--ink); margin: 6px 0 14px; font-weight: 680; }
+.projtitle { font-family: "Courier Prime", "Courier New", monospace; font-size: 21px; text-transform: none; letter-spacing: 0; color: var(--ink); margin: 6px 0 14px; font-weight: 700; }
 .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); }
 .tab {
   background: none;
@@ -234,7 +251,7 @@ select { width: auto; min-width: 0; }
 
 /* ---- aktiv regelbok ---- */
 .active-file {
-  background: #0c0e13;
+  background: #161209;
   border: 1px dashed var(--line);
   border-radius: 8px;
   padding: 9px 12px;
@@ -261,7 +278,7 @@ select { width: auto; min-width: 0; }
   font-size: 11px;
   padding: 1px 7px;
   border-radius: 999px;
-  background: rgba(110, 168, 254, .16);
+  background: rgba(227, 168, 58, .16);
   color: var(--accent);
   vertical-align: middle;
 }
@@ -330,13 +347,13 @@ main:has(#view-project:not([hidden])) { max-width: 1340px; }
   box-shadow: var(--shadow); max-height: calc(100vh - 96px); overflow: auto;
 }
 .back-link { text-align: left; padding: 0; }
-.proj-side-title { font-size: 16px; text-transform: none; letter-spacing: 0; color: var(--ink); margin: 0; font-weight: 680; word-break: break-word; }
+.proj-side-title { font-family: "Courier Prime", "Courier New", monospace; font-size: 15.5px; text-transform: none; letter-spacing: 0; color: var(--ink); margin: 0; font-weight: 700; word-break: break-word; }
 .side-menu { display: flex; flex-direction: column; gap: 2px; }
 .side-item { background: none; border: 1px solid transparent; border-radius: 8px; text-align: left; padding: 8px 10px; color: var(--muted); font-size: 14px; }
 .side-item:hover { background: var(--panel-2); color: var(--ink); transform: none; border-color: transparent; }
-.side-item.active { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #0b0d11; font-weight: 600; }
+.side-item.active { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #1c1206; font-weight: 600; }
 .side-scenes { border-top: 1px solid var(--line); padding-top: 10px; }
-.side-scenes-head { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-bottom: 8px; }
+.side-scenes-head { font-family: "Courier Prime", "Courier New", monospace; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-bottom: 8px; }
 .side-scenes-head .hint { text-transform: none; letter-spacing: 0; font-size: 11px; }
 .side-scenes .scene-outline { max-height: none; }
 .outline-empty { list-style: none; color: var(--muted); font-size: 13px; padding: 6px 2px; }
@@ -359,7 +376,7 @@ main:has(#view-project:not([hidden])) { max-width: 1340px; }
    sidan (inklusive sidopanelen) blir bredare än fönstret. */
 .app-main { min-width: 0; overflow-x: auto; }
 .section-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
-.section-title { font-size: 18px; text-transform: none; letter-spacing: 0; color: var(--ink); margin: 0; font-weight: 680; }
+.section-title { font-family: "Courier Prime", "Courier New", monospace; font-size: 17px; text-transform: uppercase; letter-spacing: .04em; color: var(--ink); margin: 0; font-weight: 700; }
 .side-toggle { display: none; }
 
 /* Verktygsflikar (Diktering/Sök & ersätt/Kommentarer/Versioner): raden ligger fast
@@ -375,7 +392,7 @@ main:has(#view-project:not([hidden])) { max-width: 1340px; }
   background: none; border: 1px solid transparent; color: var(--muted); font-weight: 600; padding: 7px 12px;
 }
 .manus-tabbar .tab-btn:hover { color: var(--ink); border-color: transparent; transform: none; }
-.manus-tabbar .tab-btn.active { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #0b0d11; }
+.manus-tabbar .tab-btn.active { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #1c1206; }
 .tabbar-right { margin-left: auto; display: flex; align-items: center; gap: 14px; }
 .rec-indicator { color: var(--warn); font-variant-numeric: tabular-nums; font-weight: 600; }
 .script-stats { color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -471,7 +488,7 @@ main:has(#view-project:not([hidden])) { max-width: 1340px; }
 .scene-num {
   flex: 0 0 auto; min-width: 1.6em; text-align: center;
   font-size: 12px; font-weight: 700; color: var(--accent);
-  background: rgba(110, 168, 254, .14); border-radius: 6px; padding: 1px 6px;
+  background: rgba(227, 168, 58, .14); border-radius: 6px; padding: 1px 6px;
   font-variant-numeric: tabular-nums;
 }
 /* Manusark (editorn): varje sida är ett eget blad med sidnummer i övre högra
@@ -488,7 +505,7 @@ main:has(#view-project:not([hidden])) { max-width: 1340px; }
    blir en full sida (~55 rader) mycket högre än ett riktigt pappersark. */
 .page {
   position: relative; width: 714px; max-width: 100%; margin-left: 47px;
-  border: 1px solid var(--line); border-radius: 4px; background: #0c0e13;
+  border: 1px solid var(--line); border-radius: 4px; background: #161209;
   padding: 48px 84px 60px 126px; overflow: visible;
   font: 14px/1.2 "Courier Prime", "Courier New", ui-monospace, monospace;
 }
@@ -522,14 +539,14 @@ main:has(#view-project:not([hidden])) { max-width: 1340px; }
 /* (Skrivskyddade delade vyn använder fortfarande .scene/.scene-body nedan.) */
 .scene { width: 620px; max-width: 100%; border: 1px solid var(--line); border-radius: 10px; margin-bottom: 10px; overflow: visible; background: var(--panel-2); }
 .scene-head { display: flex; align-items: center; gap: 10px; padding: 12px 14px; cursor: pointer; user-select: none; }
-.scene-head:hover { background: rgba(110, 168, 254, .06); }
+.scene-head:hover { background: rgba(227, 168, 58, .06); }
 .chev { color: var(--muted); width: 1em; flex: 0 0 auto; }
 .scene-title { font-weight: 600; text-transform: uppercase; letter-spacing: .02em; font-family: "Courier Prime", "Courier New", monospace; }
 .scene-count { margin-left: 10px; color: var(--muted); font-size: 12px; flex: 0 0 auto; }
 .scene.collapsed .scene-body { display: none; }
 
 /* scene-body = en manussida med liten vänstermarginal. */
-.scene-body { position: relative; padding: 12px 24px 18px 24px; border-radius: 0 0 9px 9px; background: #0c0e13; font-family: "Courier Prime", "Courier New", ui-monospace, monospace; }
+.scene-body { position: relative; padding: 12px 24px 18px 24px; border-radius: 0 0 9px 9px; background: #161209; font-family: "Courier Prime", "Courier New", ui-monospace, monospace; }
 .fel { position: relative; display: flex; align-items: flex-start; }
 /* Lodrät rytm som ett manus: en tomrad före scenrubrik, handling, ny replikör
    och övergång – men repliken sitter tätt under karaktärsnamnet. */
@@ -570,7 +587,7 @@ main:has(#view-project:not([hidden])) { max-width: 1340px; }
   color: var(--ink); padding: 1px 4px; margin: 0;
 }
 .fel-text:hover { border-color: var(--line); }
-.fel-text:focus { outline: none; border-color: var(--accent); background: rgba(110, 168, 254, .07); box-shadow: none; }
+.fel-text:focus { outline: none; border-color: var(--accent); background: rgba(227, 168, 58, .07); box-shadow: none; }
 /* Manus-indrag per typ (Final Draft-standard i monospace-tecken). Action/scenrubrik
    slutar vid ~56 tecken så det blir en högermarginal som i ett riktigt manus. */
 .fel-scene_heading .fel-text { text-transform: uppercase; font-weight: 700; max-width: 60ch; }
@@ -635,7 +652,7 @@ main:has(#view-project:not([hidden])) { max-width: 1340px; }
    .fel-tools .iconbtn nedan) så bara gruppens EGNA, tighta ram syns. */
 .fel-tools {
   position: absolute; left: 100%; margin-left: 88px; top: 0; display: none; gap: 6px; align-items: center;
-  background: rgba(12, 14, 19, .92); padding: 1px; border-radius: 7px; border: 1px solid var(--line);
+  background: rgba(19, 16, 10, .92); padding: 1px; border-radius: 7px; border: 1px solid var(--line);
 }
 .elements.show-controls .fel-tools { display: flex; }
 /* Flikrutan (.tab-content) täcker manuset men inte nödvändigtvis den smala
@@ -701,7 +718,7 @@ main:has(#view-project:not([hidden])) { max-width: 1340px; }
   cursor: pointer; color: var(--muted); font-size: 14px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.cmdk-item.active, .cmdk-item:hover { background: rgba(110, 168, 254, .16); color: var(--ink); }
+.cmdk-item.active, .cmdk-item:hover { background: rgba(227, 168, 58, .16); color: var(--ink); }
 .cmdk-empty { padding: 10px 12px; color: var(--muted); font-size: 13px; }
 
 /* Info-knappar (kortkommandon i sektionshuvudet, dikteringshjälp i diktering-fliken):
@@ -723,13 +740,13 @@ kbd {
   font-family: "Courier Prime", "Courier New", ui-monospace, monospace; font-size: 13px;
 }
 .ac-item { padding: 5px 10px; border-radius: 5px; cursor: pointer; white-space: nowrap; color: var(--muted); }
-.ac-item.active, .ac-item:hover { background: rgba(110, 168, 254, .18); color: var(--ink); }
+.ac-item.active, .ac-item:hover { background: rgba(227, 168, 58, .18); color: var(--ink); }
 
 /* Vy-växel manus / korktavla (segmenterad kontroll) */
 .view-toggle { display: inline-flex; gap: 2px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 2px; }
 .seg { background: none; border: none; border-radius: 6px; padding: 5px 12px; color: var(--muted); font-size: 13px; }
 .seg:hover { transform: none; border: none; color: var(--ink); }
-.seg.active { background: var(--accent); color: #0b0d11; font-weight: 600; }
+.seg.active { background: var(--accent); color: #1c1206; font-weight: 600; }
 
 /* Korktavla: scener som index-kort man kan dra om */
 .corkboard { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; }
@@ -739,7 +756,7 @@ kbd {
 .card.dragging { opacity: .45; }
 .card.dragover { border-style: dashed; border-color: var(--accent); }
 .card-head { display: flex; align-items: center; justify-content: space-between; }
-.card-no { font-weight: 700; color: var(--accent); background: rgba(110, 168, 254, .14); border-radius: 6px; padding: 1px 8px; font-variant-numeric: tabular-nums; }
+.card-no { font-weight: 700; color: var(--accent); background: rgba(227, 168, 58, .14); border-radius: 6px; padding: 1px 8px; font-variant-numeric: tabular-nums; }
 .card-page { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
 .card-title { font-family: "Courier Prime", "Courier New", monospace; text-transform: uppercase; font-weight: 700; font-size: 13px; }
 .card-body { flex: 1; color: var(--muted); font-size: 13px; overflow: hidden;
@@ -791,12 +808,12 @@ kbd {
 .overlay {
   position: fixed; inset: 0; z-index: 100;
   display: flex; align-items: center; justify-content: center;
-  background: radial-gradient(1000px 600px at 50% -100px, #1a2030 0%, #0a0c10 70%);
+  background: radial-gradient(1000px 600px at 50% -100px, #262017 0%, #0f0d08 70%);
 }
 .overlay.landing { overflow: auto; align-items: flex-start; padding: min(9vh, 80px) 22px 50px; }
 .landing-inner { max-width: 960px; margin: 0 auto; display: flex; flex-direction: column; gap: 40px; }
 .landing-hero { display: grid; grid-template-columns: 1.1fr .9fr; gap: 44px; align-items: center; }
-.landing-title { font-size: 36px; margin: 0 0 4px; text-transform: none; letter-spacing: 0; color: var(--ink); font-weight: 750; }
+.landing-title { font-family: "Courier Prime", "Courier New", monospace; font-size: 34px; margin: 0 0 4px; text-transform: uppercase; letter-spacing: .03em; color: var(--ink); font-weight: 700; }
 .landing-tagline { font-size: 21px; color: var(--accent); margin: 0 0 14px; font-weight: 650; }
 .landing-sub { color: var(--muted); line-height: 1.65; margin: 0 0 24px; max-width: 48ch; font-size: 15px; }
 .landing-invite { margin-top: 12px; }
@@ -828,7 +845,7 @@ kbd {
 .shared-head { margin-bottom: 18px; }
 .shared-badge {
   display: inline-block; font-size: 12px; color: var(--accent);
-  background: rgba(110, 168, 254, .14); border-radius: 999px; padding: 3px 12px;
+  background: rgba(227, 168, 58, .14); border-radius: 999px; padding: 3px 12px;
 }
 .shared-head .projtitle { margin: 10px 0 4px; }
 #sharedAuthor:empty { display: none; }
@@ -850,7 +867,7 @@ kbd {
 .ro-scene-num {
   flex: 0 0 auto; min-width: 1.6em; text-align: center;
   font-size: 12px; font-weight: 700; color: var(--accent);
-  background: rgba(110, 168, 254, .14); border-radius: 6px; padding: 1px 6px;
+  background: rgba(227, 168, 58, .14); border-radius: 6px; padding: 1px 6px;
   font-variant-numeric: tabular-nums;
 }
 .ro-action, .ro-general { margin-top: 1.1em; }
@@ -859,6 +876,11 @@ kbd {
 .ro-parenthetical { margin-left: 16ch; max-width: 26ch; font-style: italic; color: var(--muted); }
 .ro-transition { text-transform: uppercase; text-align: right; margin-top: 1.1em; }
 .ro-new_act, .ro-end_of_act { text-align: center; text-transform: uppercase; font-weight: 700; margin-top: 1.1em; }
+/* Delat prosadokument (bok/tal/pitch ...): läsbar serif i stället för manus-Courier. */
+.ro-prose { max-width: 66ch; padding: 8px 4px; }
+.ro-prose p { margin: 0 0 .9em; font: 15.5px/1.75 Georgia, "Times New Roman", serif; color: var(--ink); white-space: pre-wrap; }
+.elements.paper .ro-prose p { color: #111; }
+
 /* vitt papper-läge för tittarvyn (ärver .scene/.scene-body-reglerna ovan) */
 .elements.paper .ro-el { color: #111; }
 .elements.paper .ro-parenthetical { color: #555; }

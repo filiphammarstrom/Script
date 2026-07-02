@@ -52,6 +52,11 @@ def verify_google_id_token(token: str) -> dict:
         raise ValueError("Ogiltig utfärdare (iss).")
     if not data.get("sub"):
         raise ValueError("Token saknar sub.")
+    # Utan denna koll kan vem som helst registrera ett Google-konto med någon
+    # ANNANS (overifierade) e-postadress och bli insläppt/admin via e-postmatchningen
+    # i allowlisten – e-posten får bara litas på när Google intygat att den är ägd.
+    if data.get("email") and data.get("email_verified") not in (True, "true"):
+        raise ValueError("E-postadressen i kontot är inte verifierad hos Google.")
     return {
         "sub": data["sub"],
         "email": data.get("email", ""),

@@ -38,14 +38,17 @@ _HEADER = (
     '<FinalDraft DocumentType="Script" Template="No" Version="3">\n'
     "  <Content>\n"
 )
-_FOOTER = "  </Content>\n</FinalDraft>\n"
+
+# I ATTRIBUT måste även citattecknet escapas (escape() tar bara & < >) – ett
+# scennummer som 12"A gav annars ogiltig XML som Final Draft inte kan öppna.
+_ATTR_ESCAPES = {'"': "&quot;"}
 
 
 def _paragraph(
     par_type: str, text: str, *, number: str | None = None, style: str | None = None, indent: str = "    "
 ) -> str:
-    attr = f' Number="{escape(number)}"' if number else ""
-    style_attr = f' Style="{escape(style)}"' if style else ""
+    attr = f' Number="{escape(number, _ATTR_ESCAPES)}"' if number else ""
+    style_attr = f' Style="{escape(style, _ATTR_ESCAPES)}"' if style else ""
     return f'{indent}<Paragraph Type="{par_type}"{attr}><Text{style_attr}>{escape(text)}</Text></Paragraph>\n'
 
 
