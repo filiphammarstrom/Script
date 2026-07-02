@@ -64,7 +64,7 @@ def upsert_user(sub: str, email: str = "", name: str = "") -> str:
 
         old = json.loads(path.read_text("utf-8"))
         profile = {**old, **{k: v for k, v in profile.items() if v}}
-    path.write_text(_dumps(profile), "utf-8")
+    _write_atomic(path, _dumps(profile))
     return uid
 
 
@@ -87,7 +87,7 @@ def load_global_settings(uid: str) -> GlobalSettings:
 
 def save_global_settings(uid: str, settings: GlobalSettings) -> GlobalSettings:
     _ensure_user(uid)
-    (_user_dir(uid) / "global.json").write_text(settings.model_dump_json(indent=2), "utf-8")
+    _write_atomic(_user_dir(uid) / "global.json", settings.model_dump_json(indent=2))
     return settings
 
 
@@ -101,7 +101,7 @@ def load_base_settings() -> GlobalSettings:
 
 def save_base_settings(settings: GlobalSettings) -> GlobalSettings:
     BASE_DIR.mkdir(parents=True, exist_ok=True)
-    (BASE_DIR / "global.json").write_text(settings.model_dump_json(indent=2), "utf-8")
+    _write_atomic(BASE_DIR / "global.json", settings.model_dump_json(indent=2))
     return settings
 
 
@@ -143,7 +143,7 @@ def save_secrets(uid: str, updates: dict) -> dict:
             secrets[key] = value
         else:
             secrets.pop(key, None)
-    (_user_dir(uid) / "secrets.json").write_text(_dumps(secrets), "utf-8")
+    _write_atomic(_user_dir(uid) / "secrets.json", _dumps(secrets))
     return secrets
 
 
@@ -154,9 +154,7 @@ def create_project(uid: str, title: str = "Namnlöst projekt", kind: str = "scre
 
 def save_project(uid: str, project: Project) -> Project:
     _ensure_user(uid)
-    (_projects_dir(uid) / f"{project.id}.json").write_text(
-        project.model_dump_json(indent=2), "utf-8"
-    )
+    _write_atomic(_projects_dir(uid) / f"{project.id}.json", project.model_dump_json(indent=2))
     return project
 
 
@@ -168,10 +166,21 @@ def load_project(uid: str, project_id: str) -> Project | None:
 
 
 def delete_project(uid: str, project_id: str) -> bool:
+    """Radera projektet OCH allt som hör till: versioner (fulla kopior av
+    texten!), kommentarer och delningslänkar – annars ligger känsligt innehåll
+    kvar på disk och gamla delningslänkar fortsätter fungera efter raderingen."""
+    import shutil
+
     path = _projects_dir(uid) / f"{_safe_uid(project_id)}.json"
     if not path.exists():
         return False
     path.unlink()
+    revoke_share(uid, project_id)
+    shutil.rmtree(_versions_dir(uid, project_id), ignore_errors=True)
+    try:
+        _comments_path(uid, project_id).unlink()
+    except OSError:
+        pass
     return True
 
 
@@ -207,7 +216,7 @@ def add_comment(uid: str, project_id: str, author: str, text: str, scene: int | 
         "text": text,
         "scene": scene,
     })
-    p.write_text(json.dumps(comments, ensure_ascii=False, indent=2), "utf-8")
+    _write_atomic(p, json.dumps(comments, ensure_ascii=False, indent=2))
     return comments
 
 
@@ -217,7 +226,7 @@ def delete_comment(uid: str, project_id: str, comment_id: str) -> list[dict]:
     comments = [c for c in list_comments(uid, project_id) if c.get("id") != comment_id]
     p = _comments_path(uid, project_id)
     if p.exists():
-        p.write_text(json.dumps(comments, ensure_ascii=False, indent=2), "utf-8")
+        _write_atomic(p, json.dumps(comments, ensure_ascii=False, indent=2))
     return comments
 
 
@@ -242,7 +251,7 @@ def _load_shares() -> dict:
 
 def _save_shares(shares: dict) -> None:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
-    _shares_path().write_text(_dumps(shares), "utf-8")
+    _write_atomic(_shares_path(), _dumps(shares))
 
 
 def share_token_for(uid: str, project_id: str) -> str | None:
@@ -300,8 +309,12 @@ def _version_meta(data: dict, fallback_id: str) -> dict:
     }
 
 
-def save_version(uid: str, project_id: str, label: str, elements) -> dict:
-    """Spara en ögonblicksbild av elementen. label="" = automatisk version."""
+def save_version(uid: str, project_id: str, label: str, elements, prose: str = "") -> dict:
+    """Spara en ögonblicksbild av manuset OCH prosadokumentet. label="" = automatisk.
+
+    Prosan ingår så att versionshistoriken även skyddar prosaprojekt (bok/tal ...)
+    och manusprojektens storyline/synopsis – annars vore en AI-omskrivning av
+    dokumentet (replace_all) oåterkallelig."""
     import json
     import time
     from datetime import datetime, timezone
@@ -314,8 +327,9 @@ def save_version(uid: str, project_id: str, label: str, elements) -> dict:
         "ts": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M"),
         "label": (label or "").strip(),
         "elements": [e.model_dump() for e in elements],
+        "prose": prose or "",
     }
-    (d / f"{vid}.json").write_text(json.dumps(payload, ensure_ascii=False, indent=2), "utf-8")
+    _write_atomic(d / f"{vid}.json", json.dumps(payload, ensure_ascii=False, indent=2))
     _prune_versions(d)
     return _version_meta(payload, vid)
 
@@ -336,14 +350,20 @@ def list_versions(uid: str, project_id: str) -> list[dict]:
     return out
 
 
-def load_version_elements(uid: str, project_id: str, version_id: str):
+def load_version(uid: str, project_id: str, version_id: str) -> dict | None:
+    """Läs en version: {"elements": [...], "prose": str}. Gamla versioner
+    (sparade innan prose fanns) saknar fältet och får None som prose-värde,
+    så att en återställning inte raderar dagens prosadokument av misstag."""
     import json
 
     p = _versions_dir(uid, project_id) / f"{_safe_uid(version_id)}.json"
     if not p.exists():
         return None
     data = json.loads(p.read_text("utf-8"))
-    return [ScreenplayElement.model_validate(e) for e in data.get("elements", [])]
+    return {
+        "elements": [ScreenplayElement.model_validate(e) for e in data.get("elements", [])],
+        "prose": data.get("prose", None),
+    }
 
 
 def _prune_versions(d: Path, keep_auto: int = 30) -> None:
@@ -392,6 +412,18 @@ def migrate_legacy() -> None:
     if _LEGACY_PROJECTS.exists():
         for path in _LEGACY_PROJECTS.glob("*.json"):
             (_projects_dir(LOCAL_UID) / path.name).write_text(path.read_text("utf-8"), "utf-8")
+
+
+
+def _write_atomic(path: Path, text: str) -> None:
+    """Skriv fil atomärt (temp + os.replace): ett processavbrott mitt i en
+    autosparning får aldrig lämna en halvskriven JSON-fil – då blir projektet
+    oläsbart (500 vid GET och tyst borttappat ur projektlistan)."""
+    import os
+
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(text, "utf-8")
+    os.replace(tmp, path)
 
 
 def _dumps(obj) -> str:

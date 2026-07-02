@@ -244,8 +244,19 @@ async function loadProjectList() {
     const meta = kind === "screenplay"
       ? `${p.scenes} scener`
       : `${kindInfo(kind).icon} ${kindInfo(kind).label} · ${p.words || 0} ord`;
-    card.innerHTML = `<span class="pc-title">${esc(p.title)}</span><span class="pc-meta">${esc(meta)}</span>`;
+    card.innerHTML = `<span class="pc-title">${esc(p.title)}</span><span class="pc-meta">${esc(meta)}</span>`
+      + `<button class="pc-delete iconbtn" title="Ta bort projektet">🗑</button>`;
     card.onclick = async () => openProject(await api("GET", `/api/projects/${p.id}`));
+    card.querySelector(".pc-delete").onclick = async (e) => {
+      e.stopPropagation();  // öppna inte projektet man försöker ta bort
+      if (!confirm(`Ta bort "${p.title}"?\n\nProjektet och alla dess versioner raderas permanent.`)) return;
+      try {
+        await api("DELETE", `/api/projects/${p.id}`);
+      } catch (err) {
+        alert("Kunde inte ta bort projektet: " + err.message);
+      }
+      loadProjectList();
+    };
     box.appendChild(card);
   }
 }
@@ -298,14 +309,22 @@ document.addEventListener("keydown", (e) => {
 $("npCreateBtn").onclick = async () => {
   const title = $("npTitle").value.trim() || "Namnlöst projekt";
   const kind = $("npKind").value;
-  closeNewProjectDialog();
-  const p = await api("POST", "/api/projects", { title, kind });
-  openProject(p);
+  $("npCreateBtn").disabled = true;  // dubbelklick/dubbel-Enter ska inte ge dubbletter
+  try {
+    const p = await api("POST", "/api/projects", { title, kind });
+    closeNewProjectDialog();
+    openProject(p);
+  } catch (err) {
+    alert("Kunde inte skapa projektet: " + err.message);
+  } finally {
+    $("npCreateBtn").disabled = false;
+  }
 };
 
 // ---- projektvy ----
 function openProject(p) {
   flushSave();  // spara ev. väntande ändringar i föregående projekt
+  discardRecording();  // en mikrofon får aldrig stå öppen in i ett annat projekt
   project = p;
   $("projHeadTitle").textContent = p.title;
   $("projTitle").value = p.title;
@@ -324,6 +343,7 @@ function openProject(p) {
   $("proseMenuItem").textContent = isScreenplay
     ? "📖 Storyline / Synopsis"
     : `${kindInfo(projectKind()).icon} ${kindInfo(projectKind()).label}`;
+  $("exportBtn").textContent = isScreenplay ? "📤 Exportera" : "📤 Text (.txt)";
   $("proseTitle").textContent = proseLabel();
   updateProseStats();
   showSection(isScreenplay ? "manus" : "prose");
@@ -351,7 +371,7 @@ function openProject(p) {
 }
 // Sektioner som bara finns i manusprojekt – i ett prosaprojekt (bok/tal ...)
 // omdirigeras de (t.ex. från kommandopaletten) till prosadokumentet.
-const SCREENPLAY_SECTIONS = new Set(["manus", "board", "ask", "reports", "share"]);
+const SCREENPLAY_SECTIONS = new Set(["manus", "board", "ask", "reports"]);
 // Byt sektion i projekt-app-skalet (sidomenyn). Laddar innehåll vid behov.
 function showSection(name) {
   if (project && projectKind() !== "screenplay" && SCREENPLAY_SECTIONS.has(name)) name = "prose";
@@ -373,6 +393,8 @@ const DICTATE_PLACEHOLDER_PROSE =
   "Diktera/klistra in – ny text läggs till sist. Säg t.ex. 'ändra stycket om …' för att ändra befintlig text.";
 function mountDictatePanel(section) {
   const panel = $("tabDictate");
+  const moves = (section === "prose") !== panel.classList.contains("inline-panel");
+  if (moves) finishRecordingIfAny();  // byta mål mitt i en inspelning vore förvirrande
   if (section === "prose") {
     $("proseDictateHost").appendChild(panel);
     panel.classList.add("inline-panel");
@@ -473,6 +495,7 @@ setupInfoPopover("dictateHintBtn", "dictateHintPopover");
 
 $("backToProjects").onclick = async () => {
   flushSave();
+  discardRecording();
   await loadProjectList();
   showView("projects");
 };
@@ -805,10 +828,25 @@ function stopLiveDictation() {
   try { if (liveRec) liveRec.stop(); } catch (_) { /* redan stoppad */ }
   liveRec = null;
   setRecordingUI(false);
-  if ($("inputText").value.trim()) setStatus("Live-diktering klar – granska och tryck Lägg till / ändra.");
+  if ($("inputText").value.trim()) setStatus("Live-diktering klar – granska och tryck Utför.");
   else setStatus("");
 }
 
+// Släng en pågående inspelning (utan uppladdning): används vid projektbyte,
+// där ljudet annars laddas upp till – och texten landar i – FEL projekt.
+function discardRecording() {
+  if (liveDictationActive()) stopLiveDictation();
+  if (mediaRecorder && mediaRecorder.state === "recording") {
+    mediaRecorder.onstop = () => { stopRecTracks(); setRecordingUI(false); mediaRecorder = null; };
+    mediaRecorder.stop();
+  }
+}
+// Avsluta snyggt (transkriptet behålls): används när dikteringspanelen flyttas
+// mellan Manus- och prosa-vyn, så att en inspelning aldrig fortsätter "osynligt".
+function finishRecordingIfAny() {
+  if (liveDictationActive()) stopLiveDictation();
+  else if (mediaRecorder && mediaRecorder.state === "recording") mediaRecorder.stop();
+}
 $("recordBtn").onclick = async () => {
   if (liveDictationActive()) { stopLiveDictation(); return; }
   if (mediaRecorder && mediaRecorder.state === "recording") { mediaRecorder.stop(); return; }
@@ -853,13 +891,15 @@ $("recordBtn").onclick = async () => {
 
 function pollTranscription(jobId) {
   setStatus("Transkriberar ljud (kan ta en stund) ...", true);
+  const startedIn = project && project.id;  // jobbet hör till DETTA projekt
   const tick = async () => {
     try {
       const job = await api("GET", `/api/transcribe-jobs/${jobId}`);
+      if (!project || project.id !== startedIn) return;  // bytt projekt – texten ska inte in här
       if (job.status === "done") {
         const existing = $("inputText").value.trim();
         $("inputText").value = existing ? existing + "\n\n" + job.text : job.text;
-        setStatus("Transkribering klar – granska och tryck Analysera.");
+        setStatus("Transkribering klar – granska och tryck Utför.");
       } else if (job.status === "error") {
         setStatus("Fel vid transkribering: " + job.error);
       } else {
@@ -886,7 +926,7 @@ $("transcriptFile").onchange = async (e) => {
     const { text } = await res.json();
     const existing = $("inputText").value.trim();
     $("inputText").value = existing ? existing + "\n\n" + text : text;
-    setStatus(`Importerade ${file.name} – granska och tryck Analysera.`);
+    setStatus(`Importerade ${file.name} – granska och tryck Utför.`);
   } catch (err) {
     setStatus("Kunde inte importera: " + err.message);
   }
@@ -934,6 +974,7 @@ $("analyzeBtn").onclick = async () => {
     setStatus("Diktera eller klistra in text först.");
     return;
   }
+  await flushSave();  // osparade ändringar måste nå servern före AI-anropet
   if (proseModeActive()) { await runProseDictation(text); return; }
   setStatus("Bygger in i manuset ...", true);
   const snapshot = JSON.parse(JSON.stringify(project.elements));
@@ -941,6 +982,7 @@ $("analyzeBtn").onclick = async () => {
     const data = await api("POST", `/api/projects/${project.id}/dictate`, { text, provider: $("aiEngine").value });
     project = data.project;
     undoSnapshot = snapshot;
+    proseUndo = null;  // ångra gäller nu manuset, inte en tidigare prosadiktering
     $("undoBtn").hidden = false;
     renderBible();
     renderElements();
@@ -1561,7 +1603,7 @@ function renderOutline() {
       const li = document.createElement("li");
       li.className = "outline-item";
       li.draggable = true;
-      li.innerHTML = `<span class="ol-num">${displayNo}</span>` +
+      li.innerHTML = `<span class="ol-num">${esc(String(displayNo))}</span>` +
         `<span class="ol-title">${esc(g.heading.text || "(ny scenrubrik)")}</span>` +
         `<span class="ol-page">s. ${startPage}</span>`;
       li.onclick = () => highlightElement(g.heading.id);
@@ -1913,7 +1955,7 @@ function highlightElement(id) {
 }
 
 // ---- autospar (debounce + vid blur/navigering) ----
-let saveTimer = null;
+let saveTimer = null, savePromise = null;
 function setSaveState(state, msg) {
   const el = $("saveState");
   if (!el) return;
@@ -1930,22 +1972,28 @@ function scheduleSave() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(saveNow, 900);
 }
-async function saveNow() {
+function saveNow() {
   clearTimeout(saveTimer);
   saveTimer = null;
-  if (!project) return;
+  if (!project) return Promise.resolve();
   setSaveState("saving");
-  try {
-    // Sparar elementen + prosadokumentet; behåller lokala element-objekt
-    // (DOM-bindningarna) intakta.
-    await api("PUT", `/api/projects/${project.id}`, { elements: project.elements, prose: project.prose ?? "" });
-    setSaveState("saved");
-  } catch (e) {
-    setSaveState("error", e.message);
-  }
+  savePromise = (async () => {
+    try {
+      // Sparar elementen + prosadokumentet; behåller lokala element-objekt
+      // (DOM-bindningarna) intakta.
+      await api("PUT", `/api/projects/${project.id}`, { elements: project.elements, prose: project.prose ?? "" });
+      setSaveState("saved");
+    } catch (e) {
+      setSaveState("error", e.message);
+    }
+  })();
+  return savePromise;
 }
+// Returnerar ett löfte som är klart när allt osparat är i hamn – väntas in före
+// AI-anrop så att servern aldrig bygger vidare på en inaktuell kopia.
 function flushSave() {
-  if (saveTimer) saveNow();
+  if (saveTimer) return saveNow();
+  return savePromise || Promise.resolve();
 }
 
 // ---- export ----
@@ -1958,7 +2006,8 @@ $("exportBtn").onclick = async () => {
   const blob = await res.blob();
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = (project.title || "manus").replace(/\s+/g, "_") + ".fdx";
+  const ext = projectKind() === "screenplay" ? ".fdx" : ".txt";
+  a.download = (project.title || "manus").replace(/\s+/g, "_") + ext;
   a.click();
   URL.revokeObjectURL(a.href);
 };
@@ -2381,13 +2430,26 @@ function renderSharedScript(elements) {
     d.className = "ro-el ro-" + el.type;
     if (el.type === "scene_heading") {
       sceneNo += 1;
-      d.innerHTML = `<span class="ro-scene-num">${displayNo}</span>` +
+      d.innerHTML = `<span class="ro-scene-num">${esc(String(displayNo))}</span>` +
         `<span class="ro-scene-text">${esc(el.text || "(scenrubrik)")}</span>`;
     } else {
       d.textContent = el.text || "";
     }
     body.appendChild(d);
   }
+}
+function renderSharedProse(text) {
+  const box = $("sharedScript");
+  box.innerHTML = "";
+  if (!text.trim()) { box.innerHTML = '<p class="hint">Dokumentet är tomt än.</p>'; return; }
+  const doc = document.createElement("div");
+  doc.className = "ro-prose";
+  for (const para of text.split(/\n{2,}/)) {
+    const p = document.createElement("p");
+    p.textContent = para;
+    doc.appendChild(p);
+  }
+  box.appendChild(doc);
 }
 function renderSharedComments(comments) {
   const box = $("sharedCommentsList");
@@ -2426,7 +2488,11 @@ async function openShared(token) {
     const data = await api("GET", `/api/shared/${token}`);
     $("sharedTitle").textContent = data.title || "Manus";
     $("sharedAuthor").textContent = data.author ? "av " + data.author : "";
-    renderSharedScript(data.elements || []);
+    const isProse = data.kind && data.kind !== "screenplay";
+    $("sharedDocLabel").textContent = isProse ? (KIND_INFO[data.kind] || KIND_INFO.freetext).label : "Manus";
+    $("sharedCommentScene").hidden = isProse;  // scennummer finns inte i prosa
+    if (isProse) renderSharedProse(data.prose || "");
+    else renderSharedScript(data.elements || []);
     renderSharedComments(data.comments || []);
     showView("shared");
     applyPaper();
@@ -2482,6 +2548,7 @@ $("askInput").onkeydown = (e) => { if (e.key === "Enter") $("askBtn").click(); }
 
 // ---- skriv ut / spara som PDF (fristående, manusformaterat dokument) ----
 $("printBtn").onclick = () => {
+  if (project && projectKind() !== "screenplay") { printProse(); return; }
   if (!project || !project.elements.length) { setStatus("Inget manus att skriva ut än."); return; }
   const css = `
     @page { size: Letter; margin: 1in 1in 1in 1.5in; }
@@ -2525,6 +2592,27 @@ $("printBtn").onclick = () => {
   w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(t || "Manus")}</title><style>${css}</style></head><body onload="window.focus();window.print();">${body}</body></html>`);
   w.document.close();
 };
+
+// Prosadokument (bok/tal/pitch ...) skrivs ut som ett vanligt textdokument –
+// serif, läsbart radavstånd – inte i manusformatets Courier-spalter.
+function printProse() {
+  const text = (project.prose || "").trim();
+  if (!text) { setStatus("Inget innehåll att skriva ut än."); return; }
+  const css = `
+    @page { size: A4; margin: 1in; }
+    * { margin: 0; }
+    body { font: 12pt/1.6 Georgia, "Times New Roman", serif; color: #000; }
+    h1 { font-size: 16pt; margin-bottom: 1.5em; }
+    p { margin-bottom: .8em; white-space: pre-wrap; }
+  `;
+  const title = (project.title || "").trim();
+  let body = title ? `<h1>${esc(title)}</h1>` : "";
+  for (const para of text.split(/\n{2,}/)) body += `<p>${esc(para)}</p>`;
+  const w = window.open("", "_blank");
+  if (!w) { setStatus("Tillåt popup-fönster för att skriva ut / spara som PDF."); return; }
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(title || "Dokument")}</title><style>${css}</style></head><body onload="window.focus();window.print();">${body}</body></html>`);
+  w.document.close();
+}
 
 // ---- ändringar av befintligt innehåll: granska & godkänn ----
 let pendingEdits = null;
@@ -2811,9 +2899,15 @@ function buildCmdkItems() {
   const items = [];
   const inProject = project && !$("view-project").hidden;
   if (inProject) {
-    items.push(
+    const sp = projectKind() === "screenplay";  // manus-kommandon bara i manusprojekt
+    if (sp) items.push(
       { label: "📝 Manus", run: () => showSection("manus") },
-      { label: "🎙️ Diktering / transkription", run: () => ensureTab("dictate") },
+    );
+    items.push(
+      { label: `${sp ? "📖" : kindInfo(projectKind()).icon} ${proseLabel()}`, run: () => showSection("prose") },
+      { label: "🎙️ Diktering / transkription", run: () => (sp ? ensureTab("dictate") : showSection("prose")) },
+    );
+    if (sp) items.push(
       { label: "🔍 Sök & ersätt", run: () => ensureTab("find") },
       { label: "🗒️ Kommentarer", run: () => ensureTab("comments") },
       { label: "🕑 Versioner", run: () => ensureTab("versions") },
@@ -2821,15 +2915,21 @@ function buildCmdkItems() {
       { label: "💬 Fråga AI", run: () => showSection("ask") },
       { label: "📊 Rapporter", run: () => showSection("reports") },
       { label: "🔗 Dela skrivskyddat", run: () => showSection("share") },
+    );
+    items.push(
       { label: "⚙️ Projektinställningar", run: () => showSection("projset") },
+    );
+    if (sp) items.push(
       { label: "🎯 Växla fokusläge", run: () => $("focusToggle").click() },
       { label: "📄 Växla vitt papper / mörkt läge", run: () => $("paperToggle").click() },
-      { label: "⬇️ Exportera FDX", run: () => $("exportBtn").click() },
+    );
+    items.push(
+      { label: sp ? "⬇️ Exportera FDX" : "⬇️ Ladda ner som textfil", run: () => $("exportBtn").click() },
       { label: "🖨️ Skriv ut / spara som PDF", run: () => $("printBtn").click() },
       { label: "← Alla projekt", run: () => $("backToProjects").click() },
     );
     let no = 0;
-    for (const el of project.elements) {
+    if (sp) for (const el of project.elements) {
       if (el.type !== "scene_heading") continue;
       no += 1;
       const id = el.id;

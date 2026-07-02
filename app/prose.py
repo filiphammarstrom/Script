@@ -184,10 +184,14 @@ def dictate_prose(
 
 def apply_prose(current: str, result: ProseResult) -> str:
     """Tillämpa ett ProseResult på dokumentet: append läggs till sist med
-    blankrad emellan; replace_all ersätter hela dokumentet."""
+    blankrad emellan; replace_all ersätter hela dokumentet.
+
+    Ett replace_all med TOM text ignoreras (dokumentet behålls): det inträffar
+    när modellens svar trunkerats eller den svarat fel – att då nollställa hela
+    dokumentet vore oåterkallelig dataförlust för ett ordkommando."""
     text = (result.text or "").strip()
     if result.mode == "replace_all":
-        return text
+        return text if text else current
     if not text:
         return current
     if not current.strip():

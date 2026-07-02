@@ -28,9 +28,21 @@ from app.fdx import to_fdx
 from app.models import DictateOp, GlobalSettings, Project, ScreenplayElement, StoryBible
 
 app = FastAPI(title="Transkription → Manus (FDX)")
+
+# Sessionskakan signeras med SECRET_KEY. I molnläget (AUTH_ENABLED) vore en känd
+# default-nyckel ett hål: vem som helst kunde smida en giltig kaka med valfri uid
+# och läsa andras projekt och API-nycklar. Vägra därför starta utan riktig nyckel
+# när inloggning är på; lokalt enanvändarläge klarar sig med default-nyckeln.
+_secret_key = os.environ.get("SECRET_KEY", "")
+if not _secret_key:
+    if os.environ.get("AUTH_ENABLED", "false").lower() in ("1", "true", "yes"):
+        raise RuntimeError(
+            "AUTH_ENABLED=true kräver en egen SECRET_KEY (sätt t.ex. SECRET_KEY=$(openssl rand -hex 32))."
+        )
+    _secret_key = "dev-insecure-change-me"  # lokalt läge: kakan skyddar inget känsligt
 app.add_middleware(
     SessionMiddleware,
-    secret_key=os.environ.get("SECRET_KEY", "dev-insecure-change-me"),
+    secret_key=_secret_key,
     same_site="lax",
     https_only=os.environ.get("COOKIE_SECURE", "false").lower() in ("1", "true", "yes"),
 )
@@ -226,12 +238,24 @@ def access_allow(body: EmailIn, uid: str = Depends(require_admin)) -> dict:
 
 @app.post("/api/admin/access/remove")
 def access_remove(body: EmailIn, uid: str = Depends(require_admin)) -> dict:
+    _guard_last_admin(body.email)
     access_mod.remove_allowed(body.email)
     return access_mod.snapshot()
 
 
+def _guard_last_admin(email: str) -> None:
+    """Stoppa att den SISTA adminen tas bort/degraderas – utan admins stängs
+    allowlisten av helt (access_enabled() -> False) och vem som helst med ett
+    Google-konto kan logga in."""
+    remaining = {e for e in access_mod.admin_emails() if e != (email or "").strip().lower()}
+    if not remaining:
+        raise HTTPException(400, "Det går inte att ta bort den sista administratören – då öppnas appen för alla.")
+
+
 @app.post("/api/admin/access/admin")
 def access_set_admin(body: AdminFlagIn, uid: str = Depends(require_admin)) -> dict:
+    if not body.is_admin:
+        _guard_last_admin(body.email)
     access_mod.set_admin(body.email, body.is_admin)
     return access_mod.snapshot()
 
@@ -336,6 +360,9 @@ def analyze_project(
         )
     except Exception as exc:  # saknad API-nyckel, nätverksfel, modellfel ...
         raise HTTPException(502, f"AI-analysen misslyckades: {exc}")
+    # AI-anropet tar tiotals sekunder – hämta en FÄRSK kopia innan resultatet
+    # tillämpas, annars skrivs redigeringar som autosparats under tiden över.
+    project = store.load_project(uid, project_id) or project
     project = store.merge_analyze_result(project, result)
     store.save_project(uid, project)
     return {"project": project, "clarifications": result.clarifications}
@@ -380,7 +407,10 @@ def dictate_project(
         )
     except Exception as exc:  # saknad API-nyckel, nätverksfel, modellfel ...
         raise HTTPException(502, f"Dikteringen misslyckades: {exc}")
-    store.save_version(uid, project_id, "", project.elements)  # auto-snapshot före diktering
+    # Färsk kopia efter det långa AI-anropet – operationerna är id-baserade och
+    # tillämpas säkert på det senaste innehållet (autosave-race, se analyze ovan).
+    project = store.load_project(uid, project_id) or project
+    store.save_version(uid, project_id, "", project.elements, prose=project.prose)  # auto-snapshot före diktering
     project, pending = store.apply_dictation(project, result)
     store.save_project(uid, project)
     return {
@@ -412,6 +442,10 @@ def dictate_prose_project(
         )
     except Exception as exc:  # saknad API-nyckel, nätverksfel, modellfel ...
         raise HTTPException(502, f"Dikteringen misslyckades: {exc}")
+    # Färsk kopia efter AI-anropet + auto-snapshot INNAN resultatet tillämpas:
+    # ett replace_all kan skriva om hela dokumentet och måste gå att återställa.
+    project = store.load_project(uid, project_id) or project
+    store.save_version(uid, project_id, "", project.elements, prose=project.prose)
     project.prose = prose_mod.apply_prose(project.prose, result)
     store.save_project(uid, project)
     return {"project": project, "summary": result.summary}
@@ -425,7 +459,7 @@ def apply_edits_project(
     project = store.load_project(uid, project_id)
     if project is None:
         raise HTTPException(404, "Projektet finns inte")
-    store.save_version(uid, project_id, "", project.elements)  # auto-snapshot före ändring
+    store.save_version(uid, project_id, "", project.elements, prose=project.prose)  # auto-snapshot före ändring
     store.apply_edits(project, body.operations)
     store.save_project(uid, project)
     return {"project": project}
@@ -445,7 +479,7 @@ def create_version(
     project = store.load_project(uid, project_id)
     if project is None:
         raise HTTPException(404, "Projektet finns inte")
-    meta = store.save_version(uid, project_id, body.label or "Sparad version", project.elements)
+    meta = store.save_version(uid, project_id, body.label or "Sparad version", project.elements, prose=project.prose)
     return {"version": meta, "versions": store.list_versions(uid, project_id)}
 
 
@@ -456,11 +490,13 @@ def restore_version(
     project = store.load_project(uid, project_id)
     if project is None:
         raise HTTPException(404, "Projektet finns inte")
-    elements = store.load_version_elements(uid, project_id, version_id)
-    if elements is None:
+    version = store.load_version(uid, project_id, version_id)
+    if version is None:
         raise HTTPException(404, "Versionen finns inte")
-    store.save_version(uid, project_id, "Före återställning", project.elements)  # gör återställningen ångerbar
-    project.elements = elements
+    store.save_version(uid, project_id, "Före återställning", project.elements, prose=project.prose)  # ångerbar
+    project.elements = version["elements"]
+    if version["prose"] is not None:  # gamla versioner saknar prose – rör då inte dokumentet
+        project.prose = version["prose"]
     store.save_project(uid, project)
     return {"project": project, "versions": store.list_versions(uid, project_id)}
 
@@ -535,6 +571,8 @@ def get_shared(token: str) -> dict:
     return {
         "title": project.title,
         "author": project.author,
+        "kind": project.kind,
+        "prose": project.prose,
         "elements": [e.model_dump() for e in project.elements],
         "comments": store.list_comments(owner, pid),
     }
@@ -649,7 +687,7 @@ def transcribe_audio(
             tmp_path = tmp.name
     finally:
         file.file.close()
-    job = jobs_mod.create_job()
+    job = jobs_mod.create_job(uid=uid)
     threading.Thread(
         target=_run_transcription,
         args=(
@@ -678,7 +716,7 @@ def import_transcript(file: UploadFile = File(...), uid: str = Depends(auth_mod.
 @app.get("/api/transcribe-jobs/{job_id}")
 def transcribe_job_status(job_id: str, uid: str = Depends(auth_mod.current_uid)) -> dict:
     job = jobs_mod.get_job(job_id)
-    if job is None:
+    if job is None or (job.uid and job.uid != uid):  # andras transkript ska inte gå att läsa
         raise HTTPException(404, "Jobbet finns inte")
     return {"job_id": job.id, "status": job.status, "text": job.text, "error": job.error, "progress": job.progress}
 
@@ -691,6 +729,10 @@ def import_screenplay(
     project = store.load_project(uid, project_id)
     if project is None:
         raise HTTPException(404, "Projektet finns inte")
+    if project.kind != "screenplay":
+        # Manuselement visas aldrig i ett prosaprojekt – en import skulle bara
+        # lägga osynlig data som förvirrar (scenräknare i listan m.m.).
+        raise HTTPException(400, "Manusimport (FDX/Fountain) gäller bara manusprojekt.")
     data = file.file.read()
     file.file.close()
     try:
@@ -703,7 +745,7 @@ def import_screenplay(
         raise HTTPException(400, str(exc))
     if not parsed:
         raise HTTPException(400, "Hittade inget manusinnehåll i filen.")
-    store.save_version(uid, project_id, "Före import", project.elements)  # ångerbar
+    store.save_version(uid, project_id, "Före import", project.elements, prose=project.prose)  # ångerbar
     next_id = max((e.id for e in project.elements), default=-1) + 1
     for item in parsed:
         project.elements.append(ScreenplayElement(
@@ -720,8 +762,17 @@ def export_project(project_id: str, uid: str = Depends(auth_mod.current_uid)) ->
     project = store.load_project(uid, project_id)
     if project is None:
         raise HTTPException(404, "Projektet finns inte")
-    xml = to_fdx(project.elements, title=project.title, author=project.author, contact=project.contact)
     safe = "".join(c if c.isalnum() or c in "-_" else "_" for c in (project.title or "manus"))
+    if project.kind != "screenplay":
+        # Prosaprojekt (bok/tal/pitch ...): dokumentet som ren text – en tom
+        # FDX-fil vore meningslös för den som dikterat en hel bok.
+        body = (project.title + "\n\n" if project.title else "") + project.prose
+        return Response(
+            content=body,
+            media_type="text/plain; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="{safe or "text"}.txt"'},
+        )
+    xml = to_fdx(project.elements, title=project.title, author=project.author, contact=project.contact)
     return Response(
         content=xml,
         media_type="application/xml",
