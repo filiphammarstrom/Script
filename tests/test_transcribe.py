@@ -10,9 +10,11 @@ import pytest
 
 from app import transcribe as transcribe_mod
 from app.transcribe import (
+    DeepgramTranscriber,
     GroqTranscriber,
     LocalWhisperTranscriber,
     WatchedFolderTranscriber,
+    deepgram_response_to_text,
     get_transcriber,
     openai_response_to_text,
     resolve_backend_name,
@@ -262,10 +264,61 @@ def test_should_trim_silence_backend_filter(monkeypatch):
     assert should_trim_silence("openai") is True
     assert should_trim_silence("groq") is True
     assert should_trim_silence("assemblyai") is True
+    assert should_trim_silence("deepgram") is True
     assert should_trim_silence("local") is False
     assert should_trim_silence("watch") is False
     monkeypatch.setenv("TRANSCRIBE_TRIM_SILENCE", "0")
     assert should_trim_silence("openai") is False
+
+
+def test_deepgram_diarized_utterances_become_speaker_lines():
+    data = {
+        "results": {
+            "utterances": [
+                {"speaker": 0, "transcript": "Hej."},
+                {"speaker": 1, "transcript": "Hur mår du?"},
+                {"speaker": 0, "transcript": "  "},  # tomt segment -> hoppas över
+            ]
+        }
+    }
+    assert deepgram_response_to_text(data) == "Speaker 0: Hej.\nSpeaker 1: Hur mår du?"
+
+
+def test_deepgram_plain_transcript_fallback_without_utterances():
+    data = {"results": {"channels": [{"alternatives": [{"transcript": "  bara text  "}]}]}}
+    assert deepgram_response_to_text(data) == "bara text"
+
+
+def test_deepgram_empty_results_gives_empty_string():
+    assert deepgram_response_to_text({}) == ""
+
+
+def test_get_transcriber_selects_deepgram(monkeypatch):
+    monkeypatch.setenv("DEEPGRAM_API_KEY", "dg_test")
+    t = get_transcriber("deepgram")
+    assert isinstance(t, DeepgramTranscriber)
+
+
+def test_deepgram_requires_key(monkeypatch):
+    monkeypatch.delenv("DEEPGRAM_API_KEY", raising=False)
+    with pytest.raises(RuntimeError):
+        get_transcriber("deepgram")
+
+
+def test_chunking_never_splits_deepgram(tmp_path, monkeypatch):
+    """Deepgram diariserar precis som AssemblyAI – uppdelning skulle förstöra talarräkningen."""
+    audio = tmp_path / "clip.m4a"
+    audio.write_bytes(b"x" * (30 * 1024 * 1024))
+    monkeypatch.setattr(transcribe_mod, "probe_duration_seconds", lambda p: 4000.0)
+
+    def boom(*a, **kw):
+        raise AssertionError("deepgram ska aldrig delas upp")
+
+    monkeypatch.setattr(transcribe_mod, "split_audio_into_chunks", boom)
+    fake = FakeTranscriber()
+    text = transcribe_with_chunking(fake, str(audio), "deepgram")
+    assert text == "text-1"
+    assert fake.calls == [str(audio)]
 
 
 def test_trim_silence_none_without_ffmpeg(tmp_path, monkeypatch):

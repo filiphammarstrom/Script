@@ -93,6 +93,9 @@
         <label>Groq – billigaste moln-transkriberingen (~0,04 $/timme)
           <input id="keyGroq" type="password" autocomplete="off" placeholder="Inte satt">
         </label>
+        <label>Deepgram – nästan lika billigt som Groq, men MED diarisering (talar-etiketter)
+          <input id="keyDeepgram" type="password" autocomplete="off" placeholder="Inte satt">
+        </label>
         <div class="row">
           <button id="saveKeysBtn" class="primary">Spara nycklar</button>
           <span id="keysStatus" class="status"></span>
@@ -250,6 +253,7 @@
                   <option value="local">💻 Lokalt: Whisper-CLI (gratis)</option>
                   <option value="watch">📁 Bevakad mapp (auto)</option>
                   <option value="groq">☁️ Moln: Groq (billigast)</option>
+                  <option value="deepgram">☁️ Moln: Deepgram (billigt, med diarisering)</option>
                   <option value="openai">☁️ Moln: OpenAI</option>
                   <option value="assemblyai">☁️ Moln: AssemblyAI</option>
                 </select>

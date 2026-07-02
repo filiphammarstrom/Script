@@ -2463,6 +2463,7 @@ async function loadSecrets() {
     setKeyPlaceholder("keyOpenai", s.openai);
     setKeyPlaceholder("keyAssemblyai", s.assemblyai);
     setKeyPlaceholder("keyGroq", s.groq);
+    setKeyPlaceholder("keyDeepgram", s.deepgram);
   } catch (e) { /* ignoreras */ }
 }
 $("saveKeysBtn").onclick = async () => {
@@ -2473,6 +2474,7 @@ $("saveKeysBtn").onclick = async () => {
       openai_key: $("keyOpenai").value || null,
       assemblyai_key: $("keyAssemblyai").value || null,
       groq_key: $("keyGroq").value || null,
+      deepgram_key: $("keyDeepgram").value || null,
     });
     await loadSecrets();
     setKeysStatus("Nycklar sparade ✓");
