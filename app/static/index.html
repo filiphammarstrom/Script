@@ -189,19 +189,24 @@
             <div class="section-head">
               <h2 class="section-title">Manus</h2>
               <div class="section-tools">
+                <button id="collapseAllBtn" type="button" class="linkbtn">Fäll ihop alla</button>
                 <button id="focusToggle" class="linkbtn" title="Fokusläge – tona ned allt utom scenen du skriver i och håll raden centrerad">🎯 Fokus</button>
                 <button id="paperToggle" class="linkbtn" title="Växla mellan vitt papper och mörkt läge">📄 Vitt papper</button>
               </div>
             </div>
 
             <!-- Verktygsflikar: alltid synliga (sticky) ovanför manuset, oavsett skroll.
-                 Klick expanderar fliken nedåt; klick igen fäller ihop den tillbaka upp i raden. -->
+                 Klick expanderar fliken som en ruta ovanpå manuset; klick igen fäller ihop
+                 den tillbaka upp i raden. -->
             <div class="manus-tabbar" id="manusTabbar">
               <button type="button" class="tab-btn" data-tab="dictate" aria-expanded="false">🎙️ Diktering</button>
               <button type="button" class="tab-btn" data-tab="find" aria-expanded="false">🔍 Sök &amp; ersätt</button>
               <button type="button" class="tab-btn" data-tab="comments" aria-expanded="false">🗒️ Kommentarer</button>
               <button type="button" class="tab-btn" data-tab="versions" aria-expanded="false">🕑 Versioner</button>
-              <span id="recIndicator" class="rec-indicator" hidden>🔴 <span id="recTime">0:00</span></span>
+              <span class="tabbar-right">
+                <span id="scriptStats" class="script-stats"></span>
+                <span id="recIndicator" class="rec-indicator" hidden>🔴 <span id="recTime">0:00</span></span>
+              </span>
             </div>
 
             <section class="panel tab-content" data-tab="dictate" id="tabDictate" hidden>
@@ -312,7 +317,12 @@
             </section>
 
             <section class="panel">
-              <p class="hint editor-hint" id="editorHint"><kbd>Enter</kbd> ny rad · <kbd>Shift</kbd>+<kbd>Enter</kbd> radbrytning · <kbd>Tab</kbd> byt typ · <kbd>⌫</kbd> först på raden slår ihop uppåt · skriv <kbd>INT.</kbd>/<kbd>EXT.</kbd> för scenrubrik · <kbd>⌘K</kbd> kommandopalett</p>
+              <div class="row hint-row">
+                <button type="button" id="hintBtn" class="linkbtn" title="Visa kortkommandon">ⓘ Kortkommandon</button>
+              </div>
+              <div id="hintPopover" class="ac-menu hint-popover" hidden>
+                <kbd>Enter</kbd> ny rad · <kbd>Shift</kbd>+<kbd>Enter</kbd> radbrytning · <kbd>Tab</kbd> byt typ · <kbd>⌫</kbd> först på raden slår ihop uppåt · skriv <kbd>INT.</kbd>/<kbd>EXT.</kbd> för scenrubrik · <kbd>⌘K</kbd> kommandopalett
+              </div>
               <div id="elements" class="elements"></div>
               <div class="row wrap">
                 <label class="filelabel">Importera manus (FDX/Fountain)

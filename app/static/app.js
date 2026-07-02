@@ -302,8 +302,10 @@ $("sideToggle").onclick = () => $("sidebar").classList.toggle("open");
 
 // ---- Verktygsflikar ovanför manuset: Diktering / Sök & ersätt / Kommentarer / Versioner.
 // Raden ligger sticky (alltid synlig, se .manus-tabbar i styles.css) oavsett skroll. Klick på
-// en flik expanderar dess innehåll nedanför raden; klick på samma flik igen fäller ihop den
-// tillbaka upp i raden. Bara en flik är expanderad åt gången.
+// en flik öppnar dess innehåll som en ruta OVANPÅ manuset (position: fixed, ankrad under
+// flikraden – se syncStickyOffsets) i stället för att trycka undan manuset; klick på samma
+// flik igen, Esc, eller klick utanför fäller ihop den tillbaka upp i raden. Bara en flik är
+// expanderad åt gången.
 let activeTab = null;
 function setActiveTab(tab) {
   activeTab = activeTab === tab ? null : tab;
@@ -315,23 +317,54 @@ function setActiveTab(tab) {
   document.querySelectorAll(".tab-content").forEach((c) => { c.hidden = c.dataset.tab !== activeTab; });
   if (activeTab === "comments") loadComments();
   else if (activeTab === "versions") loadVersions();
+  syncStickyOffsets();  // rutans bredd/position ska matcha flikraden även om den ändrat storlek
 }
 document.querySelectorAll(".tab-btn").forEach((b) => { b.onclick = () => setActiveTab(b.dataset.tab); });
+document.addEventListener("mousedown", (e) => {
+  if (!activeTab) return;
+  if (e.target.closest(".tab-content") || e.target.closest(".manus-tabbar")) return;
+  setActiveTab(activeTab);  // stänger (samma flik "av"-togglas)
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && activeTab) setActiveTab(activeTab);
+});
 
 // Sticky-fästen: headern kan bli högre än standard (radbrytning, zoom, smal skärm) och
 // då hamnade flikraden BAKOM headern vid skroll (hårdkodad top: 52px). Mät den verkliga
-// höjden och exponera som CSS-variabler; "Fäll ihop alla"-raden staplas under flikraden.
+// höjden/positionen och exponera som CSS-variabler: flikrutorna (.tab-content) ankras
+// under flikraden med samma vänsterkant/bredd, som en ruta ovanpå manuset.
 function syncStickyOffsets() {
   const header = document.querySelector("header");
   const bar = $("manusTabbar");
   document.documentElement.style.setProperty("--sticky-top", (header ? header.offsetHeight : 52) + "px");
   document.documentElement.style.setProperty("--tabbar-h", (bar ? bar.offsetHeight : 0) + "px");
+  if (bar) {
+    const r = bar.getBoundingClientRect();
+    document.documentElement.style.setProperty("--tabbar-left", r.left + "px");
+    document.documentElement.style.setProperty("--tabbar-width", r.width + "px");
+  }
 }
 const stickyObserver = new ResizeObserver(syncStickyOffsets);
 stickyObserver.observe(document.querySelector("header"));
 if ($("manusTabbar")) stickyObserver.observe($("manusTabbar"));
 window.addEventListener("resize", syncStickyOffsets);
 syncStickyOffsets();
+
+// ---- info-knapp: kortkommandon (flytande ruta, samma mönster som ac-menu) ----
+function toggleHintPopover() {
+  const pop = $("hintPopover");
+  if (!pop.hidden) { pop.hidden = true; return; }
+  const r = $("hintBtn").getBoundingClientRect();
+  pop.style.left = r.left + "px";
+  pop.style.top = (r.bottom + 6) + "px";
+  pop.hidden = false;
+}
+$("hintBtn").onclick = (e) => { e.stopPropagation(); toggleHintPopover(); };
+document.addEventListener("mousedown", (e) => {
+  if ($("hintPopover").hidden) return;
+  if (e.target.closest("#hintPopover") || e.target.closest("#hintBtn")) return;
+  $("hintPopover").hidden = true;
+});
 
 $("backToProjects").onclick = async () => {
   flushSave();
@@ -969,6 +1002,9 @@ function renderElements() {
     wrap.appendChild(startBtn);
     box.appendChild(wrap);
     renderOutline();  // töm scenlistan i sidofältet
+    $("collapseAllBtn").disabled = true;
+    $("collapseAllBtn").textContent = "Fäll ihop alla";
+    $("scriptStats").innerHTML = "";
     return;
   }
 
@@ -977,22 +1013,16 @@ function renderElements() {
   const totalPages = Math.max(1, Math.ceil(estimatePages(project.elements)));
   const allCollapsed = sceneTotal > 0 && headingIds.every((id) => collapsedScenes.has(id));
 
-  const bar = document.createElement("div");
-  bar.className = "scenes-bar";
-  const toggleAll = document.createElement("button");
-  toggleAll.type = "button";
-  toggleAll.textContent = allCollapsed ? "Fäll ut alla" : "Fäll ihop alla";
-  toggleAll.disabled = sceneTotal === 0;
-  toggleAll.onclick = () => {
+  // "Fäll ihop alla" och sidräknaren bor i den fasta sektionshuvudet/flikraden,
+  // inte i #elements – de behöver alltså bara uppdateras, inte byggas om.
+  $("collapseAllBtn").textContent = allCollapsed ? "Fäll ut alla" : "Fäll ihop alla";
+  $("collapseAllBtn").disabled = sceneTotal === 0;
+  $("collapseAllBtn").onclick = () => {
     if (allCollapsed) collapsedScenes.clear();
     else headingIds.forEach((id) => collapsedScenes.add(id));
     renderElements();
   };
-  const stats = document.createElement("span");
-  stats.className = "script-stats";
-  stats.innerHTML = `Sida <b id="pageNow">1</b> / ${totalPages} · ${sceneTotal} ${sceneTotal === 1 ? "scen" : "scener"}`;
-  bar.append(toggleAll, stats);
-  box.appendChild(bar);
+  $("scriptStats").innerHTML = `Sida <b id="pageNow">1</b> / ${totalPages} · ${sceneTotal} ${sceneTotal === 1 ? "scen" : "scener"}`;
 
   // Riktiga ark: varje sida renderas som ett eget blad (som i Final Draft), med
   // sidnummer i övre högra hörnet. Sidgränserna kommer från samma radräkning som
