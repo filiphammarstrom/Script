@@ -390,30 +390,28 @@ main:has(#view-project:not([hidden])) { max-width: 1320px; }
   50% { box-shadow: 0 0 0 7px rgba(214, 90, 90, 0); }
 }
 .scene-page { margin-left: auto; flex: 0 0 auto; color: var(--accent); font-size: 12px; font-variant-numeric: tabular-nums; }
-/* Sidbrytning som i ett manus: "Sida N" mellan elementen. */
-.page-break {
-  display: flex; align-items: center; gap: 12px;
-  margin: 16px 6px 4px; color: var(--muted);
-  font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; user-select: none;
-}
-.page-break::before, .page-break::after { content: ""; flex: 1; border-top: 1px dashed var(--line); }
-.page > .page-break { margin: 22px 0 12px; }  /* sidbrytning tvärs över arket */
-.elements.paper .page-break { color: #9a917f; }
-.elements.paper .page-break::before, .elements.paper .page-break::after { border-color: #d8d2c4; }
 .scene-num {
   flex: 0 0 auto; min-width: 1.6em; text-align: center;
   font-size: 12px; font-weight: 700; color: var(--accent);
   background: rgba(110, 168, 254, .14); border-radius: 6px; padding: 1px 6px;
   font-variant-numeric: tabular-nums;
 }
-/* Ett sammanhängande manusark (editorn): generös vänstermarginal med scennummer,
-   textkolumn som slutar före högerkanten, kontrollrailen precis utanför arket. */
+/* Manusark (editorn): varje sida är ett eget blad med sidnummer i övre högra
+   hörnet, generös vänstermarginal med scennummer, textkolumn som slutar före
+   högerkanten och kontrollrailen precis utanför arket. */
+.sheets { display: flex; flex-direction: column; gap: 26px; }
 .page {
   position: relative; width: 700px; max-width: 100%;
   border: 1px solid var(--line); border-radius: 4px; background: #0c0e13;
   padding: 48px 28px 60px 104px; overflow: visible;
   font: 14px/1.6 "Courier Prime", "Courier New", ui-monospace, monospace;
 }
+/* Sidnumret uppe till höger, som i ett riktigt manus ("2."). Första sidan är onumrerad. */
+.page::before {
+  content: attr(data-page) "."; position: absolute; top: 16px; right: 24px;
+  color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums;
+}
+.sheets .page:first-child::before { content: none; }
 .page > .fel:first-child { margin-top: 0; }
 /* Scennummer i högermarginalen (vänster sköts av hopfäll-knappen). */
 .fel-scene_heading::after {
@@ -473,7 +471,7 @@ main:has(#view-project:not([hidden])) { max-width: 1320px; }
 .fel.low-conf .fel-text { background: #2a2516; }
 .fel.flash .fel-text { background: var(--flash); transition: background .3s; }
 /* Fokusläge: tona ned allt utom scenen man skriver i (raderna märks .in-focus i JS). */
-.elements.focus .fel, .elements.focus .page-break, .elements.focus .scene-collapsed-note { opacity: .25; transition: opacity .18s ease; }
+.elements.focus .fel, .elements.focus .scene-collapsed-note { opacity: .25; transition: opacity .18s ease; }
 .elements.focus .fel.in-focus { opacity: 1; }
 .elements.focus .fel:hover { opacity: .75; }
 .fel .gap { align-self: center; margin-left: 8px; color: var(--warn); font-weight: 600; font-size: 11px; flex: 0 0 auto; }
@@ -488,6 +486,27 @@ main:has(#view-project:not([hidden])) { max-width: 1320px; }
 .fel-tools .iconbtn { padding: 3px 7px; }
 .fel-tools .type-btn { font-weight: 700; }
 .fel-tools .iconbtn.active { color: var(--accent-2); border-color: var(--accent-2); }
+
+/* Kommandopalett (⌘K): centrerad ruta över allt, med sökfält och träfflista. */
+.cmdk-backdrop {
+  position: fixed; inset: 0; z-index: 90;
+  display: flex; align-items: flex-start; justify-content: center; padding-top: 14vh;
+  background: rgba(8, 10, 14, .55); backdrop-filter: blur(2px);
+}
+.cmdk {
+  width: min(560px, 92vw); background: linear-gradient(180deg, var(--panel), var(--bg-soft));
+  border: 1px solid var(--accent); border-radius: 14px; box-shadow: var(--shadow);
+  padding: 10px; display: flex; flex-direction: column; gap: 8px;
+}
+.cmdk input { margin: 0; font-size: 15px; }
+.cmdk-list { max-height: 46vh; overflow: auto; display: flex; flex-direction: column; gap: 2px; }
+.cmdk-item {
+  display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 8px;
+  cursor: pointer; color: var(--muted); font-size: 14px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cmdk-item.active, .cmdk-item:hover { background: rgba(110, 168, 254, .16); color: var(--ink); }
+.cmdk-empty { padding: 10px 12px; color: var(--muted); font-size: 13px; }
 
 /* Tangentbordstips ovanför manuset + tomt-läge med startknapp. */
 .editor-hint { margin: 0 0 12px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
@@ -649,7 +668,13 @@ kbd {
   .scene { width: 100%; }
   .scene-body { padding: 12px 8px 16px 14px; }
   .elements.paper .scene-body { padding: 18px 10px 22px 18px; }
-  .elements > .page-break { width: 100%; }
+  /* arken: mindre marginaler så texten får plats, hopfäll-knappen närmare kanten */
+  .page { width: 100%; padding: 34px 14px 40px 46px; }
+  .scene-toggle { left: -2.6em; }
+  .fel-scene_heading::after { display: none; }  /* scennumret finns redan i vänsterkanten */
+
+  /* större tryckytor i verktygsflikarna */
+  .manus-tabbar .tab-btn { padding: 10px 12px; font-size: 14px; }
 
   .fel-tools { left: auto; right: 4px; margin-left: 0; opacity: 0; }
   .fel:focus-within .fel-tools { opacity: 1; }

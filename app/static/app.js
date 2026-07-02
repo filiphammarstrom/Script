@@ -922,13 +922,6 @@ function estimatePages(elements) {
 function fmtPages(p) {
   return (Math.round(p * 10) / 10).toString().replace(".", ",");
 }
-function pageBreakDivider(page) {
-  const pb = document.createElement("div");
-  pb.className = "page-break";
-  pb.dataset.page = page;
-  pb.innerHTML = `<span>Sida ${page}</span>`;
-  return pb;
-}
 function renderElements() {
   hideAutocomplete();  // gammal meny pekar på en rad som nu byggs om
   const box = $("elements");
@@ -970,11 +963,24 @@ function renderElements() {
   bar.append(toggleAll, stats);
   box.appendChild(bar);
 
-  // Ett enda sammanhängande "ark" – elementen flödar som i ett riktigt manus.
-  // Scener kan fällas ihop: rubriken visas men resten av scenens rader döljs.
-  const page = document.createElement("div");
-  page.className = "page";
-  let sceneNo = 0, runningLines = 0, lastPage = 1;
+  // Riktiga ark: varje sida renderas som ett eget blad (som i Final Draft), med
+  // sidnummer i övre högra hörnet. Sidgränserna kommer från samma radräkning som
+  // sidräknaren, och en scen kan flyta över flera ark precis som i ett riktigt
+  // manus. Scener kan fällas ihop: rubriken visas men resten av raderna döljs
+  // (då kan arkens nummer hoppa, eftersom dolda rader ändå räknas som sidor).
+  const sheets = document.createElement("div");
+  sheets.className = "sheets";
+  let page = null, curPage = 0;
+  const sheetFor = (no) => {
+    if (page && curPage === no) return page;
+    page = document.createElement("div");
+    page.className = "page";
+    page.dataset.page = no;  // sidnumret i hörnet (CSS) + referens för "Sida X"-indikatorn
+    curPage = no;
+    sheets.appendChild(page);
+    return page;
+  };
+  let sceneNo = 0, runningLines = 0;
   let collapsedNow = false, hiddenCount = 0, headRow = null, headId = null;
   const flushHidden = () => {
     if (headRow && hiddenCount > 0) {
@@ -991,7 +997,6 @@ function renderElements() {
     const elPage = Math.floor(runningLines / LINES_PER_PAGE) + 1;
     if (el.type === "scene_heading") {
       flushHidden();
-      if (elPage > lastPage) { page.appendChild(pageBreakDivider(elPage)); lastPage = elPage; }
       sceneNo += 1;
       const displayNo = el.scene_number || sceneNo;
       const collapsed = collapsedScenes.has(el.id);
@@ -1017,7 +1022,7 @@ function renderElements() {
       noBtn.onclick = (e) => { e.stopPropagation(); editSceneNumber(el, sceneNo); };
       tog.append(chevBtn, noBtn);
       row.appendChild(tog);
-      page.appendChild(row);
+      sheetFor(elPage).appendChild(row);
       runningLines += linesFor(el);
       collapsedNow = collapsed;
       headRow = collapsed ? row : null;
@@ -1026,15 +1031,14 @@ function renderElements() {
       hiddenCount += 1;
       runningLines += linesFor(el);  // räkna sidor även för dolda rader
     } else {
-      if (elPage > lastPage) { page.appendChild(pageBreakDivider(elPage)); lastPage = elPage; }
-      page.appendChild(elementRow(el));
+      sheetFor(elPage).appendChild(elementRow(el));
       runningLines += linesFor(el);
     }
   }
   flushHidden();
-  box.appendChild(page);
+  box.appendChild(sheets);
 
-  page.querySelectorAll(".fel-text").forEach(autogrow);
+  box.querySelectorAll(".fel-text").forEach(autogrow);
   bindPageScroll();
   updatePageIndicator();
   renderOutline();
@@ -2244,6 +2248,105 @@ $("focusToggle").onclick = () => {
   localStorage.setItem(FOCUS_KEY, focusModeOn() ? "0" : "1");
   applyFocusMode();
 };
+
+// ---- kommandopalett (⌘K / Ctrl+K) ----
+// Hoppa till scener och kör kommandon utan att släppa tangentbordet. Byggs om
+// varje gång den öppnas så scenlistan och läget alltid är färskt.
+let cmdkIndex = 0, cmdkItems = [];
+function cmdkOpen() { return !$("cmdk").hidden; }
+function ensureTab(tab) {
+  showSection("manus");
+  if (activeTab !== tab) setActiveTab(tab);
+}
+function buildCmdkItems() {
+  const items = [];
+  const inProject = project && !$("view-project").hidden;
+  if (inProject) {
+    items.push(
+      { label: "📝 Manus", run: () => showSection("manus") },
+      { label: "🎙️ Diktering / transkription", run: () => ensureTab("dictate") },
+      { label: "🔍 Sök & ersätt", run: () => ensureTab("find") },
+      { label: "🗒️ Kommentarer", run: () => ensureTab("comments") },
+      { label: "🕑 Versioner", run: () => ensureTab("versions") },
+      { label: "🗂️ Korktavla", run: () => showSection("board") },
+      { label: "💬 Fråga AI", run: () => showSection("ask") },
+      { label: "📊 Rapporter", run: () => showSection("reports") },
+      { label: "🔗 Dela skrivskyddat", run: () => showSection("share") },
+      { label: "⚙️ Projektinställningar", run: () => showSection("projset") },
+      { label: "🎯 Växla fokusläge", run: () => $("focusToggle").click() },
+      { label: "📄 Växla vitt papper / mörkt läge", run: () => $("paperToggle").click() },
+      { label: "⬇️ Exportera FDX", run: () => $("exportBtn").click() },
+      { label: "🖨️ Skriv ut / spara som PDF", run: () => $("printBtn").click() },
+      { label: "← Alla projekt", run: () => $("backToProjects").click() },
+    );
+    let no = 0;
+    for (const el of project.elements) {
+      if (el.type !== "scene_heading") continue;
+      no += 1;
+      const id = el.id;
+      items.push({
+        label: `🎬 Scen ${el.scene_number || no}: ${el.text || "(scenrubrik)"}`,
+        run: () => { showSection("manus"); highlightElement(id); },
+      });
+    }
+  } else {
+    items.push(
+      { label: "📁 Projekt", run: () => $("navProjects").click() },
+      { label: "⚙️ Inställningar", run: () => $("navSettings").click() },
+    );
+  }
+  return items;
+}
+function renderCmdkList() {
+  const q = $("cmdkInput").value.trim().toLowerCase();
+  const list = $("cmdkList");
+  cmdkItems = buildCmdkItems().filter((it) => !q || it.label.toLowerCase().includes(q));
+  cmdkIndex = 0;
+  list.innerHTML = "";
+  if (!cmdkItems.length) {
+    list.innerHTML = '<div class="cmdk-empty">Inga träffar.</div>';
+    return;
+  }
+  cmdkItems.forEach((it, i) => {
+    const d = document.createElement("div");
+    d.className = "cmdk-item" + (i === 0 ? " active" : "");
+    d.textContent = it.label;
+    d.onmousedown = (e) => { e.preventDefault(); runCmdk(i); };
+    list.appendChild(d);
+  });
+}
+function highlightCmdk() {
+  [...$("cmdkList").children].forEach((c, i) => c.classList.toggle("active", i === cmdkIndex));
+  const active = $("cmdkList").children[cmdkIndex];
+  if (active && active.scrollIntoView) active.scrollIntoView({ block: "nearest" });
+}
+function openCmdk() {
+  $("cmdk").hidden = false;
+  $("cmdkInput").value = "";
+  renderCmdkList();
+  $("cmdkInput").focus();
+}
+function closeCmdk() { $("cmdk").hidden = true; }
+function runCmdk(i) {
+  const item = cmdkItems[i != null ? i : cmdkIndex];
+  closeCmdk();
+  if (item) item.run();
+}
+document.addEventListener("keydown", (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+    e.preventDefault();
+    if (cmdkOpen()) closeCmdk();
+    else openCmdk();
+  }
+});
+$("cmdkInput").oninput = renderCmdkList;
+$("cmdkInput").onkeydown = (e) => {
+  if (e.key === "ArrowDown") { e.preventDefault(); cmdkIndex = Math.min(cmdkIndex + 1, cmdkItems.length - 1); highlightCmdk(); }
+  else if (e.key === "ArrowUp") { e.preventDefault(); cmdkIndex = Math.max(cmdkIndex - 1, 0); highlightCmdk(); }
+  else if (e.key === "Enter") { e.preventDefault(); runCmdk(); }
+  else if (e.key === "Escape") { e.preventDefault(); closeCmdk(); }
+};
+$("cmdk").onmousedown = (e) => { if (e.target === $("cmdk")) closeCmdk(); };
 
 // ---- init ----
 applyPaper();
