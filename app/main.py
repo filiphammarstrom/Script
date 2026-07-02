@@ -116,6 +116,7 @@ class SecretsIn(BaseModel):
     openai_key: str | None = None
     assemblyai_key: str | None = None
     groq_key: str | None = None
+    deepgram_key: str | None = None
 
 
 class GoogleLoginIn(BaseModel):
@@ -242,6 +243,7 @@ def get_secrets(uid: str = Depends(auth_mod.current_uid)) -> dict:
         "openai": bool(s.get("openai_key")),
         "assemblyai": bool(s.get("assemblyai_key")),
         "groq": bool(s.get("groq_key")),
+        "deepgram": bool(s.get("deepgram_key")),
     }
 
 
@@ -553,6 +555,7 @@ def _run_transcription(
     openai_key: str | None,
     assemblyai_key: str | None,
     groq_key: str | None,
+    deepgram_key: str | None,
     allow_local: bool,
 ) -> None:
     """Körs i en bakgrundstråd: transkriberar och uppdaterar jobbet."""
@@ -563,7 +566,7 @@ def _run_transcription(
         transcriber = transcribe_mod.get_transcriber(
             resolved_backend, model,
             openai_key=openai_key, assemblyai_key=assemblyai_key, groq_key=groq_key,
-            allow_local=allow_local,
+            deepgram_key=deepgram_key, allow_local=allow_local,
         )
         audio_path = tmp_path
         if transcribe_mod.should_trim_silence(resolved_backend):
@@ -621,6 +624,7 @@ def transcribe_audio(
         args=(
             job.id, tmp_path, language, backend, model,
             secrets.get("openai_key"), secrets.get("assemblyai_key"), secrets.get("groq_key"),
+            secrets.get("deepgram_key"),
             not auth_mod.auth_enabled(),
         ),
         daemon=True,

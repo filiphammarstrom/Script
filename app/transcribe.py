@@ -17,6 +17,7 @@ talarigenkänning (varje bit skulle börja om räkningen på "Speaker A").
 from __future__ import annotations
 
 import glob
+import mimetypes
 import os
 import shlex
 import shutil
@@ -257,6 +258,81 @@ def openai_response_to_text(resp) -> str:
     return (_attr_or_key(resp, "text") or "").strip()
 
 
+def deepgram_response_to_text(data) -> str:
+    """Formatera Deepgrams JSON-svar till text.
+
+    Diariserade 'utterances' (talar-segment) blir rader 'Speaker X: ...' – samma
+    format som AssemblyAI/OpenAI och som analyspipelinen redan känner igen. Saknas
+    de (t.ex. diarize avslogs) används kanal 0:s råa transcript.
+    """
+    results = _attr_or_key(data, "results") or {}
+    utterances = _attr_or_key(results, "utterances")
+    if utterances:
+        lines: list[str] = []
+        for utt in utterances:
+            speaker = _norm_speaker(_attr_or_key(utt, "speaker"))
+            text = (_attr_or_key(utt, "transcript") or "").strip()
+            if text:
+                lines.append(f"Speaker {speaker}: {text}" if speaker else text)
+        if lines:
+            return "\n".join(lines)
+    channels = _attr_or_key(results, "channels") or []
+    if channels:
+        alts = _attr_or_key(channels[0], "alternatives") or []
+        if alts:
+            return (_attr_or_key(alts[0], "transcript") or "").strip()
+    return ""
+
+
+class DeepgramTranscriber:
+    """Molntranskribering via Deepgrams REST-API – snabb och billig (~0,0043 $/min,
+    i klass med Groq) men MED diarisering (talar-etiketter), till skillnad från Groq.
+
+    Inget SDK behövs, bara ett REST-anrop – httpx följer redan med som ett
+    beroende av anthropic-/openai-SDK:erna. Env: DEEPGRAM_API_KEY (eller
+    användarens egen nyckel), DEEPGRAM_MODEL (default nova-2 – brett språkstöd
+    inklusive svenska; nova-3 är snabbare men stödjer färre språk).
+    """
+
+    def __init__(self, model: str | None = None, api_key: str | None = None) -> None:
+        api_key = api_key or os.environ.get("DEEPGRAM_API_KEY")
+        if not api_key:
+            raise RuntimeError("Deepgram-nyckel saknas (DEEPGRAM_API_KEY eller din egen nyckel).")
+        import httpx  # lazy import
+
+        self._httpx = httpx
+        self._api_key = api_key
+        self._model = model or os.environ.get("DEEPGRAM_MODEL") or "nova-2"
+
+    def transcribe(self, path: str, language: str | None = None) -> str:
+        params = {
+            "model": self._model,
+            "smart_format": "true",
+            "punctuate": "true",
+            "diarize": "true",
+            "utterances": "true",
+        }
+        if language:
+            params["language"] = language
+        else:
+            params["detect_language"] = "true"
+        content_type = mimetypes.guess_type(path)[0] or "audio/*"
+        with open(path, "rb") as fh:
+            resp = self._httpx.post(
+                "https://api.deepgram.com/v1/listen",
+                params=params,
+                headers={"Authorization": f"Token {self._api_key}", "Content-Type": content_type},
+                content=fh.read(),
+                timeout=1800,
+            )
+        if resp.status_code != 200:
+            raise RuntimeError(f"Deepgram-transkribering misslyckades ({resp.status_code}): {resp.text[:300]}")
+        text = deepgram_response_to_text(resp.json())
+        if not text:
+            raise RuntimeError("Deepgram-transkribering gav ingen text.")
+        return text
+
+
 class GroqTranscriber:
     """Molntranskribering via Groqs Whisper-API – mycket billigt (~0,04 $/timme,
     ungefär en tiondel av OpenAI/AssemblyAI) och snabbt.
@@ -335,17 +411,19 @@ def get_transcriber(
     openai_key: str | None = None,
     assemblyai_key: str | None = None,
     groq_key: str | None = None,
+    deepgram_key: str | None = None,
     allow_local: bool = True,
 ) -> Transcriber:
     """Välj transkriberingsmotor.
 
     `backend` väljs per anrop (UI), annars env TRANSCRIBE_BACKEND, annars 'assemblyai'.
-    `model` väljer modell per anrop (openai/groq). `openai_key`/`assemblyai_key`/
-    `groq_key` är användarens egna nycklar. `allow_local=False` (hostat läge)
-    blockerar lokala motorer som bara fungerar på den egna datorn.
+    `model` väljer modell per anrop (openai/groq/deepgram). `openai_key`/`assemblyai_key`/
+    `groq_key`/`deepgram_key` är användarens egna nycklar. `allow_local=False` (hostat
+    läge) blockerar lokala motorer som bara fungerar på den egna datorn.
       'assemblyai' = moln med diarisering (kostar per minut, valbar reserv).
       'openai' = moln via OpenAI; modell väljs med `model` (diarize / mini / standard).
       'groq' = moln via Groq – billigast (~0,04 $/timme), ingen diarisering.
+      'deepgram' = moln via Deepgram – nästan lika billigt som Groq, MED diarisering.
       'local'/'whisper' = lokal Whisper-CLI på din dator (gratis).
       'watch' = helautomatiskt via en GUI-apps bevakade mapp (MacWhisper m.fl.).
     """
@@ -356,6 +434,8 @@ def get_transcriber(
         return OpenAITranscriber(model=model, api_key=openai_key)
     if backend == "groq":
         return GroqTranscriber(model=model, api_key=groq_key)
+    if backend == "deepgram":
+        return DeepgramTranscriber(model=model, api_key=deepgram_key)
     if backend in ("local", "whisper", "whisper_cli"):
         if not allow_local:
             raise RuntimeError("Lokal transkribering är inte tillgänglig i molnläget – välj OpenAI eller AssemblyAI.")
@@ -389,13 +469,14 @@ def transcript_to_text(filename: str, text: str) -> str:
 CHUNK_SECONDS_DEFAULT = int(os.environ.get("TRANSCRIBE_CHUNK_SECONDS", "900"))  # 15 min
 OPENAI_MAX_BYTES = 25 * 1024 * 1024  # OpenAI:s och Groqs ljud-API:er accepterar inte större filer
 
-# AssemblyAI hanterar långa filer på egen hand i molnet; att dela upp den skulle bara
-# förstöra dess talarigenkänning (varje bit börjar om räkningen på "Speaker A").
-_NO_CHUNK_BACKENDS = {"assemblyai"}
+# AssemblyAI och Deepgram hanterar långa filer på egen hand i molnet, och båda gör
+# diarisering – att dela upp filen skulle bara förstöra talarigenkänningen (varje
+# bit börjar om räkningen på "Speaker A"/"Speaker 0").
+_NO_CHUNK_BACKENDS = {"assemblyai", "deepgram"}
 _SIZE_LIMITED_BACKENDS = {"openai", "gpt-4o", "gpt4o", "openai_diarize", "groq"}
 
 # Molnmotorer som fakturerar per minut – där lönar det sig att klippa bort tystnad.
-_TRIMMABLE_BACKENDS = {"assemblyai", "openai", "gpt-4o", "gpt4o", "openai_diarize", "groq"}
+_TRIMMABLE_BACKENDS = {"assemblyai", "openai", "gpt-4o", "gpt4o", "openai_diarize", "groq", "deepgram"}
 
 
 def should_trim_silence(backend: str) -> bool:
