@@ -9,7 +9,7 @@ let transcriber = null;
 let loadedModel = "";
 
 self.onmessage = async (ev) => {
-  const { audio, model } = ev.data;
+  const { audio, model, language } = ev.data;
   try {
     if (!transcriber || loadedModel !== model) {
       transcriber = null;
@@ -28,12 +28,13 @@ self.onmessage = async (ev) => {
       loadedModel = model;
     }
     self.postMessage({ type: "status", message: "Transkriberar i webbläsaren ..." });
-    const out = await transcriber(audio, {
-      language: "swedish",
+    const opts = {
       task: "transcribe",
       chunk_length_s: 30,   // Whisper arbetar i 30-sekundersfönster
       stride_length_s: 5,   // överlapp så ord i skarvarna inte tappas
-    });
+    };
+    if (language) opts.language = language;  // utelämnat = modellen språkdetekterar själv
+    const out = await transcriber(audio, opts);
     self.postMessage({ type: "done", text: ((out && out.text) || "").trim() });
   } catch (err) {
     self.postMessage({ type: "error", error: String((err && err.message) || err) });
