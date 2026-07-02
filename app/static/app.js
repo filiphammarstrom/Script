@@ -465,6 +465,72 @@ $("audioFile").onchange = () => {
   const f = $("audioFile").files[0];
   $("audioName").textContent = f ? f.name : "";
 };
+$("transcribeEngine").onchange = () => {
+  // Modellvalet gäller bara KB-Whisper i webbläsaren.
+  $("browserModel").hidden = $("transcribeEngine").value !== "browser";
+};
+
+// ---- KB-Whisper i webbläsaren (Transformers.js) ----
+// Svensktränad Whisper från Kungliga biblioteket som körs helt i webbläsaren:
+// gratis, privat (ljudet laddas aldrig upp) och funkar även i den hostade
+// versionen där en lokal Whisper-CLI inte kan köras. Modellen hämtas från
+// Hugging Face första gången och cachas sedan av webbläsaren.
+let whisperWorker = null;
+function getWhisperWorker() {
+  if (!whisperWorker) whisperWorker = new Worker("/static/whisper-worker.js", { type: "module" });
+  return whisperWorker;
+}
+async function decodeAudioTo16kMono(blob) {
+  const buf = await blob.arrayBuffer();
+  const ctx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+  try {
+    const audio = await ctx.decodeAudioData(buf);
+    const ch0 = audio.getChannelData(0);
+    if (audio.numberOfChannels === 1) return ch0.slice();
+    const out = new Float32Array(audio.length);
+    for (let c = 0; c < audio.numberOfChannels; c++) {
+      const data = audio.getChannelData(c);
+      for (let i = 0; i < audio.length; i++) out[i] += data[i] / audio.numberOfChannels;
+    }
+    return out;
+  } finally {
+    ctx.close();
+  }
+}
+async function browserTranscribe(blob) {
+  setStatus("Avkodar ljudet ...", true);
+  const audio = await decodeAudioTo16kMono(blob);
+  const model = "onnx-community/kb-whisper-" + ($("browserModel").value || "base") + "-ONNX";
+  const worker = getWhisperWorker();
+  return new Promise((resolve, reject) => {
+    worker.onmessage = (ev) => {
+      const msg = ev.data;
+      if (msg.type === "progress") {
+        setStatus(`Laddar KB-Whisper (${Math.round(msg.progress)} %) – cachas till nästa gång ...`, true);
+      } else if (msg.type === "status") {
+        setStatus(msg.message, true);
+      } else if (msg.type === "done") {
+        resolve(msg.text);
+      } else if (msg.type === "error") {
+        reject(new Error(msg.error));
+      }
+    };
+    worker.onerror = (ev) => reject(new Error(ev.message || "Worker-fel"));
+    worker.postMessage({ audio, model }, [audio.buffer]);
+  });
+}
+async function runBrowserTranscription(blob) {
+  try {
+    const text = await browserTranscribe(blob);
+    if (!text) { setStatus("Transkriberingen gav ingen text."); return; }
+    const existing = $("inputText").value.trim();
+    $("inputText").value = existing ? existing + "\n\n" + text : text;
+    setStatus("Transkribering klar – granska och tryck Lägg till / ändra.");
+  } catch (e) {
+    setStatus("Fel i webbläsar-transkriberingen: " + e.message);
+  }
+}
+
 async function uploadAudio(fileOrBlob, filename) {
   setStatus("Laddar upp ljud ...", true);
   try {
@@ -492,7 +558,8 @@ async function uploadAudio(fileOrBlob, filename) {
 $("transcribeBtn").onclick = async () => {
   const f = $("audioFile").files[0];
   if (!f) { setStatus("Välj en ljudfil först."); return; }
-  await uploadAudio(f, f.name);
+  if ($("transcribeEngine").value === "browser") await runBrowserTranscription(f);
+  else await uploadAudio(f, f.name);
   $("audioFile").value = "";
   $("audioName").textContent = "";
 };
@@ -607,7 +674,8 @@ $("recordBtn").onclick = async () => {
     const blob = new Blob(recChunks, { type: mime });
     mediaRecorder = null;
     if (!blob.size) { setStatus("Tom inspelning."); return; }
-    await uploadAudio(blob, "inspelning." + (mime.includes("mp4") ? "mp4" : "webm"));
+    if ($("transcribeEngine").value === "browser") await runBrowserTranscription(blob);
+    else await uploadAudio(blob, "inspelning." + (mime.includes("mp4") ? "mp4" : "webm"));
   };
   mediaRecorder.start();
   setRecordingUI(true);
@@ -2030,6 +2098,7 @@ async function loadSecrets() {
     setKeyPlaceholder("keyAnthropic", s.anthropic);
     setKeyPlaceholder("keyOpenai", s.openai);
     setKeyPlaceholder("keyAssemblyai", s.assemblyai);
+    setKeyPlaceholder("keyGroq", s.groq);
   } catch (e) { /* ignoreras */ }
 }
 $("saveKeysBtn").onclick = async () => {
@@ -2039,6 +2108,7 @@ $("saveKeysBtn").onclick = async () => {
       anthropic_key: $("keyAnthropic").value || null,
       openai_key: $("keyOpenai").value || null,
       assemblyai_key: $("keyAssemblyai").value || null,
+      groq_key: $("keyGroq").value || null,
     });
     await loadSecrets();
     setKeysStatus("Nycklar sparade ✓");

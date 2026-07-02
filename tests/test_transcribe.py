@@ -10,13 +10,16 @@ import pytest
 
 from app import transcribe as transcribe_mod
 from app.transcribe import (
+    GroqTranscriber,
     LocalWhisperTranscriber,
     WatchedFolderTranscriber,
     get_transcriber,
     openai_response_to_text,
     resolve_backend_name,
+    should_trim_silence,
     transcribe_with_chunking,
     transcript_to_text,
+    trim_silence,
     utterances_to_text,
 )
 
@@ -232,3 +235,76 @@ def test_split_audio_into_chunks_with_real_ffmpeg(tmp_path):
     assert len(chunks) == 2
     for c in chunks:
         assert Path(c).exists()
+
+
+def test_get_transcriber_selects_groq(monkeypatch):
+    monkeypatch.setenv("GROQ_API_KEY", "gsk_test")
+    t = get_transcriber("groq")
+    assert isinstance(t, GroqTranscriber)
+
+
+def test_groq_requires_key(monkeypatch):
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)
+    with pytest.raises(RuntimeError):
+        get_transcriber("groq")
+
+
+def test_groq_counts_as_size_limited(tmp_path, monkeypatch):
+    """Groq har samma 25 MB-gräns som OpenAI – stora filer ska chunkas."""
+    audio = tmp_path / "big.m4a"
+    audio.write_bytes(b"x" * (30 * 1024 * 1024))
+    monkeypatch.setattr(transcribe_mod, "probe_duration_seconds", lambda p: 300.0)
+    assert transcribe_mod._needs_chunking(str(audio), "groq", 300.0) is True
+
+
+def test_should_trim_silence_backend_filter(monkeypatch):
+    monkeypatch.delenv("TRANSCRIBE_TRIM_SILENCE", raising=False)
+    assert should_trim_silence("openai") is True
+    assert should_trim_silence("groq") is True
+    assert should_trim_silence("assemblyai") is True
+    assert should_trim_silence("local") is False
+    assert should_trim_silence("watch") is False
+    monkeypatch.setenv("TRANSCRIBE_TRIM_SILENCE", "0")
+    assert should_trim_silence("openai") is False
+
+
+def test_trim_silence_none_without_ffmpeg(tmp_path, monkeypatch):
+    monkeypatch.setattr(shutil, "which", lambda name: None)
+    audio = tmp_path / "clip.wav"
+    audio.write_bytes(b"x")
+    assert trim_silence(str(audio)) is None
+
+
+@pytest.mark.skipif(shutil.which("ffmpeg") is None or shutil.which("ffprobe") is None, reason="kräver riktig ffmpeg/ffprobe")
+def test_trim_silence_shortens_audio_with_real_ffmpeg(tmp_path):
+    """3 s ton + 6 s tystnad + 3 s ton ska krympa till ~7 s (tystnaden → 0,9 s)."""
+    import os
+    import subprocess
+
+    audio = tmp_path / "gappy.wav"
+    subprocess.run(
+        [
+            "ffmpeg", "-y", "-f", "lavfi", "-i", "sine=frequency=440:duration=3",
+            "-f", "lavfi", "-i", "anullsrc=r=44100:cl=mono",
+            "-filter_complex", "[1:a]atrim=duration=6[s];[0:a][s][0:a]concat=n=3:v=0:a=1[out]",
+            "-map", "[out]", str(audio),
+        ],
+        capture_output=True, check=True,
+    )
+    assert 11.5 < transcribe_mod.probe_duration_seconds(str(audio)) < 12.5
+
+    trimmed = trim_silence(str(audio))
+    assert trimmed is not None
+    try:
+        out_dur = transcribe_mod.probe_duration_seconds(trimmed)
+        assert out_dur is not None and out_dur < 8.5  # tystnaden bortklippt
+        assert trimmed.endswith(".ogg")
+    finally:
+        os.unlink(trimmed)
+
+
+def test_trim_silence_returns_none_on_broken_input(tmp_path):
+    """Ogiltig ljudfil → None (anroparen använder originalet), ingen krasch."""
+    bad = tmp_path / "inte-ljud.wav"
+    bad.write_bytes(b"detta ar inte ljud")
+    assert trim_silence(str(bad)) is None

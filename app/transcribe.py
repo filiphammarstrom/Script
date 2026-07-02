@@ -257,6 +257,37 @@ def openai_response_to_text(resp) -> str:
     return (_attr_or_key(resp, "text") or "").strip()
 
 
+class GroqTranscriber:
+    """Molntranskribering via Groqs Whisper-API – mycket billigt (~0,04 $/timme,
+    ungefär en tiondel av OpenAI/AssemblyAI) och snabbt.
+
+    OpenAI-kompatibelt API, så openai-SDK:t återanvänds med en annan base_url.
+    Ingen diarisering (talar-etiketter) – AI:n attribuerar talare från sammanhang.
+    Env: GROQ_API_KEY (eller användarens egen nyckel), GROQ_TRANSCRIBE_MODEL
+    (default whisper-large-v3-turbo).
+    """
+
+    def __init__(self, model: str | None = None, api_key: str | None = None) -> None:
+        api_key = api_key or os.environ.get("GROQ_API_KEY")
+        if not api_key:
+            raise RuntimeError("Groq-nyckel saknas (GROQ_API_KEY eller din egen nyckel).")
+        from openai import OpenAI  # lazy import
+
+        self._client = OpenAI(api_key=api_key, base_url="https://api.groq.com/openai/v1")
+        self._model = model or os.environ.get("GROQ_TRANSCRIBE_MODEL") or "whisper-large-v3-turbo"
+
+    def transcribe(self, path: str, language: str | None = None) -> str:
+        kwargs: dict = {"model": self._model}
+        if language:
+            kwargs["language"] = language
+        with open(path, "rb") as fh:
+            resp = self._client.audio.transcriptions.create(file=fh, **kwargs)
+        text = (getattr(resp, "text", None) or "").strip()
+        if not text:
+            raise RuntimeError("Groq-transkribering gav ingen text.")
+        return text
+
+
 class OpenAITranscriber:
     """Molntranskribering via OpenAI:s ljud-API – default med diarisering.
 
@@ -303,16 +334,18 @@ def get_transcriber(
     model: str | None = None,
     openai_key: str | None = None,
     assemblyai_key: str | None = None,
+    groq_key: str | None = None,
     allow_local: bool = True,
 ) -> Transcriber:
     """Välj transkriberingsmotor.
 
     `backend` väljs per anrop (UI), annars env TRANSCRIBE_BACKEND, annars 'assemblyai'.
-    `model` väljer modell per anrop (openai-motorn). `openai_key`/`assemblyai_key` är
-    användarens egna nycklar. `allow_local=False` (hostat läge) blockerar lokala motorer
-    som bara fungerar på den egna datorn.
+    `model` väljer modell per anrop (openai/groq). `openai_key`/`assemblyai_key`/
+    `groq_key` är användarens egna nycklar. `allow_local=False` (hostat läge)
+    blockerar lokala motorer som bara fungerar på den egna datorn.
       'assemblyai' = moln med diarisering (kostar per minut, valbar reserv).
       'openai' = moln via OpenAI; modell väljs med `model` (diarize / mini / standard).
+      'groq' = moln via Groq – billigast (~0,04 $/timme), ingen diarisering.
       'local'/'whisper' = lokal Whisper-CLI på din dator (gratis).
       'watch' = helautomatiskt via en GUI-apps bevakade mapp (MacWhisper m.fl.).
     """
@@ -321,6 +354,8 @@ def get_transcriber(
         return AssemblyAITranscriber(api_key=assemblyai_key)
     if backend in ("openai", "gpt-4o", "gpt4o", "openai_diarize"):
         return OpenAITranscriber(model=model, api_key=openai_key)
+    if backend == "groq":
+        return GroqTranscriber(model=model, api_key=groq_key)
     if backend in ("local", "whisper", "whisper_cli"):
         if not allow_local:
             raise RuntimeError("Lokal transkribering är inte tillgänglig i molnläget – välj OpenAI eller AssemblyAI.")
@@ -352,12 +387,59 @@ def transcript_to_text(filename: str, text: str) -> str:
 # ---- Chunkning av mycket långa ljudfiler --------------------------------------------
 
 CHUNK_SECONDS_DEFAULT = int(os.environ.get("TRANSCRIBE_CHUNK_SECONDS", "900"))  # 15 min
-OPENAI_MAX_BYTES = 25 * 1024 * 1024  # OpenAI:s ljud-API accepterar inte större filer
+OPENAI_MAX_BYTES = 25 * 1024 * 1024  # OpenAI:s och Groqs ljud-API:er accepterar inte större filer
 
 # AssemblyAI hanterar långa filer på egen hand i molnet; att dela upp den skulle bara
 # förstöra dess talarigenkänning (varje bit börjar om räkningen på "Speaker A").
 _NO_CHUNK_BACKENDS = {"assemblyai"}
-_SIZE_LIMITED_BACKENDS = {"openai", "gpt-4o", "gpt4o", "openai_diarize"}
+_SIZE_LIMITED_BACKENDS = {"openai", "gpt-4o", "gpt4o", "openai_diarize", "groq"}
+
+# Molnmotorer som fakturerar per minut – där lönar det sig att klippa bort tystnad.
+_TRIMMABLE_BACKENDS = {"assemblyai", "openai", "gpt-4o", "gpt4o", "openai_diarize", "groq"}
+
+
+def should_trim_silence(backend: str) -> bool:
+    """Tystnad klipps före uppladdning till motorer som fakturerar per minut.
+    Stängs av med TRANSCRIBE_TRIM_SILENCE=0. Lokala motorer och bevakad mapp rörs inte."""
+    enabled = os.environ.get("TRANSCRIBE_TRIM_SILENCE", "1").lower() in ("1", "true", "yes")
+    return enabled and backend in _TRIMMABLE_BACKENDS
+
+
+def trim_silence(path: str) -> str | None:
+    """Klipp bort längre tystnader ur ljudet med ffmpeg innan moln-uppladdning.
+
+    Diktering innehåller mycket paus och tanketid, och molnmotorerna fakturerar per
+    minut – att kapa tystnader brukar spara en rejäl andel av de fakturerade
+    minuterna utan att tal går förlorat (0,9 s paus lämnas kvar i varje skarv så
+    talrytmen bevaras). Ljudet kodas samtidigt om till mono-Opus 32 kbit/s, vilket
+    även krymper uppladdningen. Returnerar sökvägen till en NY temporär fil, eller
+    None om ffmpeg saknas eller klippningen misslyckas – då används originalet.
+    """
+    if shutil.which("ffmpeg") is None:
+        return None
+    fd, out_path = tempfile.mkstemp(suffix=".ogg", prefix="script_trim_")
+    os.close(fd)
+    try:
+        result = subprocess.run(
+            [
+                "ffmpeg", "-y", "-i", path,
+                "-af",
+                "silenceremove=start_periods=1:start_threshold=-40dB:start_silence=0.3:"
+                "stop_periods=-1:stop_threshold=-40dB:stop_silence=0.9",
+                "-c:a", "libopus", "-b:a", "32k", "-ac", "1",
+                out_path,
+            ],
+            capture_output=True, text=True, timeout=1800,
+        )
+        if result.returncode != 0 or os.path.getsize(out_path) == 0:
+            raise RuntimeError((result.stderr or "").strip()[-300:] or "tom utfil")
+        return out_path
+    except Exception:
+        try:
+            os.unlink(out_path)
+        except OSError:
+            pass
+        return None
 
 
 def probe_duration_seconds(path: str) -> float | None:
