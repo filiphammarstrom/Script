@@ -344,6 +344,22 @@ main:has(#view-project:not([hidden])) { max-width: 1320px; }
   max-height: calc(100vh - var(--sticky-top, 52px) - var(--tabbar-h, 54px) - 24px);
   overflow: auto; margin: 0; border-color: var(--accent);
 }
+.chev-ico { display: inline-block; }
+
+/* Diktering: 3 rader (spela in/välj fil, val, transkribera) ovanför textrutan,
+   tätare mellanrum sinsemellan så panelen känns som en grupp och inte en lång lista. */
+.dictate-row { margin-top: 8px; }
+.dictate-row:first-child { margin-top: 0; }
+.or-sep { color: var(--muted); font-size: 13px; }
+.dictate-hint-btn { margin-left: auto; }
+.dictate-textwrap { display: flex; gap: 10px; align-items: stretch; margin-top: 12px; }
+.dictate-textwrap textarea { flex: 1; margin-top: 0; }
+.import-box {
+  flex: 0 0 auto; align-self: stretch; justify-content: center;
+  font-size: 12.5px; text-align: center; line-height: 1.3;
+}
+.dictate-actions .ai-engine-select { margin-left: auto; }
+
 .ask-answer { white-space: pre-wrap; margin-top: 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); line-height: 1.55; }
 .version-save { margin-top: 12px; }
 .find-row { margin-top: 12px; }
@@ -524,10 +540,9 @@ main:has(#view-project:not([hidden])) { max-width: 1320px; }
 .cmdk-item.active, .cmdk-item:hover { background: rgba(110, 168, 254, .16); color: var(--ink); }
 .cmdk-empty { padding: 10px 12px; color: var(--muted); font-size: 13px; }
 
-/* Kortkommandon: en info-knapp ovanför manuset (i stället för en textrad som ofta
-   radbröt till två rader) – klick visar dem i en flytande ruta (samma stil som
-   ac-menu). Tomt-läge med startknapp använder samma .empty-state som förut. */
-.hint-row { margin: 0 0 12px; }
+/* Info-knappar (kortkommandon i sektionshuvudet, dikteringshjälp i diktering-fliken):
+   klick visar innehållet i en flytande ruta (samma stil som ac-menu) i stället för
+   text som ligger kvar i vägen. Tomt-läge med startknapp använder .empty-state. */
 .hint-popover { line-height: 1.9; max-width: min(560px, 90vw); }
 kbd {
   font-family: ui-monospace, "Courier Prime", "Courier New", monospace; font-size: 11px; line-height: 1;

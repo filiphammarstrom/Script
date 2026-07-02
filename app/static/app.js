@@ -350,21 +350,30 @@ if ($("manusTabbar")) stickyObserver.observe($("manusTabbar"));
 window.addEventListener("resize", syncStickyOffsets);
 syncStickyOffsets();
 
-// ---- info-knapp: kortkommandon (flytande ruta, samma mönster som ac-menu) ----
-function toggleHintPopover() {
-  const pop = $("hintPopover");
-  if (!pop.hidden) { pop.hidden = true; return; }
-  const r = $("hintBtn").getBoundingClientRect();
-  pop.style.left = r.left + "px";
-  pop.style.top = (r.bottom + 6) + "px";
-  pop.hidden = false;
+// ---- info-knappar: kortkommandon + dikteringshjälp (flytande ruta, samma mönster som ac-menu) ----
+function setupInfoPopover(btnId, popId) {
+  const btn = $(btnId), pop = $(popId);
+  function toggle() {
+    if (!pop.hidden) { pop.hidden = true; return; }
+    const r = btn.getBoundingClientRect();
+    // Mät naturlig bredd med left:0 först – annars klämmer webbläsarens shrink-to-fit
+    // ihop rutan till bara det utrymme som finns kvar till höger om knappen, vilket
+    // gör att texten radbryts till en smal spalt när knappen sitter nära högerkanten.
+    pop.style.left = "0px";
+    pop.style.top = (r.bottom + 6) + "px";
+    pop.hidden = false;
+    const w = pop.offsetWidth;
+    pop.style.left = Math.max(8, Math.min(r.left, window.innerWidth - w - 8)) + "px";
+  }
+  btn.onclick = (e) => { e.stopPropagation(); toggle(); };
+  document.addEventListener("mousedown", (e) => {
+    if (pop.hidden) return;
+    if (e.target.closest(`#${popId}`) || e.target.closest(`#${btnId}`)) return;
+    pop.hidden = true;
+  });
 }
-$("hintBtn").onclick = (e) => { e.stopPropagation(); toggleHintPopover(); };
-document.addEventListener("mousedown", (e) => {
-  if ($("hintPopover").hidden) return;
-  if (e.target.closest("#hintPopover") || e.target.closest("#hintBtn")) return;
-  $("hintPopover").hidden = true;
-});
+setupInfoPopover("hintBtn", "hintPopover");
+setupInfoPopover("dictateHintBtn", "dictateHintPopover");
 
 $("backToProjects").onclick = async () => {
   flushSave();
@@ -1003,7 +1012,7 @@ function renderElements() {
     box.appendChild(wrap);
     renderOutline();  // töm scenlistan i sidofältet
     $("collapseAllBtn").disabled = true;
-    $("collapseAllBtn").textContent = "Fäll ihop alla";
+    $("collapseAllBtn").innerHTML = '<span class="chev-ico" aria-hidden="true">▾</span> Fäll ihop alla';
     $("scriptStats").innerHTML = "";
     return;
   }
@@ -1015,7 +1024,9 @@ function renderElements() {
 
   // "Fäll ihop alla" och sidräknaren bor i den fasta sektionshuvudet/flikraden,
   // inte i #elements – de behöver alltså bara uppdateras, inte byggas om.
-  $("collapseAllBtn").textContent = allCollapsed ? "Fäll ut alla" : "Fäll ihop alla";
+  $("collapseAllBtn").innerHTML = allCollapsed
+    ? '<span class="chev-ico" aria-hidden="true">▸</span> Fäll ut alla'
+    : '<span class="chev-ico" aria-hidden="true">▾</span> Fäll ihop alla';
   $("collapseAllBtn").disabled = sceneTotal === 0;
   $("collapseAllBtn").onclick = () => {
     if (allCollapsed) collapsedScenes.clear();
