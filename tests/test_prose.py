@@ -52,6 +52,11 @@ def test_empty_append_leaves_document_untouched():
     assert prose.apply_prose("Kvar.", ProseResult(mode="append", text="  ")) == "Kvar."
 
 
+def test_empty_replace_all_keeps_document():
+    # Trunkerat/tomt AI-svar får ALDRIG nollställa hela dokumentet.
+    assert prose.apply_prose("Hela boken.", ProseResult(mode="replace_all", text="")) == "Hela boken."
+
+
 # ---- modellen ----
 
 def test_project_defaults_backward_compatible():
@@ -108,6 +113,73 @@ def test_dictate_prose_endpoint_appends_then_replaces(monkeypatch):
     r = client.post(f"/api/projects/{p['id']}/dictate-prose", json={"text": "..."}).json()
     assert r["project"]["prose"] == "Allt nytt."
     client.delete(f"/api/projects/{p['id']}")
+
+
+def test_dictate_prose_snapshots_version_and_restore_recovers(monkeypatch):
+    # Ett replace_all som skriver om hela dokumentet ska gå att återställa via versioner.
+    monkeypatch.delenv("AUTH_ENABLED", raising=False)
+    p = client.post("/api/projects", json={"title": "Boken", "kind": "book"}).json()
+    client.put(f"/api/projects/{p['id']}", json={"prose": "Originaltexten."})
+
+    monkeypatch.setattr(
+        main_mod.prose_mod, "dictate_prose",
+        lambda *a, **k: ProseResult(mode="replace_all", text="Allt omskrivet.", summary=""),
+    )
+    r = client.post(f"/api/projects/{p['id']}/dictate-prose", json={"text": "..."}).json()
+    assert r["project"]["prose"] == "Allt omskrivet."
+
+    versions = client.get(f"/api/projects/{p['id']}/versions").json()["versions"]
+    assert versions, "en auto-version ska ha sparats före omskrivningen"
+    r2 = client.post(f"/api/projects/{p['id']}/versions/{versions[0]['id']}/restore").json()
+    assert r2["project"]["prose"] == "Originaltexten."
+    client.delete(f"/api/projects/{p['id']}")
+
+
+def test_prose_project_export_is_plain_text(monkeypatch):
+    monkeypatch.delenv("AUTH_ENABLED", raising=False)
+    p = client.post("/api/projects", json={"title": "Talet", "kind": "speech"}).json()
+    client.put(f"/api/projects/{p['id']}", json={"prose": "Kära vänner."})
+    res = client.post(f"/api/projects/{p['id']}/export")
+    assert res.status_code == 200
+    assert "text/plain" in res.headers["content-type"]
+    assert ".txt" in res.headers["content-disposition"]
+    assert "Kära vänner." in res.text
+    client.delete(f"/api/projects/{p['id']}")
+
+
+def test_import_rejected_for_prose_project(monkeypatch):
+    monkeypatch.delenv("AUTH_ENABLED", raising=False)
+    p = client.post("/api/projects", json={"title": "Boken", "kind": "book"}).json()
+    res = client.post(
+        f"/api/projects/{p['id']}/import",
+        files={"file": ("test.fountain", b"INT. RUM - DAG\n\nText.", "text/plain")},
+    )
+    assert res.status_code == 400
+    client.delete(f"/api/projects/{p['id']}")
+
+
+def test_shared_view_includes_kind_and_prose(monkeypatch):
+    monkeypatch.delenv("AUTH_ENABLED", raising=False)
+    p = client.post("/api/projects", json={"title": "Pitchen", "kind": "pitch"}).json()
+    client.put(f"/api/projects/{p['id']}", json={"prose": "En hisspresentation."})
+    token = client.post(f"/api/projects/{p['id']}/share").json()["token"]
+    shared = client.get(f"/api/shared/{token}").json()
+    assert shared["kind"] == "pitch"
+    assert shared["prose"] == "En hisspresentation."
+    client.delete(f"/api/projects/{p['id']}")
+
+
+def test_delete_project_removes_versions_comments_and_share(monkeypatch):
+    monkeypatch.delenv("AUTH_ENABLED", raising=False)
+    from app import store
+    p = client.post("/api/projects", json={"title": "Hemligt"}).json()
+    client.post(f"/api/projects/{p['id']}/versions", json={"label": "v1"})
+    client.post(f"/api/projects/{p['id']}/comments", json={"text": "anteckning"})
+    token = client.post(f"/api/projects/{p['id']}/share").json()["token"]
+    client.delete(f"/api/projects/{p['id']}")
+    assert store.list_versions("local", p["id"]) == []
+    assert store.list_comments("local", p["id"]) == []
+    assert store.resolve_share(token) is None
 
 
 def test_screenplay_dictation_sees_prose_synopsis(monkeypatch):
