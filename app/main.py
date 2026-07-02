@@ -115,6 +115,7 @@ class SecretsIn(BaseModel):
     anthropic_key: str | None = None
     openai_key: str | None = None
     assemblyai_key: str | None = None
+    groq_key: str | None = None
 
 
 class GoogleLoginIn(BaseModel):
@@ -240,6 +241,7 @@ def get_secrets(uid: str = Depends(auth_mod.current_uid)) -> dict:
         "anthropic": bool(s.get("anthropic_key")),
         "openai": bool(s.get("openai_key")),
         "assemblyai": bool(s.get("assemblyai_key")),
+        "groq": bool(s.get("groq_key")),
     }
 
 
@@ -550,30 +552,43 @@ def _run_transcription(
     model: str | None,
     openai_key: str | None,
     assemblyai_key: str | None,
+    groq_key: str | None,
     allow_local: bool,
 ) -> None:
     """Körs i en bakgrundstråd: transkriberar och uppdaterar jobbet."""
     jobs_mod.update_job(job_id, status="running")
+    trimmed_path = None
     try:
         resolved_backend = transcribe_mod.resolve_backend_name(backend)
         transcriber = transcribe_mod.get_transcriber(
-            resolved_backend, model, openai_key=openai_key, assemblyai_key=assemblyai_key, allow_local=allow_local
+            resolved_backend, model,
+            openai_key=openai_key, assemblyai_key=assemblyai_key, groq_key=groq_key,
+            allow_local=allow_local,
         )
+        audio_path = tmp_path
+        if transcribe_mod.should_trim_silence(resolved_backend):
+            jobs_mod.update_job(job_id, progress="Rensar tystnad ...")
+            trimmed_path = transcribe_mod.trim_silence(tmp_path)
+            if trimmed_path:
+                audio_path = trimmed_path
+            jobs_mod.update_job(job_id, progress="")
 
         def _on_progress(i: int, n: int) -> None:
             jobs_mod.update_job(job_id, progress=f"Del {i} av {n}")
 
         text = transcribe_mod.transcribe_with_chunking(
-            transcriber, tmp_path, resolved_backend, language=language, on_progress=_on_progress
+            transcriber, audio_path, resolved_backend, language=language, on_progress=_on_progress
         )
         jobs_mod.update_job(job_id, status="done", text=text, progress="")
     except Exception as exc:  # saknad nyckel, nätverksfel, transkriberingsfel ...
         jobs_mod.update_job(job_id, status="error", error=str(exc))
     finally:
-        try:
-            os.unlink(tmp_path)
-        except OSError:
-            pass
+        for p in (tmp_path, trimmed_path):
+            if p:
+                try:
+                    os.unlink(p)
+                except OSError:
+                    pass
 
 
 @app.post("/api/projects/{project_id}/transcribe", status_code=202)
@@ -605,7 +620,7 @@ def transcribe_audio(
         target=_run_transcription,
         args=(
             job.id, tmp_path, language, backend, model,
-            secrets.get("openai_key"), secrets.get("assemblyai_key"),
+            secrets.get("openai_key"), secrets.get("assemblyai_key"), secrets.get("groq_key"),
             not auth_mod.auth_enabled(),
         ),
         daemon=True,

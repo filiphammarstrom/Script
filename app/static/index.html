@@ -66,6 +66,9 @@
         <label>AssemblyAI – för moln-transkribering
           <input id="keyAssemblyai" type="password" autocomplete="off" placeholder="Inte satt">
         </label>
+        <label>Groq – billigaste moln-transkriberingen (~0,04 $/timme)
+          <input id="keyGroq" type="password" autocomplete="off" placeholder="Inte satt">
+        </label>
         <div class="row">
           <button id="saveKeysBtn" class="primary">Spara nycklar</button>
           <span id="keysStatus" class="status"></span>
@@ -182,10 +185,17 @@
                 <select id="transcribeEngine" title="Transkriberingsmotor">
                   <option value="">Automatiskt (live i webbläsaren när det går)</option>
                   <option value="webspeech">Webbläsaren – live (gratis)</option>
+                  <option value="browser">Webbläsaren – KB-Whisper (gratis, privat)</option>
                   <option value="local">Lokalt: Whisper-CLI (gratis)</option>
                   <option value="watch">Bevakad mapp (auto)</option>
+                  <option value="groq">Moln: Groq (billigast)</option>
                   <option value="openai">Moln: OpenAI</option>
                   <option value="assemblyai">Moln: AssemblyAI</option>
+                </select>
+                <select id="browserModel" title="KB-Whisper-modell – laddas ner en gång och cachas i webbläsaren" hidden>
+                  <option value="tiny">KB-Whisper Tiny (snabbast)</option>
+                  <option value="base" selected>KB-Whisper Base (lagom)</option>
+                  <option value="small">KB-Whisper Small (bäst)</option>
                 </select>
                 <label class="inline-check" title="Talarseparering: ljudet skickas till en molnmotor som märker vem som säger vad (Speaker A/B ...). Utan bock används gratis live-diktering i webbläsaren när det går.">
                   <input type="checkbox" id="multiSpeaker"> Flera talare
