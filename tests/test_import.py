@@ -26,6 +26,22 @@ def test_from_fdx_reads_body_not_titlepage():
     assert all(e["text"] != "MIN TITEL" for e in els)
 
 
+def test_from_fdx_strips_parens_from_parenthetical():
+    # Final Draft lagrar parenteserna bokstavligen i <Text> – vi lagrar bara innehållet
+    # (se app/fdx.py, som lägger dem på igen vid export) så redigeringsrutan kan visa
+    # dem som statisk dekoration i stället för redigerbar text.
+    xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<FinalDraft DocumentType="Script" Version="3"><Content>'
+        '<Paragraph Type="Character"><Text>ANNA</Text></Paragraph>'
+        '<Paragraph Type="Parenthetical"><Text>(leende)</Text></Paragraph>'
+        '<Paragraph Type="Dialogue"><Text>Hej.</Text></Paragraph>'
+        "</Content></FinalDraft>"
+    )
+    els = importer.from_fdx(xml)
+    assert els[1] == {"type": "parenthetical", "text": "leende"}
+
+
 def test_from_fdx_invalid_raises():
     try:
         importer.from_fdx("inte xml <<<")
@@ -49,6 +65,8 @@ def test_from_fountain_basic():
     els = importer.from_fountain(text)
     types = [e["type"] for e in els]
     assert types == ["scene_heading", "action", "character", "parenthetical", "dialogue", "transition"]
+    # Parenteserna i källan ska strippas bort ur den lagrade texten (se from_fdx-testet).
+    assert els[3] == {"type": "parenthetical", "text": "leende"}
 
 
 def test_from_fountain_forced_markers():

@@ -25,6 +25,15 @@ FDX_TO_TYPE = {
 _SCENE_RE = re.compile(r"^(INT|EXT|EST|INT\.?/EXT|EXT\.?/INT|I/E)[.\s]", re.IGNORECASE)
 
 
+def _strip_parens(text: str) -> str:
+    """Parenthetical-text lagras utan de omslutande parenteserna – redigeringsrutan
+    och exporten lägger på dem igen (se app/fdx.py och app.js), så en importerad
+    "(leende)" ska bli "leende" i vår representation."""
+    if text.startswith("(") and text.endswith(")"):
+        return text[1:-1].strip()
+    return text
+
+
 def _paragraph_to_item(para) -> dict | None:
     """En enda <Paragraph> → vårt element. Bara DIREKTA <Text>-barn läses (inte
     t.ex. nästlade ScriptNote-paragrafer), annars skulle deras text hänga med."""
@@ -32,6 +41,8 @@ def _paragraph_to_item(para) -> dict | None:
     text = "".join(node.text or "" for node in para.findall("Text")).strip()
     if not text:
         return None
+    if ptype == "Parenthetical":
+        text = _strip_parens(text)
     item = {"type": FDX_TO_TYPE.get(ptype, "action"), "text": text}
     number = para.get("Number")
     if number and ptype == "Scene Heading":
@@ -107,7 +118,7 @@ def from_fountain(text: str) -> list[dict]:
         if s == s.upper() and s.endswith("TO:"):
             out.append({"type": "transition", "text": s}); in_dialogue = False; i += 1; continue
         if in_dialogue and s.startswith("(") and s.endswith(")"):
-            out.append({"type": "parenthetical", "text": s}); i += 1; continue
+            out.append({"type": "parenthetical", "text": _strip_parens(s)}); i += 1; continue
         # Karaktärsreplik: VERSALER, föregås av tomrad, följs av text (inte tomrad).
         if prev_blank and not next_blank and s == s.upper() and re.search(r"[A-ZÅÄÖ]", s) and not s.endswith(":"):
             out.append({"type": "character", "text": s}); in_dialogue = True; i += 1; continue

@@ -45,11 +45,24 @@ def _paragraph(par_type: str, text: str, *, number: str | None = None, indent: s
     return f'{indent}<Paragraph Type="{par_type}"{attr}><Text>{escape(text)}</Text></Paragraph>\n'
 
 
+def _paren_text(par_type: str, text: str) -> str:
+    """Vi lagrar Parenthetical-text utan omslutande parenteser (redigeringsrutan
+    visar dem som statisk dekoration, se app.js) – Final Draft förväntar sig dem
+    dock bokstavligen i <Text>, så de läggs på här vid export."""
+    if par_type == "Parenthetical" and text and not (text.startswith("(") and text.endswith(")")):
+        return f"({text})"
+    return text
+
+
 def _dual_dialogue(group: "list[ScreenplayElement]") -> str:
     """Slå ihop en sammanhängande grupp dual=True-element till Final Drafts
     <Paragraph Type="General"><DualDialogue>...-omslag (repliker sida vid sida)."""
     inner = "".join(
-        _paragraph(_TYPE_MAP.get(el.type, "General"), el.text, indent="        ")
+        _paragraph(
+            _TYPE_MAP.get(el.type, "General"),
+            _paren_text(_TYPE_MAP.get(el.type, "General"), el.text),
+            indent="        ",
+        )
         for el in group
     )
     return (
@@ -123,6 +136,8 @@ def to_fdx(
             # En medveten lucka renderas tydligt – aldrig bortfabulerad.
             par_type = "Action"
             text = text if text.strip().startswith("[LUCKA") else f"[LUCKA: {text}]"
+        else:
+            text = _paren_text(par_type, text)
         body.append(_paragraph(par_type, text, number=number))
         i += 1
     return _HEADER + "".join(body) + "  </Content>\n" + _title_page(title, author, contact) + "</FinalDraft>\n"

@@ -47,6 +47,14 @@ def test_basic_structure_and_types():
     assert paragraphs[4].find("Text").text == "Hej & välkommen <hem>!"
 
 
+def test_parenthetical_gets_wrapped_in_parens_on_export():
+    # Vi lagrar Parenthetical-text utan omslutande parenteser (se app/importer.py) –
+    # exporten ska lägga på dem, men inte dubblera dem om de redan finns (gammal data).
+    root = ET.fromstring(to_fdx([E("parenthetical", "leende"), E("parenthetical", "(redan inparentiserad)")]))
+    texts = [p.find("Text").text for p in root.find("Content").findall("Paragraph")]
+    assert texts == ["(leende)", "(redan inparentiserad)"]
+
+
 def test_gap_renders_as_marked_action():
     root = ET.fromstring(to_fdx([E("action", "övergång saknas här", is_gap=True)]))
     para = root.find("Content").find("Paragraph")
@@ -131,6 +139,17 @@ def test_dual_dialogue_wraps_consecutive_dual_elements():
     assert inner_types == ["Character", "Dialogue", "Character", "Dialogue"]
     inner_texts = [p.find("Text").text for p in dd.findall("Paragraph")]
     assert inner_texts == ["ANNA", "Hej!", "BEA", "Hej själv!"]
+
+
+def test_dual_dialogue_wraps_parenthetical_in_parens_too():
+    elements = [
+        E("character", "ANNA", dual=True),
+        E("parenthetical", "viskar", dual=True),
+        E("dialogue", "Hej!", dual=True),
+    ]
+    dd = ET.fromstring(to_fdx(elements)).find("Content").find("Paragraph").find("DualDialogue")
+    texts = [p.find("Text").text for p in dd.findall("Paragraph")]
+    assert texts == ["ANNA", "(viskar)", "Hej!"]
 
 
 def test_dual_dialogue_does_not_get_a_locked_scene_number_attribute():
