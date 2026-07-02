@@ -172,14 +172,17 @@
             <span id="saveState" class="savestate"></span>
           </div>
           <nav class="side-menu">
-            <button class="side-item" data-section="manus">📝 Manus</button>
-            <button class="side-item" data-section="board">🗂️ Korktavla</button>
-            <button class="side-item" data-section="ask">💬 Fråga AI</button>
-            <button class="side-item" data-section="reports">📊 Rapporter</button>
-            <button class="side-item" data-section="share">🔗 Dela</button>
+            <button class="side-item sp-only" data-section="manus">📝 Manus</button>
+            <!-- Prosadokumentet: i manusprojekt = storyline/synopsis; i prosaprojekt
+                 (bok/tal/pitch ...) är det själva huvudtexten och etiketten byts i JS. -->
+            <button class="side-item" data-section="prose" id="proseMenuItem">📖 Storyline / Synopsis</button>
+            <button class="side-item sp-only" data-section="board">🗂️ Korktavla</button>
+            <button class="side-item sp-only" data-section="ask">💬 Fråga AI</button>
+            <button class="side-item sp-only" data-section="reports">📊 Rapporter</button>
+            <button class="side-item sp-only" data-section="share">🔗 Dela</button>
             <button class="side-item" data-section="projset">⚙️ Inställningar</button>
           </nav>
-          <div class="side-files">
+          <div class="side-files sp-only">
             <div class="side-files-row">
               <label class="filelabel side-file-btn" title="Importera manus (FDX/Fountain)">
                 📥 Importera
@@ -189,7 +192,7 @@
             </div>
             <button id="printBtn" class="side-file-btn full">🖨️ Skriv ut / PDF</button>
           </div>
-          <div class="side-scenes">
+          <div class="side-scenes sp-only">
             <div class="side-scenes-head">Scener <span class="hint">(klicka · dra)</span></div>
             <ol id="sceneOutline" class="scene-outline"></ol>
           </div>
@@ -362,6 +365,22 @@
             </section>
           </div>
 
+          <!-- SEKTION: Prosadokument (storyline/synopsis i manusprojekt; huvudtexten
+               i bok/tal/pitch/artikel/sångtext/fritext-projekt). Dikteringspanelen
+               (#tabDictate) FLYTTAS in i #proseDictateHost när sektionen visas
+               (se mountDictatePanel i app.js) så inspelning/motorval/transkribering
+               inte behöver dubbleras – "Utför" går då till dictate-prose i stället. -->
+          <div class="proj-section" data-section="prose" hidden>
+            <div class="section-head">
+              <h2 class="section-title" id="proseTitle">Storyline / Synopsis</h2>
+              <span id="proseStats" class="script-stats"></span>
+            </div>
+            <div id="proseDictateHost"></div>
+            <section class="panel prose-panel">
+              <textarea id="proseText" rows="18" placeholder="Skriv här – eller diktera ovan så formaterar AI:n texten åt dig."></textarea>
+            </section>
+          </div>
+
           <!-- SEKTION: Korktavla -->
           <div class="proj-section" data-section="board" hidden>
             <div class="section-head">
@@ -447,6 +466,25 @@
       </div>
     </section>
   </main>
+
+  <!-- Nytt projekt: titel + projekttyp (screenplay/prosa – typerna speglar
+       KINDS i app/prose.py; beskrivningen under uppdateras vid val) -->
+  <div id="newProjectDialog" class="overlay" hidden>
+    <div class="panel np-dialog">
+      <h2>Nytt projekt</h2>
+      <label>Titel
+        <input id="npTitle" placeholder="Namnlöst projekt" autocomplete="off">
+      </label>
+      <label>Typ
+        <select id="npKind"></select>
+      </label>
+      <p id="npKindDesc" class="hint"></p>
+      <div class="row">
+        <button id="npCreateBtn" class="primary">Skapa</button>
+        <button id="npCancelBtn">Avbryt</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Kommandopalett (⌘K / Ctrl+K): hoppa till scener och kör kommandon från tangentbordet -->
   <div id="cmdk" class="cmdk-backdrop" hidden>

@@ -240,15 +240,66 @@ async function loadProjectList() {
   for (const p of list) {
     const card = document.createElement("div");
     card.className = "projectcard";
-    card.innerHTML = `<span class="pc-title">${esc(p.title)}</span><span class="pc-meta">${p.scenes} scener</span>`;
+    const kind = p.kind || "screenplay";
+    const meta = kind === "screenplay"
+      ? `${p.scenes} scener`
+      : `${kindInfo(kind).icon} ${kindInfo(kind).label} · ${p.words || 0} ord`;
+    card.innerHTML = `<span class="pc-title">${esc(p.title)}</span><span class="pc-meta">${esc(meta)}</span>`;
     card.onclick = async () => openProject(await api("GET", `/api/projects/${p.id}`));
     box.appendChild(card);
   }
 }
-$("newProjectBtn").onclick = async () => {
-  const val = window.prompt("Titel på manuset:");
-  if (val === null) return;  // avbrutet
-  const p = await api("POST", "/api/projects", { title: val.trim() || "Namnlöst projekt" });
+// Projekttyper – speglar KINDS i app/prose.py (label/icon ska hållas i synk).
+// "screenplay" är manuseditorn; övriga är prosadokument med varsin AI-guide.
+const KIND_INFO = {
+  screenplay: { label: "Filmmanus (screenplay)", icon: "🎬", desc: "Manus i branschformat med scener, dialog och FDX-export – plus ett eget storyline/synopsis-dokument." },
+  synopsis: { label: "Storyline / Synopsis", icon: "📖", desc: "Berätta handlingen i löpande prosa – för filmen, serien eller pitchen." },
+  book: { label: "Bok / Roman", icon: "📕", desc: "Romanprosa med stycken och talstreck – diktera din bok kapitel för kapitel." },
+  speech: { label: "Tal", icon: "🎤", desc: "Ett tal att hålla – bröllop, invigning, presentation." },
+  pitch: { label: "Pitch", icon: "🪧", desc: "Kort säljtext: logline, handling, målgrupp." },
+  article: { label: "Artikel / Blogg", icon: "📰", desc: "Artikel eller blogginlägg med redaktionell styckeindelning." },
+  lyrics: { label: "Sångtext / Poesi", icon: "🎵", desc: "Sångtext eller dikt – radbrytningar och upprepningar bevaras exakt." },
+  freetext: { label: "Fri text", icon: "📄", desc: "Ren diktering till läsbar text, utan andra formatregler." },
+};
+function projectKind() { return (project && project.kind) || "screenplay"; }
+function kindInfo(kind) { return KIND_INFO[kind] || KIND_INFO.freetext; }
+// Prosadokumentets etikett: i ett manusprojekt är det manusets storyline/synopsis,
+// i ett prosaprojekt är det själva huvudtexten (bok, tal, pitch ...).
+function proseLabel() {
+  return projectKind() === "screenplay" ? "Storyline / Synopsis" : kindInfo(projectKind()).label;
+}
+
+// Nytt projekt: liten dialog med titel + typ (ersätter window.prompt som inte
+// kan erbjuda ett typval).
+for (const [kind, info] of Object.entries(KIND_INFO)) {
+  const o = document.createElement("option");
+  o.value = kind;
+  o.textContent = `${info.icon} ${info.label}`;
+  $("npKind").appendChild(o);
+}
+function updateNpDesc() { $("npKindDesc").textContent = kindInfo($("npKind").value).desc; }
+$("npKind").onchange = updateNpDesc;
+$("newProjectBtn").onclick = () => {
+  $("npTitle").value = "";
+  $("npKind").value = "screenplay";
+  updateNpDesc();
+  $("newProjectDialog").hidden = false;
+  $("npTitle").focus();
+};
+function closeNewProjectDialog() { $("newProjectDialog").hidden = true; }
+$("npCancelBtn").onclick = closeNewProjectDialog;
+$("newProjectDialog").addEventListener("mousedown", (e) => {
+  if (e.target === $("newProjectDialog")) closeNewProjectDialog();  // klick utanför rutan
+});
+$("npTitle").addEventListener("keydown", (e) => { if (e.key === "Enter") $("npCreateBtn").click(); });
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !$("newProjectDialog").hidden) closeNewProjectDialog();
+});
+$("npCreateBtn").onclick = async () => {
+  const title = $("npTitle").value.trim() || "Namnlöst projekt";
+  const kind = $("npKind").value;
+  closeNewProjectDialog();
+  const p = await api("POST", "/api/projects", { title, kind });
   openProject(p);
 };
 
@@ -264,7 +315,18 @@ function openProject(p) {
   $("projDirectives").value = p.directives;
   collapsedScenes.clear();  // alla scener utfällda när ett projekt öppnas
   setActiveTab(null);  // alla verktygsflikar hopfällda när ett projekt öppnas
-  showSection("manus");
+  // Projekttyp: prosaprojekt (bok/tal/pitch ...) har prosadokumentet som huvudvy
+  // och saknar de manus-specifika delarna (manuseditor, korktavla, rapporter ...).
+  $("proseText").value = p.prose || "";
+  proseUndo = null;
+  const isScreenplay = projectKind() === "screenplay";
+  document.querySelectorAll(".sp-only").forEach((el) => { el.hidden = !isScreenplay; });
+  $("proseMenuItem").textContent = isScreenplay
+    ? "📖 Storyline / Synopsis"
+    : `${kindInfo(projectKind()).icon} ${kindInfo(projectKind()).label}`;
+  $("proseTitle").textContent = proseLabel();
+  updateProseStats();
+  showSection(isScreenplay ? "manus" : "prose");
   showView("project");  // måste synas INNAN renderElements(), annars mäts textareornas
                           // scrollHeight som 0 (dolt via [hidden]) och raderna blir osynliga
   renderBible();
@@ -287,15 +349,42 @@ function openProject(p) {
   setProjSetStatus("");
   setSaveState("");
 }
+// Sektioner som bara finns i manusprojekt – i ett prosaprojekt (bok/tal ...)
+// omdirigeras de (t.ex. från kommandopaletten) till prosadokumentet.
+const SCREENPLAY_SECTIONS = new Set(["manus", "board", "ask", "reports", "share"]);
 // Byt sektion i projekt-app-skalet (sidomenyn). Laddar innehåll vid behov.
 function showSection(name) {
+  if (project && projectKind() !== "screenplay" && SCREENPLAY_SECTIONS.has(name)) name = "prose";
   for (const s of document.querySelectorAll("#view-project .proj-section")) s.hidden = s.dataset.section !== name;
   for (const b of document.querySelectorAll(".side-item")) b.classList.toggle("active", b.dataset.section === name);
   if (name === "reports") renderReports();
   else if (name === "board") renderCorkboard();
   else if (name === "share") loadShareStatus();
   setActiveTab(null);  // verktygsflikarna hör bara hemma i Manus-vyn
+  mountDictatePanel(name);  // dikteringspanelen delas mellan Manus-fliken och prosa-vyn
   $("sidebar").classList.remove("open");  // stäng mobilmenyn efter val
+}
+// Dikteringspanelen (#tabDictate) är EN och samma för manus och prosa: i Manus-vyn
+// är den en flikruta ovanpå manuset; i prosa-vyn flyttas DOM-noden in i sektionen
+// och visas som en vanlig panel. Så slipper inspelning/motorval/transkribering
+// dubbleras – bara "Utför"-knappen byter mål (se analyzeBtn).
+const DICTATE_PLACEHOLDER_SCRIPT = $("inputText").placeholder;
+const DICTATE_PLACEHOLDER_PROSE =
+  "Diktera/klistra in – ny text läggs till sist. Säg t.ex. 'ändra stycket om …' för att ändra befintlig text.";
+function mountDictatePanel(section) {
+  const panel = $("tabDictate");
+  if (section === "prose") {
+    $("proseDictateHost").appendChild(panel);
+    panel.classList.add("inline-panel");
+    panel.hidden = false;
+    $("inputText").placeholder = DICTATE_PLACEHOLDER_PROSE;
+  } else if (panel.classList.contains("inline-panel")) {
+    const manus = document.querySelector('.proj-section[data-section="manus"]');
+    manus.insertBefore(panel, $("tabFind"));  // tillbaka till sin plats bland flikrutorna
+    panel.classList.remove("inline-panel");
+    panel.hidden = true;  // styrs av flikraden igen
+    $("inputText").placeholder = DICTATE_PLACEHOLDER_SCRIPT;
+  }
 }
 document.querySelectorAll(".side-item").forEach((b) => { b.onclick = () => showSection(b.dataset.section); });
 $("sideToggle").onclick = () => $("sidebar").classList.toggle("open");
@@ -314,7 +403,10 @@ function setActiveTab(tab) {
     b.classList.toggle("active", on);
     b.setAttribute("aria-expanded", String(on));
   });
-  document.querySelectorAll(".tab-content").forEach((c) => { c.hidden = c.dataset.tab !== activeTab; });
+  document.querySelectorAll(".tab-content").forEach((c) => {
+    if (c.classList.contains("inline-panel")) return;  // prosa-vyns fasta panel styrs inte av flikarna
+    c.hidden = c.dataset.tab !== activeTab;
+  });
   // Flikrutan ligger ovanpå manuset men täcker inte nödvändigtvis den smala
   // railen med radkontroller utanför själva arket – dölj dem så de inte syns
   // bredvid/genom rutan medan en flik är öppen.
@@ -801,6 +893,40 @@ $("transcriptFile").onchange = async (e) => {
   e.target.value = "";
 };
 
+// ---- prosa-dokumentet (storyline/synopsis, bok, tal ...) ----
+let proseUndo = null;  // ångra-kopia av dokumentet före senaste prosa-dikteringen
+function proseModeActive() {
+  // Dikteringspanelen är flyttad in i prosa-vyn -> "Utför" ska gå till prosa-AI:n.
+  return $("tabDictate").classList.contains("inline-panel");
+}
+function updateProseStats() {
+  const words = ($("proseText").value.trim().match(/\S+/g) || []).length;
+  $("proseStats").textContent = words ? `${words} ord` : "";
+}
+$("proseText").oninput = () => {
+  if (!project) return;
+  project.prose = $("proseText").value;
+  updateProseStats();
+  scheduleSave();
+};
+async function runProseDictation(text) {
+  setStatus("Skriver in i texten ...", true);
+  const snapshot = project.prose || "";
+  try {
+    const data = await api("POST", `/api/projects/${project.id}/dictate-prose`, { text, provider: $("aiEngine").value });
+    project = data.project;
+    $("proseText").value = project.prose || "";
+    updateProseStats();
+    proseUndo = snapshot;
+    undoSnapshot = null;  // ångra-knappen gäller nu prosan, inte manuset
+    $("undoBtn").hidden = false;
+    $("inputText").value = "";
+    setStatus(data.summary || "Inlagt ✓");
+  } catch (e) {
+    setStatus("Fel: " + e.message);
+  }
+}
+
 // ---- analys ----
 $("analyzeBtn").onclick = async () => {
   const text = $("inputText").value.trim();
@@ -808,6 +934,7 @@ $("analyzeBtn").onclick = async () => {
     setStatus("Diktera eller klistra in text först.");
     return;
   }
+  if (proseModeActive()) { await runProseDictation(text); return; }
   setStatus("Bygger in i manuset ...", true);
   const snapshot = JSON.parse(JSON.stringify(project.elements));
   try {
@@ -832,6 +959,20 @@ $("analyzeBtn").onclick = async () => {
   }
 };
 $("undoBtn").onclick = async () => {
+  if (proseUndo !== null) {  // senaste dikteringen gick till prosadokumentet
+    setStatus("Ångrar ...", true);
+    try {
+      project = await api("PUT", `/api/projects/${project.id}`, { prose: proseUndo });
+      proseUndo = null;
+      $("undoBtn").hidden = true;
+      $("proseText").value = project.prose || "";
+      updateProseStats();
+      setStatus("Ångrade senaste dikteringen.");
+    } catch (e) {
+      setStatus("Kunde inte ångra: " + e.message);
+    }
+    return;
+  }
   if (!undoSnapshot) return;
   setStatus("Ångrar ...", true);
   try {
@@ -1795,8 +1936,9 @@ async function saveNow() {
   if (!project) return;
   setSaveState("saving");
   try {
-    // Sparar bara elementen; behåller lokala element-objekt (DOM-bindningarna) intakta.
-    await api("PUT", `/api/projects/${project.id}`, { elements: project.elements });
+    // Sparar elementen + prosadokumentet; behåller lokala element-objekt
+    // (DOM-bindningarna) intakta.
+    await api("PUT", `/api/projects/${project.id}`, { elements: project.elements, prose: project.prose ?? "" });
     setSaveState("saved");
   } catch (e) {
     setSaveState("error", e.message);

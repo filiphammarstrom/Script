@@ -658,6 +658,31 @@ main:has(#view-project:not([hidden])) { max-width: 1340px; }
 .style-group { display: inline-flex; gap: 4px; }
 .style-group .iconbtn { padding: 4px 9px; }
 
+/* ---- Nytt projekt-dialogen (titel + projekttyp) ---- */
+.np-dialog { width: min(460px, 92vw); margin: 0; }
+.np-dialog h2 { margin-bottom: 14px; }
+.np-dialog select { width: 100%; }
+.np-dialog .row { margin-top: 16px; }
+#npKindDesc { min-height: 2.6em; margin: 6px 0 0; }
+
+/* ---- Prosadokumentet (storyline/synopsis, bok, tal, pitch ...) ---- */
+/* Dokumentkänsla: läsbar serif med generöst radavstånd, begränsad radlängd –
+   löpande text är inte manus och ska inte se ut som Courier-ark. */
+.prose-panel { max-width: 860px; padding: 0; }
+.prose-panel textarea {
+  width: 100%; min-height: 440px; margin: 0; border: none; background: none;
+  padding: 30px 38px 38px;
+  font: 15.5px/1.75 Georgia, "Times New Roman", "Noto Serif", serif;
+  color: var(--ink); resize: vertical;
+}
+.prose-panel textarea:focus { border: none; box-shadow: none; }
+/* Dikteringspanelen när den är flyttad in i prosa-vyn (se mountDictatePanel i
+   app.js): vanlig panel i flödet i stället för flikrutans fixed-läge. */
+.tab-content.inline-panel {
+  position: static; width: auto; max-height: none;
+  border-color: var(--line); margin-bottom: 14px;
+}
+
 /* Kommandopalett (⌘K): centrerad ruta över allt, med sökfält och träfflista. */
 .cmdk-backdrop {
   position: fixed; inset: 0; z-index: 90;

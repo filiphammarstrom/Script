@@ -10,6 +10,18 @@ diariseras i molnet (default AssemblyAI) och sedan matar samma pipeline.
 
 - **Projekt:** varje manus är ett eget projekt (egen JSON-fil i `data/projects/`). Du kan ha
   flera parallellt och återuppta exakt där du var.
+- **Projekttyper:** vid *Nytt projekt* väljer du typ. **Filmmanus (screenplay)** är
+  manuseditorn med scener/dialog/FDX-export – men appen kan även diktera **löpande text**:
+  **Storyline/Synopsis**, **Bok/Roman**, **Tal**, **Pitch**, **Artikel/Blogg**,
+  **Sångtext/Poesi** och **Fri text**. Varje typ har en egen AI-guide (`app/prose.py`) som
+  styr *formen* (synopsis i presens utan manusformat, romanprosa med talstreck, tal i
+  jag-form, pitch i tighta stycken, sångtext där radbrytningar bevaras ...) – innehållet är
+  alltid ditt, samma sekreterarprincip som för manus. Ny text läggs till sist ("append");
+  bara en uttrycklig ändringsinstruktion ("skriv om inledningen") får ersätta befintlig text.
+- **Storyline/Synopsis i manusprojekt:** varje screenplay-projekt har dessutom ett eget
+  prosadokument under **Storyline/Synopsis** i sidomenyn – diktera fram handlingen i prosa
+  (eller be AI:n sammanfatta det befintliga manuset). Dokumentet skickas sedan med som
+  kontext när du dikterar manuset, så AI:n känner till din storyline.
 - **Story-bibel:** AI:ns "minne" av projektet (karaktärer, alias, språk, platser, fakta). Den
   växer för varje diktering så att namn och platser hålls konsekventa över sessioner.
 - **Tre lager av regler/instruktioner till AI:n:**

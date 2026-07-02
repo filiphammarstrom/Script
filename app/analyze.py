@@ -125,6 +125,11 @@ def _user_content(project: Project, text: str) -> str:
     parts: list[str] = []
     if project.context.strip():
         parts.append("# Projektkontext / synopsis\n" + project.context.strip())
+    if project.prose.strip():
+        parts.append(
+            "# Projektets storyline/synopsis-dokument (användarens eget – referens, hitta inte på utöver)\n"
+            + project.prose.strip()
+        )
     if project.directives.strip():
         parts.append("# Projektets instruktioner\n" + project.directives.strip())
     parts.append(
@@ -328,6 +333,11 @@ def _dictate_user_content(project: Project, text: str) -> str:
     parts: list[str] = []
     if project.context.strip():
         parts.append("# Projektkontext / synopsis\n" + project.context.strip())
+    if project.prose.strip():
+        parts.append(
+            "# Projektets storyline/synopsis-dokument (användarens eget – referens, hitta inte på utöver)\n"
+            + project.prose.strip()
+        )
     if project.directives.strip():
         parts.append("# Projektets instruktioner\n" + project.directives.strip())
     parts.append("# Story-bibel (håll konsekvent, bygg vidare)\n" + project.story_bible.model_dump_json(indent=2))

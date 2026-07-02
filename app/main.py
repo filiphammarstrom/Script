@@ -21,6 +21,7 @@ from app import analyze as analyze_mod
 from app import auth as auth_mod
 from app import importer as importer_mod
 from app import jobs as jobs_mod
+from app import prose as prose_mod
 from app import store
 from app import transcribe as transcribe_mod
 from app.fdx import to_fdx
@@ -42,6 +43,7 @@ store.migrate_legacy()  # flytta ev. äldre enanvändardata till "local" en gån
 # ---- request-modeller ----
 class CreateProjectIn(BaseModel):
     title: str = "Namnlöst projekt"
+    kind: str = "screenplay"  # projekttyp, se app/prose.py KINDS
 
 
 class ProjectUpdateIn(BaseModel):
@@ -52,6 +54,7 @@ class ProjectUpdateIn(BaseModel):
     directives: str | None = None
     story_bible: StoryBible | None = None
     elements: list[ScreenplayElement] | None = None
+    prose: str | None = None  # prosadokumentet (synopsis/bok/tal ..., se app/prose.py)
 
 
 class AnalyzeIn(BaseModel):
@@ -286,7 +289,9 @@ def list_projects(uid: str = Depends(auth_mod.current_uid)) -> list[dict]:
 
 @app.post("/api/projects")
 def create_project(body: CreateProjectIn, uid: str = Depends(auth_mod.current_uid)) -> Project:
-    return store.create_project(uid, body.title)
+    if body.kind not in prose_mod.KINDS:
+        raise HTTPException(400, f"Okänd projekttyp: {body.kind!r}")
+    return store.create_project(uid, body.title, kind=body.kind)
 
 
 @app.get("/api/projects/{project_id}")
@@ -384,6 +389,32 @@ def dictate_project(
         "clarifications": result.clarifications,
         "summary": result.summary,
     }
+
+
+@app.post("/api/projects/{project_id}/dictate-prose")
+def dictate_prose_project(
+    project_id: str, body: AnalyzeIn, uid: str = Depends(auth_mod.current_uid)
+) -> dict:
+    """Diktering till prosadokumentet (storyline/synopsis, bok, tal ... – se app/prose.py).
+
+    AI:n formaterar dikteringen som löpande text enligt projekttypens guide;
+    resultatet tillämpas direkt (append, eller replace_all vid uttrycklig ändring)
+    och sparas. Klienten behåller en egen ångra-kopia.
+    """
+    project = store.load_project(uid, project_id)
+    if project is None:
+        raise HTTPException(404, "Projektet finns inte")
+    settings = store.effective_global_settings(uid)
+    try:
+        result = prose_mod.dictate_prose(
+            project, body.text, settings,
+            model=body.model, api_key=_ai_key(uid, body.provider), provider=body.provider or "anthropic",
+        )
+    except Exception as exc:  # saknad API-nyckel, nätverksfel, modellfel ...
+        raise HTTPException(502, f"Dikteringen misslyckades: {exc}")
+    project.prose = prose_mod.apply_prose(project.prose, result)
+    store.save_project(uid, project)
+    return {"project": project, "summary": result.summary}
 
 
 @app.post("/api/projects/{project_id}/apply-edits")
