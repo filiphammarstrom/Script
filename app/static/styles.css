@@ -457,15 +457,20 @@ main:has(#view-project:not([hidden])) { max-width: 1320px; }
   content: attr(data-scene); position: absolute; top: 1px; right: -0.3em;
   font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums;
 }
-/* Hopfäll-knapp + scennummer i vänstermarginalen (två separata knappar i en rad:
-   chevronen fäller ihop/ut till vänster, scennumret öppnar redigering av ett låst
-   nummer). Chevronen står med gott om luft till numret så de inte flyter ihop. */
+/* Typknapp + hopfäll-knapp + scennummer i vänstermarginalen (tre knappar i en rad:
+   typknappen längst ut, sen chevronen som fäller ihop/ut, sen scennumret som öppnar
+   redigering av ett låst nummer, närmast texten). Gott om luft mellan dem så de
+   inte flyter ihop. */
 .scene-toggle {
-  position: absolute; left: -4.4em; top: -1px; display: inline-flex; align-items: baseline; gap: 10px;
+  position: absolute; left: -6.6em; top: -1px; display: inline-flex; align-items: baseline; gap: 10px;
   color: var(--muted); font-family: inherit; font-size: inherit; font-weight: 700; font-variant-numeric: tabular-nums;
 }
 .scene-toggle button { all: unset; cursor: pointer; font: inherit; color: inherit; display: inline-flex; align-items: center; justify-content: center; }
 .scene-toggle button:hover { color: var(--accent); }
+/* Typknappen behåller sin .iconbtn-centrering (viktig för symbolglyfer, se ovan)
+   men tappar sin egen bakgrund/kant/padding så den smälter in i den flata gruppen. */
+.scene-toggle .type-btn { background: none; border: none; padding: 0; color: inherit; }
+.scene-toggle .type-btn:hover { color: var(--accent); }
 .scene-toggle .st-chev { font-size: 1.15em; }
 .scene-toggle .st-no.locked { color: var(--warn); text-decoration: underline dotted; text-underline-offset: 2px; }
 /* "N rader dolda" under en ihopfälld scen – klicka för att fälla ut. */
@@ -512,6 +517,7 @@ main:has(#view-project:not([hidden])) { max-width: 1320px; }
 .in-dualcol .fel-tools {
   position: static; opacity: 1; background: none; border: none; padding: 0; margin-left: 6px; flex: 0 0 auto;
 }
+.in-dualcol .fel-left { position: static; margin-right: 6px; }
 .fel-text {
   flex: 1; background: transparent; border: 1px solid transparent; border-radius: 5px;
   resize: none; overflow: hidden; font-family: inherit; font-size: inherit; line-height: inherit;
@@ -543,16 +549,25 @@ main:has(#view-project:not([hidden])) { max-width: 1320px; }
 .elements.focus .fel:hover { opacity: .75; }
 .fel .gap { align-self: center; margin-left: 8px; color: var(--warn); font-weight: 600; font-size: 11px; flex: 0 0 auto; }
 
-/* Verktygen sitter i högerrailen (utanför sidtexten), i höjd med sitt element. */
-.fel-tools {
-  position: absolute; left: 100%; margin-left: 30px; top: 0; display: flex; gap: 3px; align-items: center;
-  opacity: .55; transition: opacity .12s ease; background: rgba(12, 14, 19, .92);
-  padding: 3px; border-radius: 7px; border: 1px solid var(--line);
+/* Typknappen (S/A/K/D/P/Ö/G) sitter i vänstermarginalen och är alltid synlig. */
+.fel-left {
+  position: absolute; right: 100%; margin-right: 14px; top: 0; display: flex; align-items: center;
 }
-.fel:hover .fel-tools, .fel-text:focus + .fel-tools { opacity: 1; }
+.fel-left .type-btn { font-weight: 700; }
+
+/* Radverktygen (kategorins ev. extrafunktion + infoga/flytta/ta bort) sitter i
+   högerrailen (utanför sidtexten) och visas bara när "Visa kontroller" är på
+   (se #controlsToggle) – annars blir manuset snabbt rörigt av ikoner på varje rad. */
+.fel-tools {
+  position: absolute; left: 100%; margin-left: 30px; top: 0; display: none; gap: 3px; align-items: center;
+  background: rgba(12, 14, 19, .92); padding: 3px; border-radius: 7px; border: 1px solid var(--line);
+}
+.elements.show-controls .fel-tools { display: flex; }
 .fel-tools .iconbtn { padding: 3px 7px; }
-.fel-tools .type-btn { font-weight: 700; }
 .fel-tools .iconbtn.active { color: var(--accent-2); border-color: var(--accent-2); }
+/* Extrafunktionen (t.ex. ⇄ för Dual Dialogue) hamnar längst till vänster i
+   gruppen, med lite luft till nästa knapp (+) så de inte flyter ihop. */
+.fel-tools .fel-extra { margin-right: 8px; }
 
 /* Kommandopalett (⌘K): centrerad ruta över allt, med sökfält och träfflista. */
 .cmdk-backdrop {
@@ -766,8 +781,11 @@ kbd {
   /* större tryckytor i verktygsflikarna */
   .manus-tabbar .tab-btn { padding: 10px 12px; font-size: 14px; }
 
-  .fel-tools { left: auto; right: 4px; margin-left: 0; opacity: 0; }
-  .fel:focus-within .fel-tools { opacity: 1; }
+  .fel-tools { left: auto; right: 4px; margin-left: 0; }
+  .fel-left { left: 4px; right: auto; margin-right: 0; }
+  /* scenrubrikens hopfäll-knapp/scennummer bor redan i samma smala vänstermarginal –
+     typknappen (flyttad in i .scene-toggle, se app.js) får inte plats där också. */
+  .fel-scene_heading .scene-toggle .type-btn { display: none; }
 
   /* mindre indrag så dialog/karaktär inte blir trångt på liten skärm */
   .fel-character .fel-text { margin-left: 8ch; max-width: none; }

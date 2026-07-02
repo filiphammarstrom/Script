@@ -876,6 +876,22 @@ function elementRow(el, opts = {}) {
   row.className = "fel fel-" + el.type + (el.confidence !== "high" ? " low-conf" : "") + (el.dual ? " dual" : "");
   row.dataset.id = el.id;
 
+  // Typknappen (S/A/K/D/P/Ö/G) sitter i vänstermarginalen och är alltid synlig –
+  // till skillnad från fel-tools nedan (som visas/döljs med "Visa kontroller").
+  const left = document.createElement("div");
+  left.className = "fel-left";
+  const typeBtn = document.createElement("button");
+  typeBtn.type = "button";
+  typeBtn.className = "iconbtn type-btn";
+  typeBtn.textContent = TYPE_ABBR[el.type] || el.type;  // kort: S/A/K/D/P/Ö/G
+  typeBtn.title = TYPE_LABELS[el.type] || el.type;  // hela namnet vid hover
+  typeBtn.setAttribute("aria-haspopup", "listbox");
+  typeBtn.onclick = () => toggleTypeMenu(el, typeBtn);
+  typeBtn.onkeydown = (e) => typeBtnKeydown(e, el, typeBtn);
+  typeBtn.onblur = () => hideTypeMenu();
+  left.appendChild(typeBtn);
+  row.appendChild(left);
+
   const ta = document.createElement("textarea");
   ta.className = "fel-text";
   ta.rows = 1;
@@ -944,16 +960,8 @@ function elementRow(el, opts = {}) {
 
   const tools = document.createElement("div");
   tools.className = "fel-tools";
-  const typeBtn = document.createElement("button");
-  typeBtn.type = "button";
-  typeBtn.className = "iconbtn type-btn";
-  typeBtn.textContent = TYPE_ABBR[el.type] || el.type;  // kort: S/A/K/D/P/Ö/G
-  typeBtn.title = TYPE_LABELS[el.type] || el.type;  // hela namnet vid hover
-  typeBtn.setAttribute("aria-haspopup", "listbox");
-  typeBtn.onclick = () => toggleTypeMenu(el, typeBtn);
-  typeBtn.onkeydown = (e) => typeBtnKeydown(e, el, typeBtn);
-  typeBtn.onblur = () => hideTypeMenu();
-  tools.appendChild(typeBtn);
+  // Kategorins "extrafunktion" (om typen har en) hamnar längst till vänster i
+  // verktygsgruppen, med lite luft till +/flytta/ta bort – se .fel-extra i CSS.
   if (el.type === "character") {
     const dualBtn = iconBtn(
       "⇄",
@@ -962,6 +970,7 @@ function elementRow(el, opts = {}) {
         : "Markera repliken som Dual Dialogue (visas sida vid sida i FDX-exporten)",
       () => toggleDual(el)
     );
+    dualBtn.classList.add("fel-extra");
     dualBtn.classList.toggle("active", !!el.dual);
     tools.appendChild(dualBtn);
   }
@@ -1129,6 +1138,12 @@ function renderElements() {
         ? `Låst scennummer "${el.scene_number}" – klicka för att ändra eller låsa upp`
         : "Klicka för att låsa ett eget scennummer (t.ex. \"12A\")";
       noBtn.onclick = (e) => { e.stopPropagation(); editSceneNumber(el, sceneNo); };
+      // Typknappen (.fel-left) skulle annars krocka med hopfäll-chevronen/scennumret
+      // i samma vänstermarginal – den flyttas i stället in i samma grupp, längst ut.
+      const leftWrap = row.querySelector(".fel-left");
+      const typeBtn = leftWrap ? leftWrap.firstElementChild : null;
+      if (leftWrap) leftWrap.remove();
+      if (typeBtn) tog.appendChild(typeBtn);
       tog.append(chevBtn, noBtn);
       row.appendChild(tog);
       sheetFor(elPage).appendChild(row);
@@ -2407,6 +2422,22 @@ $("focusToggle").onclick = () => {
   applyFocusMode();
 };
 
+// ---- radkontroller (infoga/flytta/ta bort + kategorins extrafunktion): dolda
+// som standard så manuset inte känns fullt av ikoner, visas via global knapp
+// (sparas). Typknappen i vänstermarginalen är alltid synlig oavsett detta läge.
+const CONTROLS_KEY = "scriptvoice_controls";
+function controlsVisible() { return localStorage.getItem(CONTROLS_KEY) === "1"; }
+function applyControlsVisibility() {
+  const on = controlsVisible();
+  $("elements").classList.toggle("show-controls", on);
+  $("controlsToggle").classList.toggle("active", on);
+  $("controlsToggle").textContent = on ? "🔧 Dölj kontroller" : "🔧 Visa kontroller";
+}
+$("controlsToggle").onclick = () => {
+  localStorage.setItem(CONTROLS_KEY, controlsVisible() ? "0" : "1");
+  applyControlsVisibility();
+};
+
 // ---- kommandopalett (⌘K / Ctrl+K) ----
 // Hoppa till scener och kör kommandon utan att släppa tangentbordet. Byggs om
 // varje gång den öppnas så scenlistan och läget alltid är färskt.
@@ -2509,4 +2540,5 @@ $("cmdk").onmousedown = (e) => { if (e.target === $("cmdk")) closeCmdk(); };
 // ---- init ----
 applyPaper();
 applyFocusMode();
+applyControlsVisibility();
 boot();
