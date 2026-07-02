@@ -144,7 +144,7 @@ export COOKIE_SECURE=true                 # när du kör bakom HTTPS
 export ADMIN_EMAILS="du@gmail.com"        # admin(s); aktiverar även åtkomstspärren
 ```
 
-- **Google-login** använder Googles "Sign in with Google" (ID-token) och kräver bara ett **client-ID** (inget secret). Skapa en OAuth 2.0-klient (typ: webbapp) i Google Cloud Console och lägg din domän under *Authorized JavaScript origins*.
+- **Google-login** använder Googles "Sign in with Google" (ID-token) och kräver bara ett **client-ID** (inget secret). Skapa en OAuth 2.0-klient (typ: webbapp) i Google Cloud Console och lägg din domän under *Authorized JavaScript origins*. Utloggade besökare möts av en **landningssida** som presenterar appen (funktioner + manusexempel) med inloggningen.
 - **Egen nyckel per användare:** varje inloggad användare lägger in sina egna Anthropic/OpenAI/AssemblyAI/Groq-nycklar under **Inställningar → API-nycklar** (lagras på kontot, visas aldrig igen). Du som driftar betalar alltså inget för andras körningar.
 - I molnläget är **bara moln-transkribering** (OpenAI/AssemblyAI) tillgänglig – lokal Whisper och bevakad mapp fungerar bara på din egen dator.
 - All användardata (projekt, egna regler, nycklar) ligger under `data/users/<uid>/` och är gitignorerat. Den delade grunden ligger i `data/base/`.
@@ -212,8 +212,9 @@ pytest tests/test_fdx.py
    ihop den tillbaka upp i raden – bara en flik åt gången är expanderad. Skrollar du i manuset
    medan du spelar in dikteringen fälls den ihop automatiskt (men flikraden visar fortsatt att
    inspelningen pågår). **Översikt:** växla mellan **Manus** och **Korktavla** (scener som
-   index-kort du drar om) i sidomenyn, och **Rapporter** (repliker/ord per karaktär,
-   scenöversikt med sidor).
+   index-kort du drar om) i sidomenyn, och **Rapporter** – skrivstatistik (sidor, ord,
+   scener, repliker, ≈ speltid enligt "en sida ≈ en minut") plus repliker/ord per karaktär
+   och scenöversikt med sidor.
 9. **Avancerade FDX-element:** klicka på ett scennummer i vänstermarginalen för att **låsa**
    ett eget nummer (t.ex. "12A") i stället för den automatiska räkningen. **⇄**-knappen på en
    karaktärsrad markerar repliken som **Dual Dialogue** (visas sida vid sida i exporten). Typerna

@@ -347,6 +347,14 @@ main:has(#view-project:not([hidden])) { max-width: 1320px; }
 /* Rapporter (karaktärer & scener) */
 .report-body { margin-top: 10px; }
 .report-section { margin-bottom: 16px; }
+/* skrivstatistik: sidor/ord/scener/repliker/speltid i en rad av brickor */
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 10px; margin-bottom: 18px; }
+.stat {
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px;
+  padding: 12px 10px; text-align: center;
+}
+.stat b { display: block; font-size: 19px; color: var(--accent); font-variant-numeric: tabular-nums; }
+.stat span { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
 .report-title { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 8px; }
 .report-list { display: flex; flex-direction: column; gap: 4px; max-height: 280px; overflow: auto; }
 .report-row { display: flex; align-items: baseline; gap: 8px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); }
@@ -589,19 +597,40 @@ kbd {
 .clar .opts { margin-top: 6px; }
 .chip { display: inline-block; background: var(--panel-2); border-radius: 999px; padding: 2px 11px; font-size: 12px; margin-right: 4px; }
 
-/* ---- inloggning ---- */
+/* ---- landningssida / inloggning (hostat läge) ---- */
 .overlay {
   position: fixed; inset: 0; z-index: 100;
   display: flex; align-items: center; justify-content: center;
   background: radial-gradient(1000px 600px at 50% -100px, #1a2030 0%, #0a0c10 70%);
 }
-.overlay-card {
-  background: linear-gradient(180deg, var(--panel), var(--bg-soft));
-  border: 1px solid var(--line); border-radius: 16px; padding: 32px 36px;
-  box-shadow: var(--shadow); text-align: center; max-width: 380px;
+.overlay.landing { overflow: auto; align-items: flex-start; padding: min(9vh, 80px) 22px 50px; }
+.landing-inner { max-width: 960px; margin: 0 auto; display: flex; flex-direction: column; gap: 40px; }
+.landing-hero { display: grid; grid-template-columns: 1.1fr .9fr; gap: 44px; align-items: center; }
+.landing-title { font-size: 36px; margin: 0 0 4px; text-transform: none; letter-spacing: 0; color: var(--ink); font-weight: 750; }
+.landing-tagline { font-size: 21px; color: var(--accent); margin: 0 0 14px; font-weight: 650; }
+.landing-sub { color: var(--muted); line-height: 1.65; margin: 0 0 24px; max-width: 48ch; font-size: 15px; }
+.landing-invite { margin-top: 12px; }
+/* Ett litet manusark som smakprov – lätt vridet, som om det låg på ett skrivbord. */
+.landing-preview .mini-page {
+  background: #fdfcf8; color: #1c1c1c; border-radius: 4px;
+  padding: 34px 26px 40px 34px; transform: rotate(1.6deg);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, .5);
+  font: 12.5px/1.65 "Courier Prime", "Courier New", monospace;
 }
-.overlay-title { text-transform: none; letter-spacing: 0; color: var(--ink); font-size: 20px; margin-bottom: 6px; }
-#googleBtn { display: flex; justify-content: center; margin: 18px 0 8px; min-height: 44px; }
+.mp-scene { font-weight: 700; text-transform: uppercase; margin-bottom: 1em; }
+.mp-action { margin-bottom: 1em; max-width: 36ch; }
+.mp-char { margin-left: 9ch; text-transform: uppercase; }
+.mp-dial { margin-left: 4ch; max-width: 26ch; margin-bottom: 1em; }
+.mp-trans { text-align: right; text-transform: uppercase; margin-top: .4em; }
+.landing-features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.feature {
+  background: linear-gradient(180deg, var(--panel), var(--bg-soft));
+  border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px;
+}
+.feature span { font-size: 22px; }
+.feature b { display: block; margin: 8px 0 4px; color: var(--ink); font-size: 14.5px; }
+.feature p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.55; }
+#googleBtn { display: flex; justify-content: flex-start; margin: 6px 0 4px; min-height: 44px; }
 .userarea { display: inline-flex; align-items: center; gap: 8px; margin-left: 8px; padding-left: 12px; border-left: 1px solid var(--line); }
 .userarea .uname { color: var(--muted); font-size: 13px; }
 
@@ -687,4 +716,10 @@ kbd {
   .ro-dialogue { margin-left: 4ch; max-width: none; }
   .ro-parenthetical { margin-left: 6ch; max-width: none; }
   .shared-author { max-width: none; flex: 1 1 100%; }
+
+  /* landningssidan: en kolumn, göm arkexemplet */
+  .landing-hero { grid-template-columns: 1fr; gap: 20px; }
+  .landing-preview { display: none; }
+  .landing-features { grid-template-columns: 1fr; }
+  .landing-title { font-size: 28px; }
 }

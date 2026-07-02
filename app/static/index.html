@@ -7,12 +7,40 @@
   <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
-  <div id="loginOverlay" class="overlay" hidden>
-    <div class="overlay-card">
-      <h2 class="overlay-title">🎬 ScriptVoice</h2>
-      <p class="hint">Logga in för att fortsätta.</p>
-      <div id="googleBtn"></div>
-      <p id="loginError" class="status"></p>
+  <!-- Landningssida (hostat läge, före inloggning) -->
+  <div id="loginOverlay" class="overlay landing" hidden>
+    <div class="landing-inner">
+      <div class="landing-hero">
+        <div class="landing-copy">
+          <h2 class="landing-title">🎬 ScriptVoice</h2>
+          <p class="landing-tagline">Diktera. AI:n skriver manuset.</p>
+          <p class="landing-sub">Prata in dina scener – en AI-manussekreterare skriver ut dem i professionellt
+            manusformat, håller karaktärer och platser konsekventa mellan sessionerna, och exporterar
+            färdig FDX direkt till Final Draft.</p>
+          <div id="googleBtn"></div>
+          <p id="loginError" class="status"></p>
+          <p class="landing-invite hint">Inloggning med Google · åtkomst på inbjudan</p>
+        </div>
+        <div class="landing-preview" aria-hidden="true">
+          <div class="mini-page">
+            <div class="mp-scene">INT. KÖK – DAG</div>
+            <div class="mp-action">ANNA häller upp kaffe. Det ryker ur koppen.</div>
+            <div class="mp-char">ANNA</div>
+            <div class="mp-dial">Vi börjar från början.</div>
+            <div class="mp-char">JOHAN (V.O.)</div>
+            <div class="mp-dial">Det är så alla bra historier börjar.</div>
+            <div class="mp-trans">KLIPP TILL:</div>
+          </div>
+        </div>
+      </div>
+      <div class="landing-features">
+        <div class="feature"><span>🎙️</span><b>Diktera gratis</b><p>Live-diktering i webbläsaren eller svenska KB-Whisper – privat, utan API-kostnad.</p></div>
+        <div class="feature"><span>🤖</span><b>AI-manussekreterare</b><p>Skriver exakt det du säger i korrekt manusformat – aldrig egna påhitt.</p></div>
+        <div class="feature"><span>📄</span><b>Final Draft-export</b><p>Riktiga ark sida för sida, scennummer, Dual Dialogue och FDX-export.</p></div>
+        <div class="feature"><span>🧠</span><b>Story-bibel</b><p>AI:n minns karaktärer, platser och fakta mellan sessionerna.</p></div>
+        <div class="feature"><span>🗂️</span><b>Korktavla &amp; versioner</b><p>Dra om scener som indexkort, spara och återställ versioner av manuset.</p></div>
+        <div class="feature"><span>🔗</span><b>Dela skrivskyddat</b><p>Låt andra läsa och kommentera – utan att kunna ändra något.</p></div>
+      </div>
     </div>
   </div>
 

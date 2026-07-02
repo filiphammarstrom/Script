@@ -1697,6 +1697,28 @@ function renderReports() {
   box.innerHTML = "";
   if (!project.elements.length) { box.innerHTML = '<p class="hint">Inget manus än.</p>'; return; }
 
+  // Skrivstatistik överst: sidor, ord, scener, repliker och uppskattad speltid
+  // (branschens tumregel: en manussida ≈ en minut film).
+  const totalPages = Math.max(1, Math.ceil(estimatePages(project.elements)));
+  const words = project.elements.reduce(
+    (n, el) => n + ((el.text || "").trim() ? el.text.trim().split(/\s+/).length : 0), 0
+  );
+  const speeches = project.elements.filter((e) => e.type === "character").length;
+  const sceneCount = project.elements.filter((e) => e.type === "scene_heading").length;
+  const runtime = totalPages >= 60
+    ? `${Math.floor(totalPages / 60)} tim ${totalPages % 60} min`
+    : `${totalPages} min`;
+  const stats = document.createElement("div");
+  stats.className = "stat-grid";
+  stats.innerHTML = [
+    [totalPages, totalPages === 1 ? "sida" : "sidor"],
+    [words.toLocaleString("sv-SE"), "ord"],
+    [sceneCount, sceneCount === 1 ? "scen" : "scener"],
+    [speeches, "repliker"],
+    [`≈ ${runtime}`, "speltid"],
+  ].map(([v, l]) => `<div class="stat"><b>${v}</b><span>${l}</span></div>`).join("");
+  box.appendChild(stats);
+
   const chars = characterReport();
   const ch = document.createElement("div");
   ch.className = "report-section";
