@@ -296,10 +296,10 @@ select { width: auto; min-width: 0; }
 .iconbtn.active { color: var(--accent-2); border-color: var(--accent-2); }
 
 /* Projektvyn (app-skal: sidomeny + huvudyta) får mer bredd än övriga vyer. */
-main:has(#view-project:not([hidden])) { max-width: 1600px; }
-/* Sidan (950px, se .page) + kontrollrailen på ömse sidor centreras som en enhet
+main:has(#view-project:not([hidden])) { max-width: 1340px; }
+/* Sidan (714px, se .page) + kontrollrailen på ömse sidor centreras som en enhet
    i huvudytan, så manuset inte hänger i vänsterkanten med tom yta till höger. */
-.elements { width: 1250px; max-width: 100%; margin: 0 auto; }
+.elements { width: 890px; max-width: 100%; margin: 0 auto; }
 
 /* ---- app-skal: sidomeny + huvudyta ---- */
 .app-shell { display: grid; grid-template-columns: 224px minmax(0, 1fr); gap: 22px; align-items: start; }
@@ -330,15 +330,10 @@ main:has(#view-project:not([hidden])) { max-width: 1600px; }
 .side-files-row { display: flex; gap: 8px; }
 /* min-width: 0 är nödvändigt – annars vägrar flex:1 krympa knappen under dess
    textinnehålls egen bredd, och den svämmar över den smala sidopanelen. */
+/* Importera och Exportera ska se likadana ut – en accentfärgad ram/text på bara
+   den ena såg ut som ett fokus-/aktivt tillstånd i stället för en vanlig knapp. */
 .side-file-btn { flex: 1; min-width: 0; font-size: 13px; padding: 8px 6px; justify-content: center; white-space: normal; text-align: center; }
 .side-file-btn.full { width: 100%; }
-/* Exportera ska sticka ut lite (viktigast av de tre), men den vanliga .primary-
-   gradienten såg ut som en intryckt/aktiv togglingsknapp bredvid Importera –
-   en konturad accentfärg känns som en betoning i stället för ett tillstånd. */
-.side-file-btn.primary {
-  background: var(--panel-2); color: var(--accent); border-color: var(--accent);
-}
-.side-file-btn.primary:hover { background: rgba(110, 168, 254, .12); }
 .app-main { min-width: 0; }
 .section-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
 .section-title { font-size: 18px; text-transform: none; letter-spacing: 0; color: var(--ink); margin: 0; font-weight: 680; }
@@ -460,15 +455,19 @@ main:has(#view-project:not([hidden])) { max-width: 1600px; }
    hörnet, generös vänstermarginal med scennummer, textkolumn som slutar före
    högerkanten och kontrollrailen precis utanför arket. */
 .sheets { display: flex; flex-direction: column; gap: 26px; }
-/* Bredden är satt så en full sida (~55 rader) får ungefär ett riktigt A4-arks
-   proportioner (bredd:höjd ≈ 0.707) – manustextens kolumnbredd styrs ändå av
-   ch-baserade max-width per radtyp nedan, så det här lägger bara till marginal,
-   precis som på ett riktigt pappersark. */
+/* Bredd och marginaler följer den riktiga manusstandarden (10 tecken/tum):
+   sidan är 8,5 tum (85ch), vänstermarginal 1,5 tum (15ch), högermarginal 1 tum
+   (10ch) – ger en textkolumn på 6 tum (60ch), samma som action/scenrubrikens
+   max-width nedan. En bredare sida utan att bredda textkolumnen (som förut)
+   gjorde bara att texten hamnade fel i förhållande till en massa tom yta.
+   Höjden (raka radavståndet) är satt till ~6 rader/tum (branschstandard för
+   enkelradigt manus) i stället för den lite luftigare redigeringshöjden – annars
+   blir en full sida (~55 rader) mycket högre än ett riktigt pappersark. */
 .page {
-  position: relative; width: 950px; max-width: 100%;
+  position: relative; width: 714px; max-width: 100%;
   border: 1px solid var(--line); border-radius: 4px; background: #0c0e13;
-  padding: 48px 28px 60px 104px; overflow: visible;
-  font: 14px/1.6 "Courier Prime", "Courier New", ui-monospace, monospace;
+  padding: 48px 84px 60px 126px; overflow: visible;
+  font: 14px/1.2 "Courier Prime", "Courier New", ui-monospace, monospace;
 }
 /* Sidnumret uppe till höger, som i ett riktigt manus ("2."). Första sidan är onumrerad. */
 .page::before {
@@ -547,8 +546,8 @@ main:has(#view-project:not([hidden])) { max-width: 1600px; }
 .fel-text:focus { outline: none; border-color: var(--accent); background: rgba(110, 168, 254, .07); box-shadow: none; }
 /* Manus-indrag per typ (Final Draft-standard i monospace-tecken). Action/scenrubrik
    slutar vid ~56 tecken så det blir en högermarginal som i ett riktigt manus. */
-.fel-scene_heading .fel-text { text-transform: uppercase; font-weight: 700; max-width: 56ch; }
-.fel-action .fel-text, .fel-general .fel-text { max-width: 56ch; }
+.fel-scene_heading .fel-text { text-transform: uppercase; font-weight: 700; max-width: 60ch; }
+.fel-action .fel-text, .fel-general .fel-text { max-width: 60ch; }
 /* Karaktärsnamnet har en dekoration direkt efter sig ((CONT'D), se nedan) – den
    ska hamna precis efter namnet, inte längst ut vid boxens max-bredd. Bredden
    sätts av autosizeWidth i app.js (canvas-mätning av texten – CSS-egenskapen
@@ -573,7 +572,7 @@ main:has(#view-project:not([hidden])) { max-width: 1600px; }
 .fel.bold .fel-text { font-weight: 700; }
 .fel.italic .fel-text, .fel.italic .paren-field .paren { font-style: italic; }
 .fel.underline .fel-text { text-decoration: underline; }
-.fel-new_act .fel-text, .fel-end_of_act .fel-text { text-align: center; text-transform: uppercase; font-weight: 700; max-width: 56ch; }
+.fel-new_act .fel-text, .fel-end_of_act .fel-text { text-align: center; text-transform: uppercase; font-weight: 700; max-width: 60ch; }
 .fel.low-conf .fel-text { background: #2a2516; }
 .fel.flash .fel-text { background: var(--flash); transition: background .3s; }
 /* Fokusläge: tona ned allt utom scenen man skriver i (raderna märks .in-focus i JS). */
@@ -584,10 +583,10 @@ main:has(#view-project:not([hidden])) { max-width: 1600px; }
 
 /* Typknappen (S/A/K/D/P/Ö/G) sitter i vänstermarginalen och är alltid synlig. */
 /* Typknappen ska sitta UTANFÖR arket (som högerrailen gör på andra sidan), inte i
-   arkets egen vänstermarginal – .page har padding-left: 104px (se ovan), så
+   arkets egen vänstermarginal – .page har padding-left: 126px (se ovan), så
    margin-right måste vara minst det för att nå utanför den vänstra kanten. */
 .fel-left {
-  position: absolute; right: 100%; margin-right: 112px; top: 0; display: flex; align-items: center;
+  position: absolute; right: 100%; margin-right: 134px; top: 0; display: flex; align-items: center;
 }
 .fel-left .type-btn { font-weight: 700; }
 
@@ -599,6 +598,10 @@ main:has(#view-project:not([hidden])) { max-width: 1600px; }
   background: rgba(12, 14, 19, .92); padding: 3px; border-radius: 7px; border: 1px solid var(--line);
 }
 .elements.show-controls .fel-tools { display: flex; }
+/* Flikrutan (.tab-content) täcker manuset men inte nödvändigtvis den smala
+   railen med radkontroller utanför själva arket – dölj railen och typknappen
+   medan en flik är öppen så inget syns bredvid/genom den flytande rutan. */
+.elements.tab-open .fel-tools, .elements.tab-open .fel-left { visibility: hidden; }
 .fel-tools .iconbtn { padding: 3px 7px; }
 /* Extrafunktionen (t.ex. ⇄ för Dual Dialogue) hamnar längst till vänster i
    gruppen, med lite luft till nästa knapp (+) så de inte flyter ihop. */
