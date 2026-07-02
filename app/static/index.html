@@ -189,9 +189,13 @@
             <div class="section-head">
               <h2 class="section-title">Manus</h2>
               <div class="section-tools">
-                <button id="collapseAllBtn" type="button" class="linkbtn">Fäll ihop alla</button>
+                <button id="collapseAllBtn" type="button" class="linkbtn"></button>
+                <button type="button" id="hintBtn" class="linkbtn" title="Visa kortkommandon">ⓘ Kortkommandon</button>
                 <button id="focusToggle" class="linkbtn" title="Fokusläge – tona ned allt utom scenen du skriver i och håll raden centrerad">🎯 Fokus</button>
                 <button id="paperToggle" class="linkbtn" title="Växla mellan vitt papper och mörkt läge">📄 Vitt papper</button>
+              </div>
+              <div id="hintPopover" class="ac-menu hint-popover" hidden>
+                <kbd>Enter</kbd> ny rad · <kbd>Shift</kbd>+<kbd>Enter</kbd> radbrytning · <kbd>Tab</kbd> byt typ · <kbd>⌫</kbd> först på raden slår ihop uppåt · skriv <kbd>INT.</kbd>/<kbd>EXT.</kbd> för scenrubrik · <kbd>⌘K</kbd> kommandopalett
               </div>
             </div>
 
@@ -210,28 +214,37 @@
             </div>
 
             <section class="panel tab-content" data-tab="dictate" id="tabDictate" hidden>
-              <div class="row wrap">
+              <div class="row wrap dictate-row">
                 <button id="recordBtn" title="Spela in från mikrofonen och transkribera">🎙️ Spela in</button>
-                <label class="filelabel">Välj ljudfil
+                <span class="or-sep">eller</span>
+                <label class="filelabel">📁 Välj ljudfil
                   <input type="file" id="audioFile" accept="audio/*" hidden>
                 </label>
+                <span id="audioName" class="status"></span>
+                <button type="button" id="dictateHintBtn" class="linkbtn iconbtn dictate-hint-btn" title="Så funkar dikteringen">ⓘ</button>
+              </div>
+              <div id="dictateHintPopover" class="ac-menu hint-popover" hidden>
+                Diktera vidare på manuset. Du kan lägga till sist, <em>infoga på en plats</em> ("den här scenen ska in mellan scen 23 och 24") eller <em>ändra/ta bort</em> ("ändra repliken i scen 12 till …") – allt i samma ruta.
+              </div>
+
+              <div class="row wrap dictate-row">
                 <select id="transcribeEngine" title="Transkriberingsmotor">
-                  <option value="">Automatiskt (live i webbläsaren när det går)</option>
-                  <option value="webspeech">Webbläsaren – live (gratis)</option>
-                  <option value="browser">Webbläsaren – Whisper (gratis, privat)</option>
-                  <option value="local">Lokalt: Whisper-CLI (gratis)</option>
-                  <option value="watch">Bevakad mapp (auto)</option>
-                  <option value="groq">Moln: Groq (billigast)</option>
-                  <option value="openai">Moln: OpenAI</option>
-                  <option value="assemblyai">Moln: AssemblyAI</option>
+                  <option value="">🤖 Automatiskt (live i webbläsaren när det går)</option>
+                  <option value="webspeech">🌐 Webbläsaren – live (gratis)</option>
+                  <option value="browser">🧠 Webbläsaren – Whisper (gratis, privat)</option>
+                  <option value="local">💻 Lokalt: Whisper-CLI (gratis)</option>
+                  <option value="watch">📁 Bevakad mapp (auto)</option>
+                  <option value="groq">☁️ Moln: Groq (billigast)</option>
+                  <option value="openai">☁️ Moln: OpenAI</option>
+                  <option value="assemblyai">☁️ Moln: AssemblyAI</option>
                 </select>
                 <select id="dictateLang" title="Dikteringsspråk – styr live-dikteringen och webbläsar-Whisper (svenska får KB-Whisper, KB:s svensktränade modell) och skickas som hint till molnmotorerna">
-                  <option value="sv" selected>Svenska</option>
-                  <option value="en">Engelska</option>
-                  <option value="no">Norska</option>
-                  <option value="da">Danska</option>
-                  <option value="fi">Finska</option>
-                  <option value="auto">Auto / annat språk</option>
+                  <option value="sv" selected>🇸🇪 Svenska</option>
+                  <option value="en">🇬🇧 Engelska</option>
+                  <option value="no">🇳🇴 Norska</option>
+                  <option value="da">🇩🇰 Danska</option>
+                  <option value="fi">🇫🇮 Finska</option>
+                  <option value="auto">🌐 Auto / annat språk</option>
                 </select>
                 <select id="browserModel" title="Whisper-modell – laddas ner en gång och cachas i webbläsaren. KB-Whisper är svensktränad (bäst på svenska, sämre på andra språk); vanliga Whisper klarar alla språk." hidden>
                   <optgroup label="KB-Whisper (svenska)">
@@ -248,24 +261,30 @@
                   </optgroup>
                 </select>
                 <label class="inline-check" title="Talarseparering: ljudet skickas till en molnmotor som märker vem som säger vad (Speaker A/B ...). Utan bock används gratis live-diktering i webbläsaren när det går.">
-                  <input type="checkbox" id="multiSpeaker"> Flera talare
+                  <input type="checkbox" id="multiSpeaker"> 👥 Flera talare
                 </label>
-                <button id="transcribeBtn">Transkribera</button>
-                <label class="filelabel">Importera transkript
+              </div>
+
+              <div class="row wrap dictate-row">
+                <button id="transcribeBtn">📝 Transkribera</button>
+              </div>
+
+              <div class="dictate-textwrap">
+                <textarea id="inputText" rows="2" placeholder="Diktera/klistra in – fortsätt scenen, 'lägg in en scen mellan 23 och 24 …', eller 'ändra repliken i scen 12 till …'"></textarea>
+                <label class="filelabel import-box" title="Importera transkript (txt/srt/vtt)">
+                  📄 Textfil <span aria-hidden="true">→</span>
                   <input type="file" id="transcriptFile" accept=".txt,.srt,.vtt,.text" hidden>
                 </label>
-                <span id="audioName" class="status"></span>
               </div>
-              <p class="hint">Diktera vidare på manuset. Du kan lägga till sist, <em>infoga på en plats</em> ("den här scenen ska in mellan scen 23 och 24") eller <em>ändra/ta bort</em> ("ändra repliken i scen 12 till …") – allt i samma ruta.</p>
-              <textarea id="inputText" rows="2" placeholder="Diktera/klistra in – fortsätt scenen, 'lägg in en scen mellan 23 och 24 …', eller 'ändra repliken i scen 12 till …'"></textarea>
-              <div class="row">
-                <button id="analyzeBtn" class="primary">Lägg till / ändra</button>
+
+              <div class="row dictate-actions">
+                <button id="analyzeBtn" class="primary">➕ Lägg till / ändra</button>
                 <button id="undoBtn" hidden>↶ Ångra senaste</button>
-                <select id="aiEngine" title="AI-motor för manusbygget">
-                  <option value="anthropic">AI: Claude</option>
-                  <option value="openai">AI: GPT (OpenAI)</option>
-                </select>
                 <span id="status" class="status"></span>
+                <select id="aiEngine" class="ai-engine-select" title="AI-motor för manusbygget">
+                  <option value="anthropic">🤖 Claude</option>
+                  <option value="openai">🤖 GPT (OpenAI)</option>
+                </select>
               </div>
             </section>
 
@@ -317,12 +336,6 @@
             </section>
 
             <section class="panel">
-              <div class="row hint-row">
-                <button type="button" id="hintBtn" class="linkbtn" title="Visa kortkommandon">ⓘ Kortkommandon</button>
-              </div>
-              <div id="hintPopover" class="ac-menu hint-popover" hidden>
-                <kbd>Enter</kbd> ny rad · <kbd>Shift</kbd>+<kbd>Enter</kbd> radbrytning · <kbd>Tab</kbd> byt typ · <kbd>⌫</kbd> först på raden slår ihop uppåt · skriv <kbd>INT.</kbd>/<kbd>EXT.</kbd> för scenrubrik · <kbd>⌘K</kbd> kommandopalett
-              </div>
               <div id="elements" class="elements"></div>
               <div class="row wrap">
                 <label class="filelabel">Importera manus (FDX/Fountain)

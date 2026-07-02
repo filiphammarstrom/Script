@@ -189,8 +189,10 @@ pytest tests/test_fdx.py
 
 1. (Valfritt) Klistra in/ladda upp dina globala regler i **Bas-AI** och spara.
 2. Skapa ett projekt, fyll i synopsis/kontext och ev. projektinstruktioner.
-3. Klistra in transkriberad text — **eller** ladda upp en ljudfil och tryck **Transkribera**
-   (talar-märkt text fylls i rutan) — och tryck sedan **Lägg till / ändra**.
+3. **Diktering** har tre rader ovanför textrutan: **Spela in** eller **Välj ljudfil**, sedan
+   motor/språk/talarseparering, sedan **Transkribera** (talar-märkt text fylls i rutan) — och
+   tryck till sist **Lägg till / ändra**. Ett **ⓘ** öppnar en kort förklaring av hur dikteringen
+   funkar; en liten ruta bredvid textrutan importerar ett färdigt transkript (txt/srt/vtt).
 4. **En enda dikteringsruta** bygger ett manus i ständig förändring: varje diktering kan
    *lägga till* sist, *infoga på en plats* ("den här scenen ska in mellan scen 23 och 24")
    eller *ändra/ta bort* befintligt ("ändra repliken i scen 12 till …") — ofta blandat. Nytt
