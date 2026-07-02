@@ -234,7 +234,7 @@ async function loadProjectList() {
   const box = $("projectList");
   box.innerHTML = "";
   if (!list.length) {
-    box.innerHTML = '<p class="hint">Inga projekt än – skapa ett ovan.</p>';
+    box.innerHTML = '<p class="hint">Inga projekt än – klicka <b>➕ Nytt</b> för att skapa ett.</p>';
     return;
   }
   for (const p of list) {
@@ -246,9 +246,9 @@ async function loadProjectList() {
   }
 }
 $("newProjectBtn").onclick = async () => {
-  const title = $("newTitle").value.trim() || "Namnlöst projekt";
-  const p = await api("POST", "/api/projects", { title });
-  $("newTitle").value = "";
+  const val = window.prompt("Titel på manuset:");
+  if (val === null) return;  // avbrutet
+  const p = await api("POST", "/api/projects", { title: val.trim() || "Namnlöst projekt" });
   openProject(p);
 };
 
@@ -1176,7 +1176,16 @@ function renderElements() {
       hiddenCount += 1;
       runningLines += linesFor(el);  // räkna sidor även för dolda rader
     } else {
-      sheetFor(elPage).appendChild(elementRow(el));
+      // Sidbrytningsregel: en karaktärsrad får aldrig stå ensam sist på en sida
+      // utan att minst en rad av dess replik/parentes hänger med – annars hoppar
+      // hela namnet till nästa sida i stället (samma princip som Final Draft).
+      if (el.type === "character") {
+        const remaining = LINES_PER_PAGE - (runningLines % LINES_PER_PAGE);
+        const needed = linesFor(el) + 1;  // namnet + minst en rad efteråt
+        if (remaining < needed && remaining < LINES_PER_PAGE) runningLines += remaining;
+      }
+      const rowPage = Math.floor(runningLines / LINES_PER_PAGE) + 1;
+      sheetFor(rowPage).appendChild(elementRow(el));
       runningLines += linesFor(el);
     }
     idx += 1;

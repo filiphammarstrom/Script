@@ -191,6 +191,8 @@ button.primary:hover { filter: brightness(1.06); }
 select { width: auto; min-width: 0; }
 
 /* ---- projektlista ---- */
+.panel-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.panel-head h2 { margin: 0; }
 .projectlist { display: flex; flex-direction: column; gap: 10px; }
 .projectcard {
   display: flex;
@@ -294,10 +296,10 @@ select { width: auto; min-width: 0; }
 .iconbtn.active { color: var(--accent-2); border-color: var(--accent-2); }
 
 /* Projektvyn (app-skal: sidomeny + huvudyta) får mer bredd än övriga vyer. */
-main:has(#view-project:not([hidden])) { max-width: 1320px; }
-/* Sidan (620px) + kontrollrailen (~240px) centreras som en enhet i huvudytan,
-   så manuset inte hänger i vänsterkanten med tom yta till höger. */
-.elements { width: 872px; max-width: 100%; margin: 0 auto; }
+main:has(#view-project:not([hidden])) { max-width: 1600px; }
+/* Sidan (950px, se .page) + kontrollrailen på ömse sidor centreras som en enhet
+   i huvudytan, så manuset inte hänger i vänsterkanten med tom yta till höger. */
+.elements { width: 1250px; max-width: 100%; margin: 0 auto; }
 
 /* ---- app-skal: sidomeny + huvudyta ---- */
 .app-shell { display: grid; grid-template-columns: 224px minmax(0, 1fr); gap: 22px; align-items: start; }
@@ -326,8 +328,17 @@ main:has(#view-project:not([hidden])) { max-width: 1320px; }
    varandra; utskrift/PDF är en egen, separat funktion på egen rad. */
 .side-files { border-top: 1px solid var(--line); padding-top: 10px; display: flex; flex-direction: column; gap: 8px; }
 .side-files-row { display: flex; gap: 8px; }
-.side-file-btn { flex: 1; font-size: 13px; padding: 8px 6px; justify-content: center; white-space: nowrap; }
+/* min-width: 0 är nödvändigt – annars vägrar flex:1 krympa knappen under dess
+   textinnehålls egen bredd, och den svämmar över den smala sidopanelen. */
+.side-file-btn { flex: 1; min-width: 0; font-size: 13px; padding: 8px 6px; justify-content: center; white-space: normal; text-align: center; }
 .side-file-btn.full { width: 100%; }
+/* Exportera ska sticka ut lite (viktigast av de tre), men den vanliga .primary-
+   gradienten såg ut som en intryckt/aktiv togglingsknapp bredvid Importera –
+   en konturad accentfärg känns som en betoning i stället för ett tillstånd. */
+.side-file-btn.primary {
+  background: var(--panel-2); color: var(--accent); border-color: var(--accent);
+}
+.side-file-btn.primary:hover { background: rgba(110, 168, 254, .12); }
 .app-main { min-width: 0; }
 .section-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
 .section-title { font-size: 18px; text-transform: none; letter-spacing: 0; color: var(--ink); margin: 0; font-weight: 680; }
@@ -449,8 +460,12 @@ main:has(#view-project:not([hidden])) { max-width: 1320px; }
    hörnet, generös vänstermarginal med scennummer, textkolumn som slutar före
    högerkanten och kontrollrailen precis utanför arket. */
 .sheets { display: flex; flex-direction: column; gap: 26px; }
+/* Bredden är satt så en full sida (~55 rader) får ungefär ett riktigt A4-arks
+   proportioner (bredd:höjd ≈ 0.707) – manustextens kolumnbredd styrs ändå av
+   ch-baserade max-width per radtyp nedan, så det här lägger bara till marginal,
+   precis som på ett riktigt pappersark. */
 .page {
-  position: relative; width: 700px; max-width: 100%;
+  position: relative; width: 950px; max-width: 100%;
   border: 1px solid var(--line); border-radius: 4px; background: #0c0e13;
   padding: 48px 28px 60px 104px; overflow: visible;
   font: 14px/1.6 "Courier Prime", "Courier New", ui-monospace, monospace;
