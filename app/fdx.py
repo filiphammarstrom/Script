@@ -13,6 +13,7 @@ importeras blocket ändå som vanlig sekventiell dialog – aldrig som trasig XM
 """
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING, Iterable
 from xml.sax.saxutils import escape
 
@@ -40,9 +41,12 @@ _HEADER = (
 _FOOTER = "  </Content>\n</FinalDraft>\n"
 
 
-def _paragraph(par_type: str, text: str, *, number: str | None = None, indent: str = "    ") -> str:
+def _paragraph(
+    par_type: str, text: str, *, number: str | None = None, style: str | None = None, indent: str = "    "
+) -> str:
     attr = f' Number="{escape(number)}"' if number else ""
-    return f'{indent}<Paragraph Type="{par_type}"{attr}><Text>{escape(text)}</Text></Paragraph>\n'
+    style_attr = f' Style="{escape(style)}"' if style else ""
+    return f'{indent}<Paragraph Type="{par_type}"{attr}><Text{style_attr}>{escape(text)}</Text></Paragraph>\n'
 
 
 def _paren_text(par_type: str, text: str) -> str:
@@ -54,13 +58,55 @@ def _paren_text(par_type: str, text: str) -> str:
     return text
 
 
+def _style_attr(el: "ScreenplayElement") -> str | None:
+    """Fet/kursiv/understruken är riktiga Final Draft-textstilar (Style="Bold+Italic"
+    osv. på <Text>). Versaler (caps) är däremot ingen egen FDX-stil – den texten
+    görs versal på riktigt i _styled_text i stället."""
+    styles = [
+        name for flag, name in (("bold", "Bold"), ("italic", "Italic"), ("underline", "Underline"))
+        if getattr(el, flag, False)
+    ]
+    return "+".join(styles) if styles else None
+
+
+def _styled_text(el: "ScreenplayElement", par_type: str, text: str) -> str:
+    if getattr(el, "caps", False):
+        text = text.upper()
+    return _paren_text(par_type, text)
+
+
+# (CONT'D): samma karaktär pratar igen inom samma scen utan att någon annan
+# karaktärs replik kommit emellan (en actionrad eller parentes får gärna ligga
+# emellan – det är fortfarande "samma" replikör som återupptar). Beräknas här
+# vid export, aldrig lagrat i elementets text.
+_CHAR_TAGS_RE = re.compile(r"(?:\s*\((?:V\.O\.|O\.S\.|CONT'D)\))+\s*$", re.IGNORECASE)
+
+
+def _strip_char_tags(text: str) -> str:
+    return _CHAR_TAGS_RE.sub("", (text or "").strip()).strip().upper()
+
+
+def _should_show_contd(els: "list[ScreenplayElement]", i: int) -> bool:
+    base = _strip_char_tags(els[i].text)
+    if not base:
+        return False
+    for j in range(i - 1, -1, -1):
+        t = els[j].type
+        if t == "scene_heading":
+            return False
+        if t == "character":
+            return _strip_char_tags(els[j].text) == base
+    return False
+
+
 def _dual_dialogue(group: "list[ScreenplayElement]") -> str:
     """Slå ihop en sammanhängande grupp dual=True-element till Final Drafts
     <Paragraph Type="General"><DualDialogue>...-omslag (repliker sida vid sida)."""
     inner = "".join(
         _paragraph(
             _TYPE_MAP.get(el.type, "General"),
-            _paren_text(_TYPE_MAP.get(el.type, "General"), el.text),
+            _styled_text(el, _TYPE_MAP.get(el.type, "General"), el.text),
+            style=_style_attr(el),
             indent="        ",
         )
         for el in group
@@ -105,13 +151,17 @@ def to_fdx(
     """Returnera ett komplett FDX-dokument som sträng.
 
     `elements` är vilken sekvens som helst av objekt med attributen `type`, `text`
-    och (valfritt) `is_gap`, `scene_number` och `dual`. Anges `title`/`author`/
-    `contact` läggs en titelsida till.
+    och (valfritt) `is_gap`, `scene_number`, `dual`, `caps`, `bold`, `italic` och
+    `underline`. Anges `title`/`author`/`contact` läggs en titelsida till.
 
     `scene_number` (bara på scene_heading) låser scenens nummer i exporten i
     stället för den automatiska löpande räkningen. En sammanhängande följd av
     `dual=True`-element (t.ex. karaktär+replik två gånger i rad) exporteras som
-    Dual Dialogue – repliker sida vid sida.
+    Dual Dialogue – repliker sida vid sida. `caps` gör texten versal på riktigt
+    (FDX saknar en egen stil för det); `bold`/`italic`/`underline` blir Final
+    Drafts riktiga textstilar (`Style="Bold+Italic"` osv. på `<Text>`). Pratar
+    samma karaktär igen inom samma scen utan att någon annan karaktärs replik
+    kommit emellan läggs "(CONT'D)" på automatiskt (aldrig lagrat i texten).
     """
     body = []
     scene_no = 0
@@ -136,8 +186,11 @@ def to_fdx(
             # En medveten lucka renderas tydligt – aldrig bortfabulerad.
             par_type = "Action"
             text = text if text.strip().startswith("[LUCKA") else f"[LUCKA: {text}]"
+            body.append(_paragraph(par_type, text, number=number))
         else:
-            text = _paren_text(par_type, text)
-        body.append(_paragraph(par_type, text, number=number))
+            text = _styled_text(el, par_type, text)
+            if el.type == "character" and _should_show_contd(els, i):
+                text = f"{text} (CONT'D)"
+            body.append(_paragraph(par_type, text, number=number, style=_style_attr(el)))
         i += 1
     return _HEADER + "".join(body) + "  </Content>\n" + _title_page(title, author, contact) + "</FinalDraft>\n"

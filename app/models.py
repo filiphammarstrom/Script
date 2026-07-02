@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 def _as_list(v):
@@ -65,6 +65,26 @@ class ScreenplayElement(BaseModel):
     # Del av en Dual Dialogue-grupp (repliker sida vid sida i FDX-exporten). Sätts på
     # en sammanhängande följd av character/parenthetical/dialogue-element.
     dual: bool = False
+    # Fri formatering (kategorins "extrafunktion", se app.js, samt de persistenta
+    # B/I/U-knapparna) – gäller vilken elementtyp som helst, inte bara den kategori
+    # som har en genväg för den. Versaler transformerar den exporterade texten
+    # (FDX saknar en egen "AllCaps"-stil); fet/kursiv/understruken blir Style= på
+    # <Text> i FDX-exporten (se app/fdx.py).
+    caps: bool = False
+    bold: bool = False
+    italic: bool = False
+    underline: bool = False
+
+    @model_validator(mode="before")
+    @classmethod
+    def _default_parenthetical_italic(cls, data):
+        """Parentes-rader har alltid varit kursiverade (hårdkodat i CSS förut) – för
+        att inte ändra utseendet på befintliga projekt sätts italic=True som standard
+        för den typen om fältet saknas helt (gammal data), men en uttrycklig
+        italic=False (användaren har stängt av det) respekteras."""
+        if isinstance(data, dict) and data.get("type") == "parenthetical" and "italic" not in data:
+            data = {**data, "italic": True}
+        return data
 
 
 class Clarification(BaseModel):

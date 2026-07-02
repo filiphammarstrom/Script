@@ -291,6 +291,7 @@ select { width: auto; min-width: 0; }
   background: var(--panel-2); color: var(--muted); display: inline-flex; align-items: center; justify-content: center;
 }
 .iconbtn:hover { border-color: var(--accent); color: var(--ink); transform: none; }
+.iconbtn.active { color: var(--accent-2); border-color: var(--accent-2); }
 
 /* Projektvyn (app-skal: sidomeny + huvudyta) får mer bredd än övriga vyer. */
 main:has(#view-project:not([hidden])) { max-width: 1320px; }
@@ -318,6 +319,15 @@ main:has(#view-project:not([hidden])) { max-width: 1320px; }
 .side-scenes-head .hint { text-transform: none; letter-spacing: 0; font-size: 11px; }
 .side-scenes .scene-outline { max-height: none; }
 .outline-empty { list-style: none; color: var(--muted); font-size: 13px; padding: 6px 2px; }
+.side-title-row { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+/* Import/exportera/skriv ut – flyttade hit från raden under manuset så de alltid
+   är nära till hands oavsett hur långt ner man skrollat i manuset. Import och
+   export hör ihop (samma FDX/Fountain-filformat) och står därför bredvid
+   varandra; utskrift/PDF är en egen, separat funktion på egen rad. */
+.side-files { border-top: 1px solid var(--line); padding-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.side-files-row { display: flex; gap: 8px; }
+.side-file-btn { flex: 1; font-size: 13px; padding: 8px 6px; justify-content: center; white-space: nowrap; }
+.side-file-btn.full { width: 100%; }
 .app-main { min-width: 0; }
 .section-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
 .section-title { font-size: 18px; text-transform: none; letter-spacing: 0; color: var(--ink); margin: 0; font-weight: 680; }
@@ -457,19 +467,14 @@ main:has(#view-project:not([hidden])) { max-width: 1320px; }
   content: attr(data-scene); position: absolute; top: 1px; right: -0.3em;
   font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums;
 }
-/* Typknapp + hopfäll-knapp + scennummer i vänstermarginalen (tre knappar i en rad:
-   typknappen längst ut, sen chevronen som fäller ihop/ut, sen scennumret som öppnar
-   redigering av ett låst nummer, närmast texten). Gott om luft mellan dem så de
-   inte flyter ihop. */
+/* Hopfäll-knapp + scennummer i vänstermarginalen (två knappar i en rad, närmast
+   texten). Typknappen (.fel-left) sitter separat, längre ut – se nedan. */
 .scene-toggle {
-  position: absolute; left: -6.6em; top: -1px; display: inline-flex; align-items: baseline; gap: 10px;
+  position: absolute; left: -4.4em; top: -1px; display: inline-flex; align-items: baseline; gap: 10px;
   color: var(--muted); font-family: inherit; font-size: inherit; font-weight: 700; font-variant-numeric: tabular-nums;
 }
 .scene-toggle button { all: unset; cursor: pointer; font: inherit; color: inherit; display: inline-flex; align-items: center; justify-content: center; }
 .scene-toggle button:hover { color: var(--accent); }
-/* Typknappen behåller sin .iconbtn-centrering (viktig för symbolglyfer, se ovan)
-   men tappar sin egen bakgrund/kant/padding så den smälter in i den flata gruppen. */
-.scene-toggle .type-btn { background: none; border: none; padding: 0; color: inherit; }
 .scene-toggle .type-btn:hover { color: var(--accent); }
 .scene-toggle .st-chev { font-size: 1.15em; }
 .scene-toggle .st-no.locked { color: var(--warn); text-decoration: underline dotted; text-underline-offset: 2px; }
@@ -529,17 +534,30 @@ main:has(#view-project:not([hidden])) { max-width: 1320px; }
    slutar vid ~56 tecken så det blir en högermarginal som i ett riktigt manus. */
 .fel-scene_heading .fel-text { text-transform: uppercase; font-weight: 700; max-width: 56ch; }
 .fel-action .fel-text, .fel-general .fel-text { max-width: 56ch; }
-.fel-character .fel-text { text-transform: uppercase; margin-left: 22ch; max-width: 33ch; }
+/* Karaktärsnamnet har en dekoration direkt efter sig ((CONT'D), se nedan) – den
+   ska hamna precis efter namnet, inte längst ut vid boxens max-bredd. Bredden
+   sätts av autosizeWidth i app.js (canvas-mätning av texten – CSS-egenskapen
+   field-sizing gav helt fel mått med vår self-hostade font, så JS används i stället). */
+.fel-character .fel-text { text-transform: uppercase; margin-left: 22ch; max-width: 33ch; flex: 0 1 auto; }
+/* (CONT'D): beräknad dekoration efter karaktärsnamnet (se shouldShowContd i app.js
+   och _should_show_contd i app/fdx.py) – aldrig en del av den redigerbara texten. */
+.contd-tag { flex: 0 0 auto; margin-left: 6px; color: var(--muted); }
 .fel-dialogue .fel-text { margin-left: 10ch; max-width: 33ch; }
-.fel-parenthetical .fel-text { max-width: none; font-style: italic; color: var(--muted); }
+.fel-parenthetical .fel-text { max-width: none; color: var(--muted); flex: 0 1 auto; }
 /* Parentes-fältet: "(" / ")" som statisk dekoration runt textrutan (texten lagras
    utan dem, se app.js/app/fdx.py) – indraget flyttas hit så parenteserna hamnar
    precis vid textrutans kant i stället för längst ut till vänster i raden. */
 .paren-field { display: inline-flex; align-items: flex-start; flex: 1; min-width: 0; }
-.paren-field .fel-text { flex: 1; min-width: 0; }
-.paren-field .paren { flex: 0 0 auto; color: var(--muted); font-style: italic; padding: 1px 0; }
+.paren-field .fel-text { min-width: 0; }
+.paren-field .paren { flex: 0 0 auto; color: var(--muted); padding: 1px 0; }
 .fel-parenthetical .paren-field { margin-left: 16ch; max-width: 24ch; }
 .fel-transition .fel-text { text-transform: uppercase; text-align: right; }
+/* Fri formatering (kategorins extrafunktion + de persistenta B/I/U-knapparna,
+   se appendExtraFn/toggleStyleFlag i app.js) – gäller oavsett elementtyp. */
+.fel.caps .fel-text { text-transform: uppercase; }
+.fel.bold .fel-text { font-weight: 700; }
+.fel.italic .fel-text, .fel.italic .paren-field .paren { font-style: italic; }
+.fel.underline .fel-text { text-decoration: underline; }
 .fel-new_act .fel-text, .fel-end_of_act .fel-text { text-align: center; text-transform: uppercase; font-weight: 700; max-width: 56ch; }
 .fel.low-conf .fel-text { background: #2a2516; }
 .fel.flash .fel-text { background: var(--flash); transition: background .3s; }
@@ -550,8 +568,11 @@ main:has(#view-project:not([hidden])) { max-width: 1320px; }
 .fel .gap { align-self: center; margin-left: 8px; color: var(--warn); font-weight: 600; font-size: 11px; flex: 0 0 auto; }
 
 /* Typknappen (S/A/K/D/P/Ö/G) sitter i vänstermarginalen och är alltid synlig. */
+/* Typknappen ska sitta UTANFÖR arket (som högerrailen gör på andra sidan), inte i
+   arkets egen vänstermarginal – .page har padding-left: 104px (se ovan), så
+   margin-right måste vara minst det för att nå utanför den vänstra kanten. */
 .fel-left {
-  position: absolute; right: 100%; margin-right: 14px; top: 0; display: flex; align-items: center;
+  position: absolute; right: 100%; margin-right: 112px; top: 0; display: flex; align-items: center;
 }
 .fel-left .type-btn { font-weight: 700; }
 
@@ -564,10 +585,14 @@ main:has(#view-project:not([hidden])) { max-width: 1320px; }
 }
 .elements.show-controls .fel-tools { display: flex; }
 .fel-tools .iconbtn { padding: 3px 7px; }
-.fel-tools .iconbtn.active { color: var(--accent-2); border-color: var(--accent-2); }
 /* Extrafunktionen (t.ex. ⇄ för Dual Dialogue) hamnar längst till vänster i
    gruppen, med lite luft till nästa knapp (+) så de inte flyter ihop. */
 .fel-tools .fel-extra { margin-right: 8px; }
+
+/* Persistenta Bold/Italic/Underline-knappar i flikraden: verkar på raden man står
+   i just nu (samma bold/italic/underline-fält som kategorins extrafunktion). */
+.style-group { display: inline-flex; gap: 4px; }
+.style-group .iconbtn { padding: 4px 9px; }
 
 /* Kommandopalett (⌘K): centrerad ruta över allt, med sökfält och träfflista. */
 .cmdk-backdrop {
@@ -784,8 +809,8 @@ kbd {
   .fel-tools { left: auto; right: 4px; margin-left: 0; }
   .fel-left { left: 4px; right: auto; margin-right: 0; }
   /* scenrubrikens hopfäll-knapp/scennummer bor redan i samma smala vänstermarginal –
-     typknappen (flyttad in i .scene-toggle, se app.js) får inte plats där också. */
-  .fel-scene_heading .scene-toggle .type-btn { display: none; }
+     typknappen får inte plats där också på en smal skärm. */
+  .fel-scene_heading .fel-left { display: none; }
 
   /* mindre indrag så dialog/karaktär inte blir trångt på liten skärm */
   .fel-character .fel-text { margin-left: 8ch; max-width: none; }

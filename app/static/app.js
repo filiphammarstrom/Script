@@ -861,6 +861,26 @@ function autogrow(ta) {
   ta.style.height = "auto";
   ta.style.height = ta.scrollHeight + 2 + "px";
 }
+// Krymper Karaktär-/Parentes-fältet till textens egen bredd (canvas-mätning – testat
+// pålitligt tvärs webbläsare, till skillnad från den experimentella CSS-egenskapen
+// field-sizing som visade sig ge helt fel mått med vår self-hostade font) så att
+// dekorationen efter fältet ((CONT'D) resp. den avslutande parentesen) hamnar
+// precis intill texten i stället för längst ut vid fältets max-bredd.
+let _measureCanvas = null;
+function textWidth(text, font) {
+  if (!_measureCanvas) _measureCanvas = document.createElement("canvas");
+  const ctx = _measureCanvas.getContext("2d");
+  ctx.font = font;
+  return ctx.measureText(text || "").width;
+}
+function autosizeWidth(ta) {
+  const cs = getComputedStyle(ta);
+  const font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+  const extra = ["paddingLeft", "paddingRight", "borderLeftWidth", "borderRightWidth"]
+    .reduce((sum, p) => sum + parseFloat(cs[p] || "0"), 0);
+  const minPx = textWidth("MM", font);  // så ett tomt fält ändå går att klicka i
+  ta.style.width = Math.ceil(Math.max(textWidth(ta.value, font), minPx) + extra + 2) + "px";
+}
 function iconBtn(label, title, fn) {
   const b = document.createElement("button");
   b.type = "button";
@@ -873,7 +893,8 @@ function iconBtn(label, title, fn) {
 function elementRow(el, opts = {}) {
   const { compact = false } = opts;
   const row = document.createElement("div");
-  row.className = "fel fel-" + el.type + (el.confidence !== "high" ? " low-conf" : "") + (el.dual ? " dual" : "");
+  row.className = "fel fel-" + el.type + (el.confidence !== "high" ? " low-conf" : "") + (el.dual ? " dual" : "")
+    + (el.caps ? " caps" : "") + (el.bold ? " bold" : "") + (el.italic ? " italic" : "") + (el.underline ? " underline" : "");
   row.dataset.id = el.id;
 
   // Typknappen (S/A/K/D/P/Ö/G) sitter i vänstermarginalen och är alltid synlig –
@@ -896,7 +917,13 @@ function elementRow(el, opts = {}) {
   ta.className = "fel-text";
   ta.rows = 1;
   ta.value = el.text;
-  ta.oninput = () => { el.text = ta.value; autogrow(ta); updateAutocomplete(el, ta); scheduleSave(); };
+  // Karaktär/Parentes krymps till textens bredd (se autosizeWidth) så dekorationen
+  // efter fältet ((CONT'D)/avslutande parentes) hamnar precis intill texten.
+  const sizeToText = el.type === "character" || el.type === "parenthetical";
+  ta.oninput = () => {
+    el.text = ta.value; autogrow(ta); updateAutocomplete(el, ta); scheduleSave();
+    if (sizeToText) autosizeWidth(ta);
+  };
   ta.onblur = () => { hideAutocomplete(); flushSave(); };
   ta.onkeydown = (e) => {
     // Autocomplete (SmartType) har företräde när menyn är öppen.
@@ -956,24 +983,24 @@ function elementRow(el, opts = {}) {
     row.appendChild(wrap);
   } else {
     row.appendChild(ta);
+    // (CONT'D): beräknad dekoration efter namnet, aldrig en del av den redigerbara
+    // texten (annars skulle den råka skrivas över eller dubbleras vid export).
+    if (el.type === "character" && shouldShowContd(el)) {
+      const contd = document.createElement("span");
+      contd.className = "contd-tag";
+      contd.setAttribute("aria-hidden", "true");
+      contd.textContent = "(CONT'D)";
+      row.appendChild(contd);
+    }
   }
 
   const tools = document.createElement("div");
   tools.className = "fel-tools";
   // Kategorins "extrafunktion" (om typen har en) hamnar längst till vänster i
   // verktygsgruppen, med lite luft till +/flytta/ta bort – se .fel-extra i CSS.
-  if (el.type === "character") {
-    const dualBtn = iconBtn(
-      "⇄",
-      el.dual
-        ? "Del av Dual Dialogue – klicka för att ta bort repliken ur gruppen"
-        : "Markera repliken som Dual Dialogue (visas sida vid sida i FDX-exporten)",
-      () => toggleDual(el)
-    );
-    dualBtn.classList.add("fel-extra");
-    dualBtn.classList.toggle("active", !!el.dual);
-    tools.appendChild(dualBtn);
-  }
+  const extraCountBefore = tools.childElementCount;
+  appendExtraFn(tools, el);
+  if (tools.childElementCount > extraCountBefore) tools.lastElementChild.classList.add("fel-extra");
   // I en ihopparad Dual Dialogue-kolumn ryms inte den externa verktygsrailen (för
   // smalt) – fäll upp paret med ⇄ för att redigera fritt igen om du behöver
   // infoga/flytta/ta bort en enskild rad.
@@ -1138,12 +1165,6 @@ function renderElements() {
         ? `Låst scennummer "${el.scene_number}" – klicka för att ändra eller låsa upp`
         : "Klicka för att låsa ett eget scennummer (t.ex. \"12A\")";
       noBtn.onclick = (e) => { e.stopPropagation(); editSceneNumber(el, sceneNo); };
-      // Typknappen (.fel-left) skulle annars krocka med hopfäll-chevronen/scennumret
-      // i samma vänstermarginal – den flyttas i stället in i samma grupp, längst ut.
-      const leftWrap = row.querySelector(".fel-left");
-      const typeBtn = leftWrap ? leftWrap.firstElementChild : null;
-      if (leftWrap) leftWrap.remove();
-      if (typeBtn) tog.appendChild(typeBtn);
       tog.append(chevBtn, noBtn);
       row.appendChild(tog);
       sheetFor(elPage).appendChild(row);
@@ -1164,6 +1185,7 @@ function renderElements() {
   box.appendChild(sheets);
 
   box.querySelectorAll(".fel-text").forEach(autogrow);
+  box.querySelectorAll(".fel-character .fel-text, .fel-parenthetical .fel-text").forEach(autosizeWidth);
   bindPageScroll();
   updatePageIndicator();
   renderOutline();
@@ -1225,6 +1247,144 @@ function dualPairRow(blockA, blockB) {
   pair.className = "dual-pair";
   pair.append(dualColumn(blockA), dualColumn(blockB));
   return pair;
+}
+
+// ---- kategorins "extrafunktion" (en per elementtyp, se elementRow) ----
+// Fet/kursiv/understruken lagras generiskt (el.bold/italic/underline, samma fält
+// som de persistenta B/I/U-knapparna använder) – bara vilken typ som har en
+// snabbknapp för vilken av dem skiljer sig åt.
+function toggleStyleFlag(el, flag) {
+  el[flag] = !el[flag];
+  renderElements();
+  scheduleSave();
+}
+
+// V.O./O.S. sitter i verkligheten på karaktärsnamnet ("ANNA (V.O.)"), inte på
+// replikraden – knappen bor på Dialog-raden men skriver om den föregående
+// Karaktär-raden. Parenteser i emellan (t.ex. en kort scenanvisning) hoppas över.
+const VOICE_TAGS = ["V.O.", "O.S."];
+function precedingCharacter(dialogueEl) {
+  const i = project.elements.indexOf(dialogueEl);
+  for (let j = i - 1; j >= 0; j--) {
+    const t = project.elements[j].type;
+    if (t === "character") return project.elements[j];
+    if (t !== "parenthetical") return null;
+  }
+  return null;
+}
+function characterVoiceTag(charEl) {
+  if (!charEl) return null;
+  const m = /\((V\.O\.|O\.S\.)\)\s*$/i.exec((charEl.text || "").trim());
+  return m ? m[1].toUpperCase() : null;
+}
+function cycleVoiceTag(dialogueEl) {
+  const charEl = precedingCharacter(dialogueEl);
+  if (!charEl) return;
+  const current = characterVoiceTag(charEl);
+  const next = VOICE_TAGS[VOICE_TAGS.indexOf(current) + 1] || null;  // -1+1=0 om ingen tidigare
+  const base = (charEl.text || "").replace(/\s*\((?:V\.O\.|O\.S\.)\)\s*$/i, "").trimEnd();
+  charEl.text = next ? `${base} (${next})` : base;
+  renderElements();
+  scheduleSave();
+}
+
+// (CONT'D): samma karaktär pratar igen i samma scen utan att någon annan
+// karaktärs replik kommit emellan (en actionrad/parentes får gärna ligga
+// emellan). Beräknas här vid rendering (och i app/fdx.py vid export) – lagras
+// aldrig i elementets text. Måste hållas i synk med _should_show_contd i fdx.py.
+function stripCharTags(text) {
+  return (text || "").trim().replace(/(?:\s*\((?:V\.O\.|O\.S\.|CONT'D)\))+\s*$/i, "").trim().toUpperCase();
+}
+function shouldShowContd(charEl) {
+  const base = stripCharTags(charEl.text);
+  if (!base) return false;
+  const i = project.elements.indexOf(charEl);
+  for (let j = i - 1; j >= 0; j--) {
+    const prev = project.elements[j];
+    if (prev.type === "scene_heading") return false;
+    if (prev.type === "character") return stripCharTags(prev.text) === base;
+  }
+  return false;
+}
+
+// Dygnstid i scenrubriken ("INT. KÖK – DAG") – cyklar Dag/Kväll/Natt och skriver
+// om den sista "– X"-delen av texten, eller lägger till den om den saknas.
+const SCENE_TIMES = ["DAG", "KVÄLL", "NATT"];
+const SCENE_TIME_ICON = { DAG: "☀️", KVÄLL: "🌆", NATT: "🌙" };
+function sceneTimeOf(text) {
+  const m = /[-–—]\s*([^-–—]+?)\s*$/.exec((text || "").trim());
+  if (!m) return null;
+  const t = m[1].toUpperCase();
+  return SCENE_TIMES.includes(t) ? t : null;
+}
+function cycleSceneTime(el) {
+  const current = sceneTimeOf(el.text);
+  const next = SCENE_TIMES[(SCENE_TIMES.indexOf(current) + 1) % SCENE_TIMES.length];
+  const base = (el.text || "").replace(/[-–—]\s*[^-–—]+?\s*$/, "").trimEnd();
+  el.text = base ? `${base} – ${next}` : next;
+  renderElements();
+  scheduleSave();
+}
+
+// Bygger kategorins extrafunktionsknapp (om typen har en) och lägger den längst
+// till vänster i verktygsgruppen, se .fel-extra i CSS.
+function appendExtraFn(tools, el) {
+  if (el.type === "character") {
+    const btn = iconBtn(
+      "⇄",
+      el.dual
+        ? "Del av Dual Dialogue – klicka för att ta bort repliken ur gruppen"
+        : "Markera repliken som Dual Dialogue (visas sida vid sida i FDX-exporten)",
+      () => toggleDual(el)
+    );
+    btn.classList.toggle("active", !!el.dual);
+    tools.appendChild(btn);
+  } else if (el.type === "dialogue") {
+    const charEl = precedingCharacter(el);
+    const tag = characterVoiceTag(charEl);
+    const btn = iconBtn(
+      tag || "🗣️",
+      charEl
+        ? `Lägger "(V.O.)"/"(O.S.)" på karaktärsnamnet ovanför – nu: ${tag || "inget"}, klicka för nästa`
+        : "Ingen karaktärsrad hittades ovanför",
+      () => cycleVoiceTag(el)
+    );
+    btn.classList.toggle("active", !!tag);
+    tools.appendChild(btn);
+  } else if (el.type === "action" || el.type === "general") {
+    const btn = iconBtn(
+      "🔠",
+      el.caps ? "VERSALER på – klicka för att stänga av" : "Gör raden VERSAL",
+      () => toggleStyleFlag(el, "caps")
+    );
+    btn.classList.toggle("active", !!el.caps);
+    tools.appendChild(btn);
+  } else if (el.type === "parenthetical") {
+    const btn = iconBtn(
+      "I",
+      el.italic ? "Kursiv – klicka för rak text" : "Rak text – klicka för kursiv",
+      () => toggleStyleFlag(el, "italic")
+    );
+    btn.style.fontStyle = "italic";
+    btn.classList.toggle("active", !!el.italic);
+    tools.appendChild(btn);
+  } else if (el.type === "transition") {
+    const btn = iconBtn(
+      "B",
+      el.bold ? "Fet – klicka för normal" : "Normal – klicka för fet",
+      () => toggleStyleFlag(el, "bold")
+    );
+    btn.style.fontWeight = "900";
+    btn.classList.toggle("active", !!el.bold);
+    tools.appendChild(btn);
+  } else if (el.type === "scene_heading") {
+    const btn = iconBtn(
+      SCENE_TIME_ICON[sceneTimeOf(el.text)] || "🕐",
+      "Dygnstid – klicka för att växla Dag/Kväll/Natt",
+      () => cycleSceneTime(el)
+    );
+    tools.appendChild(btn);
+  }
 }
 // ---- scen-navigator: hoppa mellan scener + dra för att flytta hela scener ----
 function renderOutline() {
@@ -1373,7 +1533,10 @@ function deleteElement(el) {
 // ---- manuellt lägga till rader (som i Final Draft) ----
 function newBlankElement(type) {
   const id = project.elements.reduce((m, e) => Math.max(m, e.id), -1) + 1;
-  return { id, type: type || "action", text: "", confidence: "high", is_gap: false };
+  const t = type || "action";
+  // Matchar backendens default (se _default_parenthetical_italic i app/models.py)
+  // så en nyskapad parentesrad ser kursiv ut direkt, utan att vänta på en sparning.
+  return { id, type: t, text: "", confidence: "high", is_gap: false, italic: t === "parenthetical" };
 }
 function focusElement(id, pos) {
   const ta = document.querySelector(`.fel[data-id="${id}"] .fel-text`);
@@ -1383,9 +1546,15 @@ function focusElement(id, pos) {
   if (pos != null) ta.selectionStart = ta.selectionEnd = pos;
 }
 // Tab/Shift+Tab växlar elementets typ i tur och ordning (TYPES-ordningen).
+// Matchar backendens default (se _default_parenthetical_italic i app/models.py):
+// en rad som blir Parentes ska se kursiv ut direkt, om inget uttryckligt val gjorts.
+function setElementType(el, type) {
+  el.type = type;
+  if (type === "parenthetical" && el.italic === undefined) el.italic = true;
+}
 function cycleType(el, dir) {
   const i = TYPES.indexOf(el.type);
-  el.type = TYPES[(i + dir + TYPES.length) % TYPES.length];
+  setElementType(el, TYPES[(i + dir + TYPES.length) % TYPES.length]);
   renderElements();  // typbyte kan ändra scenindelningen
   focusElement(el.id, (el.text || "").length);
   scheduleSave();
@@ -1531,7 +1700,7 @@ function applyType(t) {
   const el = typeMenuEl;
   hideTypeMenu();
   if (!el || el.type === t) return;
-  el.type = t;
+  setElementType(el, t);
   renderElements();  // typbyte kan ändra scenindelning
   scheduleSave();
 }
@@ -2176,6 +2345,9 @@ $("printBtn").onclick = () => {
     .transition { text-transform: uppercase; text-align: right; margin-top: 1em; }
     .new_act, .end_of_act { text-align: center; text-transform: uppercase; font-weight: bold; margin-top: 1.5em; }
     .character, .parenthetical, .dialogue { page-break-inside: avoid; }
+    .el.b { font-weight: bold; }
+    .el.i { font-style: italic; }
+    .el.u { text-decoration: underline; }
   `;
   const t = (project.title || "").trim(), a = (project.author || "").trim(), c = (project.contact || "").trim();
   let body = "";
@@ -2187,9 +2359,11 @@ $("printBtn").onclick = () => {
   }
   for (const el of project.elements) {
     // Parentes-text lagras utan omslutande parenteser (se elementRow) – de läggs på
-    // i utskriften precis som i FDX-exporten.
-    const t = el.type === "parenthetical" && el.text ? `(${el.text})` : (el.text || "");
-    body += `<div class="el ${el.type}">${esc(t)}</div>`;
+    // i utskriften precis som i FDX-exporten. Samma sak för (CONT'D).
+    let t = el.type === "parenthetical" && el.text ? `(${el.text})` : (el.text || "");
+    if (el.type === "character" && shouldShowContd(el)) t += " (CONT'D)";
+    if (el.caps) t = t.toUpperCase();
+    body += `<div class="el ${el.type}${el.bold ? " b" : ""}${el.italic ? " i" : ""}${el.underline ? " u" : ""}">${esc(t)}</div>`;
   }
   const w = window.open("", "_blank");
   if (!w) { setStatus("Tillåt popup-fönster för att skriva ut / spara som PDF."); return; }
@@ -2437,6 +2611,35 @@ $("controlsToggle").onclick = () => {
   localStorage.setItem(CONTROLS_KEY, controlsVisible() ? "0" : "1");
   applyControlsVisibility();
 };
+
+// ---- persistenta Bold/Italic/Underline-knappar: verkar på raden man står i ----
+// (samma bold/italic/underline-fält som kategorins extrafunktion, se toggleStyleFlag)
+function updateGlobalStyleButtons(el) {
+  $("styleBoldBtn").classList.toggle("active", !!(el && el.bold));
+  $("styleItalicBtn").classList.toggle("active", !!(el && el.italic));
+  $("styleUnderlineBtn").classList.toggle("active", !!(el && el.underline));
+}
+$("elements").addEventListener("focusin", (e) => {
+  const row = e.target.closest(".fel");
+  const el = row ? project.elements.find((x) => x.id === Number(row.dataset.id)) : null;
+  updateGlobalStyleButtons(el);
+});
+function applyGlobalStyleBtn(flag) {
+  const ta = document.activeElement;
+  if (!ta || !ta.classList || !ta.classList.contains("fel-text")) return;
+  const row = ta.closest(".fel");
+  const el = project.elements.find((x) => x.id === Number(row.dataset.id));
+  if (!el) return;
+  const caret = ta.selectionStart;
+  toggleStyleFlag(el, flag);
+  focusElement(el.id, caret);
+}
+// mousedown-preventDefault: knappen ska aldrig stjäla fokus från textrutan,
+// annars vet klicket inte längre vilken rad det gäller.
+for (const [btnId, flag] of [["styleBoldBtn", "bold"], ["styleItalicBtn", "italic"], ["styleUnderlineBtn", "underline"]]) {
+  $(btnId).onmousedown = (e) => e.preventDefault();
+  $(btnId).onclick = () => applyGlobalStyleBtn(flag);
+}
 
 // ---- kommandopalett (⌘K / Ctrl+K) ----
 // Hoppa till scener och kör kommandon utan att släppa tangentbordet. Byggs om
