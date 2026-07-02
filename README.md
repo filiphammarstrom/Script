@@ -98,6 +98,7 @@ Tiny (~40 MB), Base (~80 MB), Small (~250 MB) eller Large (~1 GB, bäst).
 - `assemblyai` (default) – moln med diarisering (talar-etiketter). Kräver `ASSEMBLYAI_API_KEY`. Kostar per minut.
 - `openai` – moln via OpenAI. Kräver `OPENAI_API_KEY`. Modell styrs av *Flera talare*-krysset (eller `OPENAI_TRANSCRIBE_MODEL`).
 - `groq` – **billigaste molnmotorn** (~0,04 $/timme, ca en tiondel av OpenAI/AssemblyAI). Kräver `GROQ_API_KEY`. Whisper-large-v3-turbo, ingen diarisering.
+- `deepgram` – nästan lika billigt som Groq (~0,0043 $/min), men **MED diarisering** (talar-etiketter), precis som AssemblyAI. Kräver `DEEPGRAM_API_KEY`. Modell styrs av `DEEPGRAM_MODEL` (default `nova-2`, brett språkstöd inkl. svenska).
 - `local` – lokal **Whisper-CLI** på din egen dator. Gratis, ingen moln-API (ingen diarisering – AI:n attribuerar talare från sammanhang).
 
 **Tystnadsklippning:** före uppladdning till en molnmotor klipps längre tystnader bort
@@ -106,7 +107,7 @@ diktering innehåller mycket tanketid, så det brukar spara en rejäl andel av d
 fakturerade minuterna och krymper uppladdningen. Stäng av med
 `TRANSCRIBE_TRIM_SILENCE=0`. Saknas ffmpeg används originalet.
 
-Uppladdning körs alltid som ett **bakgrundsjobb**: `POST .../transcribe` svarar direkt med ett `job_id`, och klienten pollar `GET /api/transcribe-jobs/{job_id}` var tredje sekund tills status blir `done`/`error`. **Mycket långa inspelningar delas automatiskt upp** i bitar (`TRANSCRIBE_CHUNK_SECONDS`, default 15 min) innan de skickas till motorn – dels för att OpenAI:s API stoppar filer över 25 MB, dels för att visa framstegsstatus ("Del 2 av 5") under körningen. Kräver **`ffmpeg`** i PATH (finns redan i Docker-imagen; installera lokalt med t.ex. `brew install ffmpeg`) – saknas det transkriberas filen odelad som tidigare. AssemblyAI delas aldrig upp (den hanterar långa filer själv i molnet).
+Uppladdning körs alltid som ett **bakgrundsjobb**: `POST .../transcribe` svarar direkt med ett `job_id`, och klienten pollar `GET /api/transcribe-jobs/{job_id}` var tredje sekund tills status blir `done`/`error`. **Mycket långa inspelningar delas automatiskt upp** i bitar (`TRANSCRIBE_CHUNK_SECONDS`, default 15 min) innan de skickas till motorn – dels för att OpenAI:s/Groqs API stoppar filer över 25 MB, dels för att visa framstegsstatus ("Del 2 av 5") under körningen. Kräver **`ffmpeg`** i PATH (finns redan i Docker-imagen; installera lokalt med t.ex. `brew install ffmpeg`) – saknas det transkriberas filen odelad som tidigare. AssemblyAI och Deepgram delas aldrig upp (de hanterar långa filer själva i molnet, och en uppdelning skulle förstöra deras diarisering).
 
 Lokalt läge, standard (openai-whisper):
 
@@ -136,7 +137,7 @@ export WATCH_OUT_EXT=.txt                     # eller .srt (tidskoder rensas)
 
 Ställ in transkriberingsappen att bevaka `WATCH_IN_DIR` och spara transkript (samma filnamn) till `WATCH_OUT_DIR`.
 
-I appen kan du även **välja motor per uppladdning** (Webbläsaren live / Whisper i webbläsaren / Lokalt / Bevakad mapp / Moln: Groq / OpenAI / AssemblyAI) och **importera ett färdigt transkript** (`.txt/.srt/.vtt`) från en valfri app – tidskoder i SRT/VTT rensas automatiskt.
+I appen kan du även **välja motor per uppladdning** (Webbläsaren live / Whisper i webbläsaren / Lokalt / Bevakad mapp / Moln: Groq / Deepgram / OpenAI / AssemblyAI) och **importera ett färdigt transkript** (`.txt/.srt/.vtt`) från en valfri app – tidskoder i SRT/VTT rensas automatiskt.
 
 Ger din app **talar-etiketter** (t.ex. "Talare 1/2" eller "Speaker A/B" – många, som Whisper Transcription, gör det) behåller Script dem: AI:n knyter varje platshållare till rätt karaktär utifrån kontext och story-bibel och skriver ut det riktiga namnet (frågar om kopplingen är oklar).
 
@@ -153,7 +154,7 @@ export ADMIN_EMAILS="du@gmail.com"        # admin(s); aktiverar även åtkomstsp
 ```
 
 - **Google-login** använder Googles "Sign in with Google" (ID-token) och kräver bara ett **client-ID** (inget secret). Skapa en OAuth 2.0-klient (typ: webbapp) i Google Cloud Console och lägg din domän under *Authorized JavaScript origins*. Utloggade besökare möts av en **landningssida** som presenterar appen (funktioner + manusexempel) med inloggningen.
-- **Egen nyckel per användare:** varje inloggad användare lägger in sina egna Anthropic/OpenAI/AssemblyAI/Groq-nycklar under **Inställningar → API-nycklar** (lagras på kontot, visas aldrig igen). Du som driftar betalar alltså inget för andras körningar.
+- **Egen nyckel per användare:** varje inloggad användare lägger in sina egna Anthropic/OpenAI/AssemblyAI/Groq/Deepgram-nycklar under **Inställningar → API-nycklar** (lagras på kontot, visas aldrig igen). Du som driftar betalar alltså inget för andras körningar.
 - I molnläget är **bara moln-transkribering** (OpenAI/AssemblyAI) tillgänglig – lokal Whisper och bevakad mapp fungerar bara på din egen dator.
 - All användardata (projekt, egna regler, nycklar) ligger under `data/users/<uid>/` och är gitignorerat. Den delade grunden ligger i `data/base/`.
 

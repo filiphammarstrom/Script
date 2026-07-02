@@ -3,6 +3,7 @@ uvicorn[standard]>=0.27
 anthropic>=0.40
 assemblyai>=0.35
 openai>=1.40
+httpx>=0.27
 pydantic>=2.6
 pypdf>=4.0
 python-multipart>=0.0.9
