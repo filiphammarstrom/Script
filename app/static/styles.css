@@ -310,9 +310,13 @@ main:has(#view-project:not([hidden])) { max-width: 1340px; }
    Panelens egen dekorativa bakgrund/kant (från .panel) syntes som en extra,
    överflödig ram precis runt railerna nu när panelen ligger tight – arket och
    de små ikonrutorna har redan sina egna kanter, så panelen görs osynlig och
-   fungerar bara som layout-behållare (bredd/centrering). */
+   fungerar bara som layout-behållare (bredd/centrering).
+   Vänsterjusterad (INTE margin: 0 auto) – på breda fönster är .app-main bredare
+   än de här 930px:en, och auto-centrering lade då halva mellanrummet mellan
+   sidomenyn och vänsterrailen (såg ut som "för mycket luft mot panelen").
+   Vänsterjustering samlar i stället allt överskott till höger, utanför arket. */
 .elements-panel {
-  max-width: 930px; margin: 0 auto;
+  max-width: 930px; margin: 0;
   background: none; border: none; box-shadow: none; padding: 0;
 }
 
@@ -625,16 +629,19 @@ main:has(#view-project:not([hidden])) { max-width: 1340px; }
    knappar utan sammanhang. Knapparna själva görs därför ramlösa (se
    .fel-tools .iconbtn nedan) så bara gruppens EGNA, tighta ram syns. */
 .fel-tools {
-  position: absolute; left: 100%; margin-left: 88px; top: 0; display: none; gap: 2px; align-items: center;
-  background: rgba(12, 14, 19, .92); padding: 2px; border-radius: 7px; border: 1px solid var(--line);
+  position: absolute; left: 100%; margin-left: 88px; top: 0; display: none; gap: 6px; align-items: center;
+  background: rgba(12, 14, 19, .92); padding: 3px; border-radius: 7px; border: 1px solid var(--line);
 }
 .elements.show-controls .fel-tools { display: flex; }
 /* Flikrutan (.tab-content) täcker manuset men inte nödvändigtvis den smala
    railen med radkontroller utanför själva arket – dölj railen och typknappen
    medan en flik är öppen så inget syns bredvid/genom den flytande rutan. */
 .elements.tab-open .fel-tools, .elements.tab-open .fel-left { visibility: hidden; }
+/* Ett litet mellanrum (gap ovan) räcker inte ensamt för att skilja knapparna åt
+   utan egna ramar – en svag bakgrundston ger varje knapp en egen, läsbar yta
+   utan att bli en ram (det var ramarna som gav "dubbel ram"-intrycket). */
 .fel-tools .iconbtn {
-  padding: 3px 7px; border-color: transparent; background: transparent;
+  padding: 3px 7px; border-color: transparent; background: rgba(255, 255, 255, .05);
 }
 .fel-tools .iconbtn:hover { background: var(--panel-2); }
 /* Extrafunktionen (t.ex. ⇄ för Dual Dialogue) hamnar längst till vänster i
