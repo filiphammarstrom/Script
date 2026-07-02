@@ -555,6 +555,10 @@ main:has(#view-project:not([hidden])) { max-width: 1340px; }
 .in-dualcol .fel-tools {
   position: static; opacity: 1; background: none; border: none; padding: 0; margin-left: 6px; flex: 0 0 auto;
 }
+/* Ingen gruppram här (railen ligger inline i texten, inte i en egen railbox) –
+   knapparna behöver då sin EGNA ram för att synas mot manussidan (till skillnad
+   från den vanliga railen, se .fel-tools .iconbtn nedan). */
+.in-dualcol .fel-tools .iconbtn { border-color: var(--line); background: var(--panel-2); }
 .in-dualcol .fel-left { position: static; margin-right: 6px; }
 .fel-text {
   flex: 1; background: transparent; border: 1px solid transparent; border-radius: 5px;
@@ -615,19 +619,24 @@ main:has(#view-project:not([hidden])) { max-width: 1340px; }
 /* margin-left måste vara minst .page's padding-right (84px, se .page ovan) för
    att railen ska hamna UTANFÖR arkets kant i stället för att flyta inne i dess
    egen högermarginal (vilket hände efter att marginalerna gjordes om till
-   riktiga tumbaserade mått). Ingen egen bakgrund/ram på gruppen – varje knapp
-   har redan sin egen ram (.iconbtn), så en extra ram runt HELA gruppen blev en
-   dubbel, "spilld" ram runt de redan inramade knapparna (samma mönster som
-   .style-group/.in-dualcol .fel-tools nedan, som aldrig hade en egen ram). */
+   riktiga tumbaserade mått). EN gemensam ram runt hela gruppen (inte en per
+   knapp) – annars blir det antingen en dubbel, "spilld" ram (ram på både
+   gruppen och varje knapp) eller, om gruppramen tas bort helt, lösryckta
+   knappar utan sammanhang. Knapparna själva görs därför ramlösa (se
+   .fel-tools .iconbtn nedan) så bara gruppens EGNA, tighta ram syns. */
 .fel-tools {
-  position: absolute; left: 100%; margin-left: 88px; top: 0; display: none; gap: 4px; align-items: center;
+  position: absolute; left: 100%; margin-left: 88px; top: 0; display: none; gap: 2px; align-items: center;
+  background: rgba(12, 14, 19, .92); padding: 2px; border-radius: 7px; border: 1px solid var(--line);
 }
 .elements.show-controls .fel-tools { display: flex; }
 /* Flikrutan (.tab-content) täcker manuset men inte nödvändigtvis den smala
    railen med radkontroller utanför själva arket – dölj railen och typknappen
    medan en flik är öppen så inget syns bredvid/genom den flytande rutan. */
 .elements.tab-open .fel-tools, .elements.tab-open .fel-left { visibility: hidden; }
-.fel-tools .iconbtn { padding: 3px 7px; }
+.fel-tools .iconbtn {
+  padding: 3px 7px; border-color: transparent; background: transparent;
+}
+.fel-tools .iconbtn:hover { background: var(--panel-2); }
 /* Extrafunktionen (t.ex. ⇄ för Dual Dialogue) hamnar längst till vänster i
    gruppen, med lite luft till nästa knapp (+) så de inte flyter ihop. */
 .fel-tools .fel-extra { margin-right: 8px; }
