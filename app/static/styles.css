@@ -615,10 +615,12 @@ main:has(#view-project:not([hidden])) { max-width: 1340px; }
 /* margin-left måste vara minst .page's padding-right (84px, se .page ovan) för
    att railen ska hamna UTANFÖR arkets kant i stället för att flyta inne i dess
    egen högermarginal (vilket hände efter att marginalerna gjordes om till
-   riktiga tumbaserade mått). */
+   riktiga tumbaserade mått). Ingen egen bakgrund/ram på gruppen – varje knapp
+   har redan sin egen ram (.iconbtn), så en extra ram runt HELA gruppen blev en
+   dubbel, "spilld" ram runt de redan inramade knapparna (samma mönster som
+   .style-group/.in-dualcol .fel-tools nedan, som aldrig hade en egen ram). */
 .fel-tools {
-  position: absolute; left: 100%; margin-left: 88px; top: 0; display: none; gap: 3px; align-items: center;
-  background: rgba(12, 14, 19, .92); padding: 3px; border-radius: 7px; border: 1px solid var(--line);
+  position: absolute; left: 100%; margin-left: 88px; top: 0; display: none; gap: 4px; align-items: center;
 }
 .elements.show-controls .fel-tools { display: flex; }
 /* Flikrutan (.tab-content) täcker manuset men inte nödvändigtvis den smala
