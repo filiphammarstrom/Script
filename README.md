@@ -196,8 +196,11 @@ pytest tests/test_fdx.py
    **Enter/mellanslag/piltangent** för att öppna en lista med hela namnen (Scenrubrik, Action,
    Karaktär, Dialog, Parentes, Övergång, Allmänt); tryck bokstaven för att hoppa direkt dit och
    **Enter** för att välja. Manuset sätts i **Courier Prime** (branschstandardtypsnittet,
-   self-hostat) och **🎯 Fokus**-knappen tonar ned allt utom scenen du skriver i och håller
-   raden centrerad (skrivmaskinsläge).
+   self-hostat) och renderas **sida för sida** som separata ark med sidnummer i hörnet
+   (som Final Draft). **🎯 Fokus**-knappen tonar ned allt utom scenen du skriver i och håller
+   raden centrerad (skrivmaskinsläge). **⌘K**/**Ctrl+K** öppnar en **kommandopalett**:
+   hoppa till valfri scen eller kör kommandon (växla vy/flik, exportera, skriv ut ...)
+   direkt från tangentbordet.
 6. **Exportera FDX** och öppna `.fdx`-filen i Final Draft. Du kan även **importera** ett
    befintligt manus (FDX eller Fountain) – det läggs till sist i manuset (ångerbart via versionshistoriken).
 7. **Dela skrivskyddat** (Projektinställningar → *Dela skrivskyddat*): skapa en länk så
