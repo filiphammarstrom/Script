@@ -16,6 +16,10 @@ class E:
     is_gap: bool = False
     scene_number: str | None = None
     dual: bool = False
+    caps: bool = False
+    bold: bool = False
+    italic: bool = False
+    underline: bool = False
 
 
 def test_basic_structure_and_types():
@@ -53,6 +57,69 @@ def test_parenthetical_gets_wrapped_in_parens_on_export():
     root = ET.fromstring(to_fdx([E("parenthetical", "leende"), E("parenthetical", "(redan inparentiserad)")]))
     texts = [p.find("Text").text for p in root.find("Content").findall("Paragraph")]
     assert texts == ["(leende)", "(redan inparentiserad)"]
+
+
+def test_caps_uppercases_exported_text():
+    # FDX har ingen egen "allt versalt"-stil, så texten görs versal på riktigt.
+    root = ET.fromstring(to_fdx([E("action", "Hon springer.", caps=True)]))
+    assert root.find("Content").find("Paragraph").find("Text").text == "HON SPRINGER."
+
+
+def test_bold_italic_underline_become_fdx_style_attribute():
+    root = ET.fromstring(to_fdx([
+        E("transition", "CUT TO:", bold=True),
+        E("parenthetical", "viskar", italic=True),
+        E("general", "understruket", underline=True),
+        E("action", "allt på en gång", bold=True, italic=True, underline=True),
+        E("action", "ingen stil alls"),
+    ]))
+    paras = root.find("Content").findall("Paragraph")
+    styles = [p.find("Text").get("Style") for p in paras]
+    assert styles == ["Bold", "Italic", "Underline", "Bold+Italic+Underline", None]
+
+
+def test_contd_added_when_same_character_speaks_again_in_same_scene():
+    elements = [
+        E("scene_heading", "INT. KÖK – DAG"),
+        E("character", "ANNA"),
+        E("dialogue", "Hej."),
+        E("action", "Anna vänder sig om."),
+        E("character", "ANNA"),
+        E("dialogue", "Och nu då?"),
+    ]
+    texts = [p.find("Text").text for p in ET.fromstring(to_fdx(elements)).find("Content").findall("Paragraph")]
+    assert texts == ["INT. KÖK – DAG", "ANNA", "Hej.", "Anna vänder sig om.", "ANNA (CONT'D)", "Och nu då?"]
+
+
+def test_contd_not_added_when_another_character_spoke_between():
+    elements = [
+        E("character", "ANNA"), E("dialogue", "Hej."),
+        E("character", "BEA"), E("dialogue", "Hej själv."),
+        E("character", "ANNA"), E("dialogue", "Vad gör du?"),
+    ]
+    texts = [p.find("Text").text for p in ET.fromstring(to_fdx(elements)).find("Content").findall("Paragraph")]
+    assert texts == ["ANNA", "Hej.", "BEA", "Hej själv.", "ANNA", "Vad gör du?"]
+
+
+def test_contd_not_added_across_scene_boundary():
+    elements = [
+        E("scene_heading", "INT. KÖK – DAG"),
+        E("character", "ANNA"), E("dialogue", "Hej."),
+        E("scene_heading", "EXT. GATA – NATT"),
+        E("character", "ANNA"), E("dialogue", "Fortfarande hej."),
+    ]
+    texts = [p.find("Text").text for p in ET.fromstring(to_fdx(elements)).find("Content").findall("Paragraph")]
+    assert texts.count("ANNA (CONT'D)") == 0
+    assert texts.count("ANNA") == 2
+
+
+def test_contd_ignores_existing_voice_tag_when_matching_names():
+    elements = [
+        E("character", "ANNA (V.O.)"), E("dialogue", "Hej."),
+        E("character", "ANNA"), E("dialogue", "Igen."),
+    ]
+    texts = [p.find("Text").text for p in ET.fromstring(to_fdx(elements)).find("Content").findall("Paragraph")]
+    assert texts == ["ANNA (V.O.)", "Hej.", "ANNA (CONT'D)", "Igen."]
 
 
 def test_gap_renders_as_marked_action():

@@ -168,7 +168,10 @@
       <div class="app-shell">
         <aside class="sidebar" id="sidebar">
           <button id="backToProjects" class="linkbtn back-link">← Alla projekt</button>
-          <h2 id="projHeadTitle" class="proj-side-title"></h2>
+          <div class="side-title-row">
+            <h2 id="projHeadTitle" class="proj-side-title"></h2>
+            <span id="saveState" class="savestate"></span>
+          </div>
           <nav class="side-menu">
             <button class="side-item" data-section="manus">📝 Manus</button>
             <button class="side-item" data-section="board">🗂️ Korktavla</button>
@@ -180,6 +183,16 @@
           <div class="side-scenes">
             <div class="side-scenes-head">Scener <span class="hint">(klicka · dra)</span></div>
             <ol id="sceneOutline" class="scene-outline"></ol>
+          </div>
+          <div class="side-files">
+            <div class="side-files-row">
+              <label class="filelabel side-file-btn" title="Importera manus (FDX/Fountain)">
+                📥 Importera
+                <input type="file" id="importFile" accept=".fdx,.fountain,.txt,.text" hidden>
+              </label>
+              <button id="exportBtn" class="side-file-btn primary">📤 Exportera</button>
+            </div>
+            <button id="printBtn" class="side-file-btn full">🖨️ Skriv ut / PDF</button>
           </div>
         </aside>
 
@@ -208,6 +221,11 @@
               <button type="button" class="tab-btn" data-tab="comments" aria-expanded="false">🗒️ Kommentarer</button>
               <button type="button" class="tab-btn" data-tab="versions" aria-expanded="false">🕑 Versioner</button>
               <span class="tabbar-right">
+                <span class="style-group">
+                  <button type="button" id="styleBoldBtn" class="iconbtn" title="Fet – på raden du står i"><b>B</b></button>
+                  <button type="button" id="styleItalicBtn" class="iconbtn" title="Kursiv – på raden du står i"><i>I</i></button>
+                  <button type="button" id="styleUnderlineBtn" class="iconbtn" title="Understruken – på raden du står i"><u>U</u></button>
+                </span>
                 <button type="button" id="controlsToggle" class="linkbtn" title="Visa/göm radverktyg: extra formatval samt infoga/flytta/ta bort rad">🔧 Visa kontroller</button>
                 <span id="scriptStats" class="script-stats"></span>
                 <span id="recIndicator" class="rec-indicator" hidden>🔴 <span id="recTime">0:00</span></span>
@@ -341,14 +359,6 @@
 
             <section class="panel">
               <div id="elements" class="elements"></div>
-              <div class="row wrap">
-                <label class="filelabel">Importera manus (FDX/Fountain)
-                  <input type="file" id="importFile" accept=".fdx,.fountain,.txt,.text" hidden>
-                </label>
-                <button id="printBtn">🖨️ Skriv ut / PDF</button>
-                <button id="exportBtn" class="primary">Exportera FDX</button>
-                <span id="saveState" class="savestate"></span>
-              </div>
             </section>
           </div>
 

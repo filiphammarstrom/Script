@@ -1,5 +1,25 @@
 """Tål-tester: modeller som ibland returnerar nästlade fält som JSON-strängar."""
-from app.models import AnalyzeResult, ReviseResult
+from app.models import AnalyzeResult, ReviseResult, ScreenplayElement
+
+
+def test_parenthetical_defaults_to_italic_when_field_missing():
+    # Gammal data (sparad innan italic-fältet fanns) ska fortsätta se kursiv ut.
+    el = ScreenplayElement(id=0, type="parenthetical", text="leende")
+    assert el.italic is True
+
+
+def test_parenthetical_respects_explicit_italic_false():
+    # En användare som stänger av kursiv ska inte bli överkörd av standardvärdet.
+    el = ScreenplayElement(id=0, type="parenthetical", text="leende", italic=False)
+    assert el.italic is False
+
+
+def test_other_types_default_to_non_italic():
+    el = ScreenplayElement(id=0, type="action", text="Hon springer.")
+    assert el.italic is False
+    assert el.bold is False
+    assert el.caps is False
+    assert el.underline is False
 
 
 def test_analyze_result_coerces_stringified_clarifications():
