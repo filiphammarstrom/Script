@@ -315,6 +315,10 @@ function setActiveTab(tab) {
     b.setAttribute("aria-expanded", String(on));
   });
   document.querySelectorAll(".tab-content").forEach((c) => { c.hidden = c.dataset.tab !== activeTab; });
+  // Flikrutan ligger ovanpå manuset men täcker inte nödvändigtvis den smala
+  // railen med radkontroller utanför själva arket – dölj dem så de inte syns
+  // bredvid/genom rutan medan en flik är öppen.
+  $("elements").classList.toggle("tab-open", !!activeTab);
   if (activeTab === "comments") loadComments();
   else if (activeTab === "versions") loadVersions();
   syncStickyOffsets();  // rutans bredd/position ska matcha flikraden även om den ändrat storlek
