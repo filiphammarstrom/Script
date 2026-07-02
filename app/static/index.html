@@ -228,11 +228,19 @@
                   <option value="fi">Finska</option>
                   <option value="auto">Auto / annat språk</option>
                 </select>
-                <select id="browserModel" title="Whisper-modell – laddas ner en gång och cachas i webbläsaren. Svenska använder KB-Whisper, övriga språk OpenAI:s flerspråkiga Whisper." hidden>
-                  <option value="tiny">Tiny (snabbast, ~40 MB)</option>
-                  <option value="base" selected>Base (lagom, ~80 MB)</option>
-                  <option value="small">Small (bättre, ~250 MB)</option>
-                  <option value="large">Large (bäst, ~1 GB)</option>
+                <select id="browserModel" title="Whisper-modell – laddas ner en gång och cachas i webbläsaren. KB-Whisper är svensktränad (bäst på svenska, sämre på andra språk); vanliga Whisper klarar alla språk." hidden>
+                  <optgroup label="KB-Whisper (svenska)">
+                    <option value="kb-tiny">KB Tiny (snabbast, ~40 MB)</option>
+                    <option value="kb-base" selected>KB Base (lagom, ~80 MB)</option>
+                    <option value="kb-small">KB Small (bättre, ~250 MB)</option>
+                    <option value="kb-large">KB Large (bäst, ~1 GB)</option>
+                  </optgroup>
+                  <optgroup label="Whisper (alla språk)">
+                    <option value="ml-tiny">Tiny (snabbast, ~40 MB)</option>
+                    <option value="ml-base">Base (lagom, ~80 MB)</option>
+                    <option value="ml-small">Small (bättre, ~250 MB)</option>
+                    <option value="ml-large">Large v3 Turbo (bäst, ~1 GB)</option>
+                  </optgroup>
                 </select>
                 <label class="inline-check" title="Talarseparering: ljudet skickas till en molnmotor som märker vem som säger vad (Speaker A/B ...). Utan bock används gratis live-diktering i webbläsaren när det går.">
                   <input type="checkbox" id="multiSpeaker"> Flera talare

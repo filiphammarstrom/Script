@@ -84,12 +84,13 @@ laddas ner en gång från Hugging Face och cachas – därefter sker allt lokalt
 ljudet laddas aldrig upp. Fungerar även i den hostade versionen, till skillnad från
 Whisper-CLI:n. Ingen diarisering.
 
-**Språkval:** ett språkval vid inspelningsknappen styr allt: live-dikteringens
-taligenkänningsspråk, vilken Whisper-familj webbläsarmotorn använder, och skickas som
-hint till molnmotorerna (*Auto* låter motorn språkdetektera själv). **Svenska** får
-**KB-Whisper** – Kungliga bibliotekets svensktränade modell (tränad på 50 000+ timmar
-svenskt tal; till och med Small-varianten slår OpenAI:s 20× större whisper-large-v3 på
-svenska). Övriga språk får OpenAI:s flerspråkiga Whisper. Modellstorlek väljs i appen:
+**Språkval:** ett språkval vid inspelningsknappen (Svenska/Engelska/Norska/Danska/
+Finska/Auto) styr live-dikteringens taligenkänningsspråk, vilket språk webbläsar-Whisper
+transkriberar på, och skickas som hint till molnmotorerna (*Auto* låter motorn
+språkdetektera själv). **Modellen väljer du också själv**, i två familjer:
+**KB-Whisper** – Kungliga bibliotekets svensktränade modell (50 000+ timmar svenskt tal;
+till och med Small-varianten slår OpenAI:s 20× större whisper-large-v3 på svenska, men
+den är sämre på andra språk) – eller **vanliga flerspråkiga Whisper**. Storlekar:
 Tiny (~40 MB), Base (~80 MB), Small (~250 MB) eller Large (~1 GB, bäst).
 
 `TRANSCRIBE_BACKEND` väljer standardmotor för uppladdade filer:

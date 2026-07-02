@@ -511,14 +511,20 @@ async function decodeAudioTo16kMono(blob) {
     ctx.close();
   }
 }
+// Användaren väljer modell själv: KB-Whisper (Kungliga bibliotekets svensktränade –
+// klart bäst på svenska, sämre på andra språk) eller OpenAI:s flerspråkiga Whisper.
+const BROWSER_MODELS = {
+  "kb-tiny": "onnx-community/kb-whisper-tiny-ONNX",
+  "kb-base": "onnx-community/kb-whisper-base-ONNX",
+  "kb-small": "onnx-community/kb-whisper-small-ONNX",
+  "kb-large": "onnx-community/kb-whisper-large-ONNX",
+  "ml-tiny": "onnx-community/whisper-tiny",
+  "ml-base": "onnx-community/whisper-base",
+  "ml-small": "onnx-community/whisper-small",
+  "ml-large": "onnx-community/whisper-large-v3-turbo",
+};
 function browserModelId() {
-  // Svenska → KB-Whisper (Kungliga bibliotekets svensktränade, klart bäst på
-  // svenska). Andra språk/auto → OpenAI:s flerspråkiga Whisper – KB-varianten
-  // är finjusterad på svenska och tappar kvalitet på övriga språk.
-  const size = $("browserModel").value || "base";
-  if ($("dictateLang").value === "sv") return `onnx-community/kb-whisper-${size}-ONNX`;
-  if (size === "large") return "onnx-community/whisper-large-v3-turbo";
-  return `onnx-community/whisper-${size}`;
+  return BROWSER_MODELS[$("browserModel").value] || BROWSER_MODELS["kb-base"];
 }
 async function browserTranscribe(blob) {
   setStatus("Avkodar ljudet ...", true);
