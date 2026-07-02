@@ -119,12 +119,20 @@ class StoryBible(BaseModel):
 class Project(BaseModel):
     id: str
     title: str = "Namnlöst projekt"
+    # Projekttyp: "screenplay" (manus i branschformat) eller en prosatyp
+    # (synopsis/book/speech/pitch/article/lyrics/freetext – se app/prose.py).
+    # Vanlig str (inte Literal) så att gamla projektfiler och framtida typer
+    # alltid kan läsas; giltiga typer valideras vid skapandet i API:t.
+    kind: str = "screenplay"
     author: str = ""  # för titelsidan i exporten
     contact: str = ""  # kontaktuppgifter (titelsidan), en rad per rad
     context: str = ""  # synopsis/bakgrund
     directives: str = ""  # användarens stående instruktioner för DETTA projekt
     story_bible: StoryBible = Field(default_factory=StoryBible)
     elements: list[ScreenplayElement] = Field(default_factory=list)
+    # Prosadokumentet: huvudtexten för prosatyper, och för screenplay-projekt
+    # det egna storyline/synopsis-dokumentet (redigeras/dikteras i prosa-vyn).
+    prose: str = ""
 
 
 class GlobalSettings(BaseModel):
@@ -176,6 +184,21 @@ class ReviseResult(BaseModel):
     @classmethod
     def _coerce_ops(cls, v):
         return _as_list(v)
+
+
+# --- Prosa-diktering: löpande text (synopsis, bok, tal, pitch ... – se app/prose.py) ---
+
+
+class ProseResult(BaseModel):
+    """AI:ns tolkning av en prosa-diktering.
+
+    mode="append" (normalfallet): `text` är NY text som läggs till sist i dokumentet.
+    mode="replace_all": `text` är HELA det uppdaterade dokumentet – används bara när
+    användaren uttryckligen dikterat en ändring av befintlig text."""
+
+    mode: Literal["append", "replace_all"] = "append"
+    text: str = ""
+    summary: str = ""  # kort sammanfattning på svenska som visas för användaren
 
 
 # --- Dikteringsläge: ett manus i ständig förändring (lägg till / infoga / ändra / ta bort) ---

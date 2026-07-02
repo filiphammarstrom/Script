@@ -148,8 +148,8 @@ def save_secrets(uid: str, updates: dict) -> dict:
 
 
 # ---- projekt per användare ----
-def create_project(uid: str, title: str = "Namnlöst projekt") -> Project:
-    return save_project(uid, Project(id=uuid.uuid4().hex[:12], title=title))
+def create_project(uid: str, title: str = "Namnlöst projekt", kind: str = "screenplay") -> Project:
+    return save_project(uid, Project(id=uuid.uuid4().hex[:12], title=title, kind=kind))
 
 
 def save_project(uid: str, project: Project) -> Project:
@@ -374,7 +374,8 @@ def list_projects(uid: str) -> list[dict]:
         except Exception:
             continue
         scenes = sum(1 for e in proj.elements if e.type == "scene_heading")
-        out.append({"id": proj.id, "title": proj.title, "scenes": scenes})
+        words = len(proj.prose.split())
+        out.append({"id": proj.id, "title": proj.title, "kind": proj.kind, "scenes": scenes, "words": words})
     return out
 
 
