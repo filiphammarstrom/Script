@@ -271,14 +271,17 @@
 
               <div class="dictate-textwrap">
                 <textarea id="inputText" rows="2" placeholder="Diktera/klistra in – fortsätt scenen, 'lägg in en scen mellan 23 och 24 …', eller 'ändra repliken i scen 12 till …'"></textarea>
-                <label class="filelabel import-box" title="Importera transkript (txt/srt/vtt)">
-                  📄 Textfil <span aria-hidden="true">→</span>
-                  <input type="file" id="transcriptFile" accept=".txt,.srt,.vtt,.text" hidden>
-                </label>
+                <div class="import-col">
+                  <span class="or-sep">eller</span>
+                  <label class="filelabel import-box" title="Importera transkript (txt/srt/vtt)">
+                    ↑ Textfil
+                    <input type="file" id="transcriptFile" accept=".txt,.srt,.vtt,.text" hidden>
+                  </label>
+                </div>
               </div>
 
               <div class="row dictate-actions">
-                <button id="analyzeBtn" class="primary">➕ Lägg till / ändra</button>
+                <button id="analyzeBtn" class="primary">▶️ Utför</button>
                 <button id="undoBtn" hidden>↶ Ångra senaste</button>
                 <span id="status" class="status"></span>
                 <select id="aiEngine" class="ai-engine-select" title="AI-motor för manusbygget">

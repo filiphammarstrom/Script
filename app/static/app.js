@@ -870,7 +870,8 @@ function iconBtn(label, title, fn) {
   b.onclick = (e) => { e.stopPropagation(); fn(); };
   return b;
 }
-function elementRow(el) {
+function elementRow(el, opts = {}) {
+  const { compact = false } = opts;
   const row = document.createElement("div");
   row.className = "fel fel-" + el.type + (el.confidence !== "high" ? " low-conf" : "") + (el.dual ? " dual" : "");
   row.dataset.id = el.id;
@@ -925,7 +926,21 @@ function elementRow(el) {
       }
     }
   };
-  row.appendChild(ta);
+  // Parentes-rader lagras utan omslutande parenteser (se app/importer.py/fdx.py) –
+  // "(" och ")" visas som statisk dekoration runt textrutan i stället, så den
+  // inmatade texten alltid blir korrekt inparentiserad utan att man skriver dem själv.
+  if (el.type === "parenthetical") {
+    const wrap = document.createElement("span");
+    wrap.className = "paren-field";
+    const open = document.createElement("span");
+    open.className = "paren"; open.setAttribute("aria-hidden", "true"); open.textContent = "(";
+    const close = document.createElement("span");
+    close.className = "paren"; close.setAttribute("aria-hidden", "true"); close.textContent = ")";
+    wrap.append(open, ta, close);
+    row.appendChild(wrap);
+  } else {
+    row.appendChild(ta);
+  }
 
   const tools = document.createElement("div");
   tools.className = "fel-tools";
@@ -950,10 +965,15 @@ function elementRow(el) {
     dualBtn.classList.toggle("active", !!el.dual);
     tools.appendChild(dualBtn);
   }
-  tools.appendChild(iconBtn("+", "Infoga rad under", () => insertElementAfter(el)));
-  tools.appendChild(iconBtn("↑", "Flytta upp", () => moveElement(el, -1)));
-  tools.appendChild(iconBtn("↓", "Flytta ner", () => moveElement(el, 1)));
-  tools.appendChild(iconBtn("✕", "Ta bort raden", () => deleteElement(el)));
+  // I en ihopparad Dual Dialogue-kolumn ryms inte den externa verktygsrailen (för
+  // smalt) – fäll upp paret med ⇄ för att redigera fritt igen om du behöver
+  // infoga/flytta/ta bort en enskild rad.
+  if (!compact) {
+    tools.appendChild(iconBtn("+", "Infoga rad under", () => insertElementAfter(el)));
+    tools.appendChild(iconBtn("↑", "Flytta upp", () => moveElement(el, -1)));
+    tools.appendChild(iconBtn("↓", "Flytta ner", () => moveElement(el, 1)));
+    tools.appendChild(iconBtn("✕", "Ta bort raden", () => deleteElement(el)));
+  }
   row.appendChild(tools);
 
   if (el.is_gap) {
@@ -1065,8 +1085,25 @@ function renderElements() {
     }
     hiddenCount = 0; headRow = null; headId = null;
   };
-  for (const el of project.elements) {
+  const elements = project.elements;
+  let idx = 0;
+  while (idx < elements.length) {
+    const el = elements[idx];
     const elPage = Math.floor(runningLines / LINES_PER_PAGE) + 1;
+    // Dual Dialogue: en karaktärsreplik markerad dual, direkt följd av ännu en →
+    // rendera båda replikblocken sida vid sida (samma gruppering som fdx.py).
+    if (el.type === "character" && el.dual && !collapsedNow) {
+      const blockA = dualSpeechBlock(el);
+      const next = elements[idx + blockA.length];
+      if (next && next.type === "character" && next.dual) {
+        const blockB = dualSpeechBlock(next);
+        sheetFor(elPage).appendChild(dualPairRow(blockA, blockB));
+        const consumed = blockA.length + blockB.length;
+        for (let k = 0; k < consumed; k++) runningLines += linesFor(elements[idx + k]);
+        idx += consumed;
+        continue;
+      }
+    }
     if (el.type === "scene_heading") {
       flushHidden();
       sceneNo += 1;
@@ -1106,6 +1143,7 @@ function renderElements() {
       sheetFor(elPage).appendChild(elementRow(el));
       runningLines += linesFor(el);
     }
+    idx += 1;
   }
   flushHidden();
   box.appendChild(sheets);
@@ -1151,6 +1189,27 @@ function toggleDual(charEl) {
   dualSpeechBlock(charEl).forEach((e) => { e.dual = turnOn; });
   renderElements();
   scheduleSave();
+}
+// Renderar ett repliksblock (karaktär + ev. parentes/dialog) som en smal kolumn –
+// används för Dual Dialogue-par, se dualPairRow.
+function dualColumn(block) {
+  const col = document.createElement("div");
+  col.className = "dual-col";
+  for (const el of block) {
+    const row = elementRow(el, { compact: true });
+    row.classList.add("in-dualcol");
+    col.appendChild(row);
+  }
+  return col;
+}
+// Två på varandra följande dual=True-repliker (samma gruppering som fdx.py
+// använder för <DualDialogue>) renderas sida vid sida, som i Final Draft, i
+// stället för staplat med bara en kantlinje som antydan (se renderElements).
+function dualPairRow(blockA, blockB) {
+  const pair = document.createElement("div");
+  pair.className = "dual-pair";
+  pair.append(dualColumn(blockA), dualColumn(blockB));
+  return pair;
 }
 // ---- scen-navigator: hoppa mellan scener + dra för att flytta hela scener ----
 function renderOutline() {
@@ -2111,7 +2170,12 @@ $("printBtn").onclick = () => {
     if (c) body += `<div class="contact">${esc(c)}</div>`;
     body += `</div>`;
   }
-  for (const el of project.elements) body += `<div class="el ${el.type}">${esc(el.text || "")}</div>`;
+  for (const el of project.elements) {
+    // Parentes-text lagras utan omslutande parenteser (se elementRow) – de läggs på
+    // i utskriften precis som i FDX-exporten.
+    const t = el.type === "parenthetical" && el.text ? `(${el.text})` : (el.text || "");
+    body += `<div class="el ${el.type}">${esc(t)}</div>`;
+  }
   const w = window.open("", "_blank");
   if (!w) { setStatus("Tillåt popup-fönster för att skriva ut / spara som PDF."); return; }
   w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(t || "Manus")}</title><style>${css}</style></head><body onload="window.focus();window.print();">${body}</body></html>`);

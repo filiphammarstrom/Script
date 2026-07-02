@@ -280,9 +280,16 @@ select { width: auto; min-width: 0; }
 .addbtn { color: var(--accent); }
 
 /* ---- manus-editor: scen-vy i manusformat ---- */
-/* inline-flex + centrering så glyferna (+/↑/↓/✕ osv.) hamnar mitt i knappen,
-   oavsett teckensnittets egna metrik (annars hamnar de lite för högt). */
-.iconbtn { padding: 5px 9px; font-size: 13px; line-height: 1; background: var(--panel-2); color: var(--muted); display: inline-flex; align-items: center; justify-content: center; }
+/* inline-flex + centrering så glyferna (+/↑/↓/✕ osv.) hamnar mitt i knappen. Egen
+   font-family (i stället för att ärva manusets Courier Prime) är nödvändigt här:
+   Courier Prime saknar dessa symboler, så de har renderats med webbläsarens
+   reservteckensnitt – som har helt andra höjd/baslinje-mått än Courier Prime,
+   vilket gjorde att glyferna hamnade förskjutna trots line-height/centrering. */
+.iconbtn {
+  padding: 5px 9px; font-size: 13px; line-height: 1;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: var(--panel-2); color: var(--muted); display: inline-flex; align-items: center; justify-content: center;
+}
 .iconbtn:hover { border-color: var(--accent); color: var(--ink); transform: none; }
 
 /* Projektvyn (app-skal: sidomeny + huvudyta) får mer bredd än övriga vyer. */
@@ -354,8 +361,9 @@ main:has(#view-project:not([hidden])) { max-width: 1320px; }
 .dictate-hint-btn { margin-left: auto; }
 .dictate-textwrap { display: flex; gap: 10px; align-items: stretch; margin-top: 12px; }
 .dictate-textwrap textarea { flex: 1; margin-top: 0; }
+.import-col { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 4px; justify-content: center; }
 .import-box {
-  flex: 0 0 auto; align-self: stretch; justify-content: center;
+  flex: 0 0 auto; justify-content: center;
   font-size: 12.5px; text-align: center; line-height: 1.3;
 }
 .dictate-actions .ai-engine-select { margin-left: auto; }
@@ -484,6 +492,26 @@ main:has(#view-project:not([hidden])) { max-width: 1320px; }
 .fel.fel-dialogue, .fel.fel-parenthetical { margin-top: 0; }
 .fel.dual { border-left: 2px solid var(--accent-2); padding-left: 6px; margin-left: -8px; }
 .scene-body > .fel:first-child { margin-top: 0; }
+
+/* Dual Dialogue: två ihopparade repliker (⇄) renderas sida vid sida, som i Final
+   Draft, i stället för staplat – annars ser togglen inte ut att göra något. Är en
+   replik markerad dual men saknar en granne än (väntar på att paras ihop) visas
+   den precis som vanligt, bara med kantlinjen ovan som antydan. */
+.dual-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 1.1em; }
+.dual-col { display: flex; flex-direction: column; min-width: 0; }
+.dual-col .fel { margin-top: 0; }
+.dual-col .fel.dual { border-left: none; padding-left: 0; margin-left: 0; }
+/* Kolumnen är för smal för den externa railen (typknapp/verktyg utanför arket) –
+   typknapp + dual-togglen läggs i stället inline direkt efter textrutan, och
+   indraget per typ (karaktär/dialog/parentes) slås av eftersom kolumnen redan
+   är den "halva" bredden. */
+.dual-col .fel-character .fel-text, .dual-col .fel-dialogue .fel-text, .dual-col .fel-parenthetical .fel-text,
+.dual-col .fel-character .paren-field, .dual-col .fel-dialogue .paren-field, .dual-col .fel-parenthetical .paren-field {
+  margin-left: 0; max-width: none;
+}
+.in-dualcol .fel-tools {
+  position: static; opacity: 1; background: none; border: none; padding: 0; margin-left: 6px; flex: 0 0 auto;
+}
 .fel-text {
   flex: 1; background: transparent; border: 1px solid transparent; border-radius: 5px;
   resize: none; overflow: hidden; font-family: inherit; font-size: inherit; line-height: inherit;
@@ -497,7 +525,14 @@ main:has(#view-project:not([hidden])) { max-width: 1320px; }
 .fel-action .fel-text, .fel-general .fel-text { max-width: 56ch; }
 .fel-character .fel-text { text-transform: uppercase; margin-left: 22ch; max-width: 33ch; }
 .fel-dialogue .fel-text { margin-left: 10ch; max-width: 33ch; }
-.fel-parenthetical .fel-text { margin-left: 16ch; max-width: 24ch; font-style: italic; color: var(--muted); }
+.fel-parenthetical .fel-text { max-width: none; font-style: italic; color: var(--muted); }
+/* Parentes-fältet: "(" / ")" som statisk dekoration runt textrutan (texten lagras
+   utan dem, se app.js/app/fdx.py) – indraget flyttas hit så parenteserna hamnar
+   precis vid textrutans kant i stället för längst ut till vänster i raden. */
+.paren-field { display: inline-flex; align-items: flex-start; flex: 1; min-width: 0; }
+.paren-field .fel-text { flex: 1; min-width: 0; }
+.paren-field .paren { flex: 0 0 auto; color: var(--muted); font-style: italic; padding: 1px 0; }
+.fel-parenthetical .paren-field { margin-left: 16ch; max-width: 24ch; }
 .fel-transition .fel-text { text-transform: uppercase; text-align: right; }
 .fel-new_act .fel-text, .fel-end_of_act .fel-text { text-align: center; text-transform: uppercase; font-weight: 700; max-width: 56ch; }
 .fel.low-conf .fel-text { background: #2a2516; }
@@ -737,7 +772,7 @@ kbd {
   /* mindre indrag så dialog/karaktär inte blir trångt på liten skärm */
   .fel-character .fel-text { margin-left: 8ch; max-width: none; }
   .fel-dialogue .fel-text { margin-left: 4ch; max-width: none; }
-  .fel-parenthetical .fel-text { margin-left: 6ch; max-width: none; }
+  .fel-parenthetical .paren-field { margin-left: 6ch; max-width: none; }
   .ro-character { margin-left: 8ch; max-width: none; }
   .ro-dialogue { margin-left: 4ch; max-width: none; }
   .ro-parenthetical { margin-left: 6ch; max-width: none; }
