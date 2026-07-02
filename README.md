@@ -78,12 +78,19 @@ spelas ljudet in och skickas till en diariserande molnmotor som märker vem som 
 `gpt-4o-transcribe-diarize` (flera talare, ~$0,006/min) ikryssat, annars
 `gpt-4o-mini-transcribe` (billigast). AssemblyAI diariserar alltid.
 
-**KB-Whisper i webbläsaren (gratis, privat):** motorn *"Webbläsaren – KB-Whisper"* kör
-Kungliga bibliotekets svensktränade Whisper direkt i webbläsaren (Transformers.js;
-WebGPU när det finns, annars WASM). Modellen (Tiny/Base/Small) laddas ner en gång från
-Hugging Face och cachas – därefter sker allt lokalt och privat, ljudet laddas aldrig
-upp. Fungerar även i den hostade versionen, till skillnad från Whisper-CLI:n. Ingen
-diarisering.
+**Whisper i webbläsaren (gratis, privat):** motorn *"Webbläsaren – Whisper"* kör Whisper
+direkt i webbläsaren (Transformers.js; WebGPU när det finns, annars WASM). Modellen
+laddas ner en gång från Hugging Face och cachas – därefter sker allt lokalt och privat,
+ljudet laddas aldrig upp. Fungerar även i den hostade versionen, till skillnad från
+Whisper-CLI:n. Ingen diarisering.
+
+**Språkval:** ett språkval vid inspelningsknappen styr allt: live-dikteringens
+taligenkänningsspråk, vilken Whisper-familj webbläsarmotorn använder, och skickas som
+hint till molnmotorerna (*Auto* låter motorn språkdetektera själv). **Svenska** får
+**KB-Whisper** – Kungliga bibliotekets svensktränade modell (tränad på 50 000+ timmar
+svenskt tal; till och med Small-varianten slår OpenAI:s 20× större whisper-large-v3 på
+svenska). Övriga språk får OpenAI:s flerspråkiga Whisper. Modellstorlek väljs i appen:
+Tiny (~40 MB), Base (~80 MB), Small (~250 MB) eller Large (~1 GB, bäst).
 
 `TRANSCRIBE_BACKEND` väljer standardmotor för uppladdade filer:
 
@@ -128,7 +135,7 @@ export WATCH_OUT_EXT=.txt                     # eller .srt (tidskoder rensas)
 
 Ställ in transkriberingsappen att bevaka `WATCH_IN_DIR` och spara transkript (samma filnamn) till `WATCH_OUT_DIR`.
 
-I appen kan du även **välja motor per uppladdning** (Webbläsaren live / KB-Whisper i webbläsaren / Lokalt / Bevakad mapp / Moln: Groq / OpenAI / AssemblyAI) och **importera ett färdigt transkript** (`.txt/.srt/.vtt`) från en valfri app – tidskoder i SRT/VTT rensas automatiskt.
+I appen kan du även **välja motor per uppladdning** (Webbläsaren live / Whisper i webbläsaren / Lokalt / Bevakad mapp / Moln: Groq / OpenAI / AssemblyAI) och **importera ett färdigt transkript** (`.txt/.srt/.vtt`) från en valfri app – tidskoder i SRT/VTT rensas automatiskt.
 
 Ger din app **talar-etiketter** (t.ex. "Talare 1/2" eller "Speaker A/B" – många, som Whisper Transcription, gör det) behåller Script dem: AI:n knyter varje platshållare till rätt karaktär utifrån kontext och story-bibel och skriver ut det riktiga namnet (frågar om kopplingen är oklar).
 

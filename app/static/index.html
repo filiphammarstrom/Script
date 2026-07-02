@@ -213,17 +213,26 @@
                 <select id="transcribeEngine" title="Transkriberingsmotor">
                   <option value="">Automatiskt (live i webbläsaren när det går)</option>
                   <option value="webspeech">Webbläsaren – live (gratis)</option>
-                  <option value="browser">Webbläsaren – KB-Whisper (gratis, privat)</option>
+                  <option value="browser">Webbläsaren – Whisper (gratis, privat)</option>
                   <option value="local">Lokalt: Whisper-CLI (gratis)</option>
                   <option value="watch">Bevakad mapp (auto)</option>
                   <option value="groq">Moln: Groq (billigast)</option>
                   <option value="openai">Moln: OpenAI</option>
                   <option value="assemblyai">Moln: AssemblyAI</option>
                 </select>
-                <select id="browserModel" title="KB-Whisper-modell – laddas ner en gång och cachas i webbläsaren" hidden>
-                  <option value="tiny">KB-Whisper Tiny (snabbast)</option>
-                  <option value="base" selected>KB-Whisper Base (lagom)</option>
-                  <option value="small">KB-Whisper Small (bäst)</option>
+                <select id="dictateLang" title="Dikteringsspråk – styr live-dikteringen och webbläsar-Whisper (svenska får KB-Whisper, KB:s svensktränade modell) och skickas som hint till molnmotorerna">
+                  <option value="sv" selected>Svenska</option>
+                  <option value="en">Engelska</option>
+                  <option value="no">Norska</option>
+                  <option value="da">Danska</option>
+                  <option value="fi">Finska</option>
+                  <option value="auto">Auto / annat språk</option>
+                </select>
+                <select id="browserModel" title="Whisper-modell – laddas ner en gång och cachas i webbläsaren. Svenska använder KB-Whisper, övriga språk OpenAI:s flerspråkiga Whisper." hidden>
+                  <option value="tiny">Tiny (snabbast, ~40 MB)</option>
+                  <option value="base" selected>Base (lagom, ~80 MB)</option>
+                  <option value="small">Small (bättre, ~250 MB)</option>
+                  <option value="large">Large (bäst, ~1 GB)</option>
                 </select>
                 <label class="inline-check" title="Talarseparering: ljudet skickas till en molnmotor som märker vem som säger vad (Speaker A/B ...). Utan bock används gratis live-diktering i webbläsaren när det går.">
                   <input type="checkbox" id="multiSpeaker"> Flera talare

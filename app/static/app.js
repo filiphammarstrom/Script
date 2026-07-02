@@ -466,9 +466,23 @@ $("audioFile").onchange = () => {
   $("audioName").textContent = f ? f.name : "";
 };
 $("transcribeEngine").onchange = () => {
-  // Modellvalet gäller bara KB-Whisper i webbläsaren.
+  // Modellvalet gäller bara Whisper i webbläsaren.
   $("browserModel").hidden = $("transcribeEngine").value !== "browser";
 };
+
+// Dikteringsspråk: styr live-dikteringen (BCP-47-kod), webbläsar-Whisper (väljer
+// modellfamilj + språkstyrning) och skickas som hint till molnmotorerna. "auto"
+// låter motorn språkdetektera själv; live-dikteringen saknar auto-läge och tar
+// då webbläsarens gränssnittsspråk.
+const DICTATE_LANGS = {
+  sv: { bcp47: "sv-SE", whisper: "swedish", cloud: "sv" },
+  en: { bcp47: "en-US", whisper: "english", cloud: "en" },
+  no: { bcp47: "nb-NO", whisper: "norwegian", cloud: "no" },
+  da: { bcp47: "da-DK", whisper: "danish", cloud: "da" },
+  fi: { bcp47: "fi-FI", whisper: "finnish", cloud: "fi" },
+  auto: { bcp47: navigator.language || "sv-SE", whisper: null, cloud: null },
+};
+function dictateLang() { return DICTATE_LANGS[$("dictateLang").value] || DICTATE_LANGS.sv; }
 
 // ---- KB-Whisper i webbläsaren (Transformers.js) ----
 // Svensktränad Whisper från Kungliga biblioteket som körs helt i webbläsaren:
@@ -497,16 +511,25 @@ async function decodeAudioTo16kMono(blob) {
     ctx.close();
   }
 }
+function browserModelId() {
+  // Svenska → KB-Whisper (Kungliga bibliotekets svensktränade, klart bäst på
+  // svenska). Andra språk/auto → OpenAI:s flerspråkiga Whisper – KB-varianten
+  // är finjusterad på svenska och tappar kvalitet på övriga språk.
+  const size = $("browserModel").value || "base";
+  if ($("dictateLang").value === "sv") return `onnx-community/kb-whisper-${size}-ONNX`;
+  if (size === "large") return "onnx-community/whisper-large-v3-turbo";
+  return `onnx-community/whisper-${size}`;
+}
 async function browserTranscribe(blob) {
   setStatus("Avkodar ljudet ...", true);
   const audio = await decodeAudioTo16kMono(blob);
-  const model = "onnx-community/kb-whisper-" + ($("browserModel").value || "base") + "-ONNX";
+  const model = browserModelId();
   const worker = getWhisperWorker();
   return new Promise((resolve, reject) => {
     worker.onmessage = (ev) => {
       const msg = ev.data;
       if (msg.type === "progress") {
-        setStatus(`Laddar KB-Whisper (${Math.round(msg.progress)} %) – cachas till nästa gång ...`, true);
+        setStatus(`Laddar Whisper-modellen (${Math.round(msg.progress)} %) – cachas till nästa gång ...`, true);
       } else if (msg.type === "status") {
         setStatus(msg.message, true);
       } else if (msg.type === "done") {
@@ -516,7 +539,7 @@ async function browserTranscribe(blob) {
       }
     };
     worker.onerror = (ev) => reject(new Error(ev.message || "Worker-fel"));
-    worker.postMessage({ audio, model }, [audio.buffer]);
+    worker.postMessage({ audio, model, language: dictateLang().whisper }, [audio.buffer]);
   });
 }
 async function runBrowserTranscription(blob) {
@@ -545,6 +568,8 @@ async function uploadAudio(fileOrBlob, filename) {
     if (engine === "openai") {
       params.set("model", $("multiSpeaker").checked ? "gpt-4o-transcribe-diarize" : "gpt-4o-mini-transcribe");
     }
+    const cloudLang = dictateLang().cloud;
+    if (cloudLang) params.set("language", cloudLang);  // auto = låt motorn språkdetektera
     const qs = params.toString();
     const url = `/api/projects/${project.id}/transcribe` + (qs ? `?${qs}` : "");
     const res = await fetch(url, { method: "POST", body: fd });
@@ -600,7 +625,7 @@ function startLiveDictation() {
   liveFinal = "";
   liveBase = $("inputText").value.trim();
   const rec = new SpeechRec();
-  rec.lang = "sv-SE";
+  rec.lang = dictateLang().bcp47;
   rec.continuous = true;
   rec.interimResults = true;
   rec.onresult = (ev) => {
