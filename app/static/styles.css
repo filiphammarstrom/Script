@@ -280,7 +280,9 @@ select { width: auto; min-width: 0; }
 .addbtn { color: var(--accent); }
 
 /* ---- manus-editor: scen-vy i manusformat ---- */
-.iconbtn { padding: 5px 9px; font-size: 13px; line-height: 1; background: var(--panel-2); color: var(--muted); }
+/* inline-flex + centrering så glyferna (+/↑/↓/✕ osv.) hamnar mitt i knappen,
+   oavsett teckensnittets egna metrik (annars hamnar de lite för högt). */
+.iconbtn { padding: 5px 9px; font-size: 13px; line-height: 1; background: var(--panel-2); color: var(--muted); display: inline-flex; align-items: center; justify-content: center; }
 .iconbtn:hover { border-color: var(--accent); color: var(--ink); transform: none; }
 
 /* Projektvyn (app-skal: sidomeny + huvudyta) får mer bredd än övriga vyer. */
@@ -315,8 +317,9 @@ main:has(#view-project:not([hidden])) { max-width: 1320px; }
 .side-toggle { display: none; }
 
 /* Verktygsflikar (Diktering/Sök & ersätt/Kommentarer/Versioner): raden ligger fast
-   ovanför manuset (samma sticky-mönster som .scenes-bar) oavsett hur långt ner man
-   skrollat. Varje flik expanderar sin .tab-content nedanför raden när den är aktiv. */
+   ovanför manuset oavsett hur långt ner man skrollat. Varje flik öppnar sin
+   .tab-content som en ruta OVANPÅ manuset (position: fixed, se nedan) i stället för
+   att trycka undan det. */
 .manus-tabbar {
   position: sticky; top: var(--sticky-top, 52px); z-index: 6; display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
   margin-bottom: 12px; padding: 6px; background: linear-gradient(180deg, var(--panel), var(--bg-soft));
@@ -327,16 +330,20 @@ main:has(#view-project:not([hidden])) { max-width: 1320px; }
 }
 .manus-tabbar .tab-btn:hover { color: var(--ink); border-color: transparent; transform: none; }
 .manus-tabbar .tab-btn.active { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #0b0d11; }
-.rec-indicator { margin-left: auto; color: var(--warn); font-variant-numeric: tabular-nums; font-weight: 600; }
-.scenes-bar {
-  /* staplas under flikraden när båda fäster vid skroll */
-  position: sticky; top: calc(var(--sticky-top, 52px) + var(--tabbar-h, 54px) + 8px); z-index: 5;
-  display: flex; align-items: center; justify-content: space-between; gap: 10px;
-  margin-bottom: 10px; padding: 7px 10px;
-  background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
-}
-.script-stats { color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.tabbar-right { margin-left: auto; display: flex; align-items: center; gap: 14px; }
+.rec-indicator { color: var(--warn); font-variant-numeric: tabular-nums; font-weight: 600; }
+.script-stats { color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .script-stats b { color: var(--accent); font-weight: 700; }
+/* Rutan som öppnas av en flik: ankras precis under flikraden (samma vänsterkant/bredd,
+   se syncStickyOffsets i app.js) och lägger sig ovanpå manuset – manuset trycks alltså
+   inte undan, och rutan går alltid att nå eftersom flikraden är sticky. */
+.tab-content {
+  position: fixed; z-index: 20;
+  top: calc(var(--sticky-top, 52px) + var(--tabbar-h, 54px) + 8px);
+  left: var(--tabbar-left, 0px); width: var(--tabbar-width, auto);
+  max-height: calc(100vh - var(--sticky-top, 52px) - var(--tabbar-h, 54px) - 24px);
+  overflow: auto; margin: 0; border-color: var(--accent);
+}
 .ask-answer { white-space: pre-wrap; margin-top: 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); line-height: 1.55; }
 .version-save { margin-top: 12px; }
 .find-row { margin-top: 12px; }
@@ -427,14 +434,15 @@ main:has(#view-project:not([hidden])) { max-width: 1320px; }
   font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums;
 }
 /* Hopfäll-knapp + scennummer i vänstermarginalen (två separata knappar i en rad:
-   chevronen fäller ihop/ut, scennumret öppnar redigering av ett låst nummer). */
+   chevronen fäller ihop/ut till vänster, scennumret öppnar redigering av ett låst
+   nummer). Chevronen står med gott om luft till numret så de inte flyter ihop. */
 .scene-toggle {
-  position: absolute; left: -3.7em; top: -1px; display: inline-flex; align-items: baseline; gap: 5px;
+  position: absolute; left: -4.4em; top: -1px; display: inline-flex; align-items: baseline; gap: 10px;
   color: var(--muted); font-family: inherit; font-size: inherit; font-weight: 700; font-variant-numeric: tabular-nums;
 }
-.scene-toggle button { all: unset; cursor: pointer; font: inherit; color: inherit; }
+.scene-toggle button { all: unset; cursor: pointer; font: inherit; color: inherit; display: inline-flex; align-items: center; justify-content: center; }
 .scene-toggle button:hover { color: var(--accent); }
-.scene-toggle .st-chev { font-size: .72em; }
+.scene-toggle .st-chev { font-size: 1.15em; }
 .scene-toggle .st-no.locked { color: var(--warn); text-decoration: underline dotted; text-underline-offset: 2px; }
 /* "N rader dolda" under en ihopfälld scen – klicka för att fälla ut. */
 .scene-collapsed-note { margin: 2px 0; padding: 1px 4px; color: var(--muted); font-style: italic; font-size: .92em; cursor: pointer; }
@@ -516,8 +524,11 @@ main:has(#view-project:not([hidden])) { max-width: 1320px; }
 .cmdk-item.active, .cmdk-item:hover { background: rgba(110, 168, 254, .16); color: var(--ink); }
 .cmdk-empty { padding: 10px 12px; color: var(--muted); font-size: 13px; }
 
-/* Tangentbordstips ovanför manuset + tomt-läge med startknapp. */
-.editor-hint { margin: 0 0 12px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+/* Kortkommandon: en info-knapp ovanför manuset (i stället för en textrad som ofta
+   radbröt till två rader) – klick visar dem i en flytande ruta (samma stil som
+   ac-menu). Tomt-läge med startknapp använder samma .empty-state som förut. */
+.hint-row { margin: 0 0 12px; }
+.hint-popover { line-height: 1.9; max-width: min(560px, 90vw); }
 kbd {
   font-family: ui-monospace, "Courier Prime", "Courier New", monospace; font-size: 11px; line-height: 1;
   padding: 2px 6px; border: 1px solid var(--line); border-bottom-width: 2px;
@@ -699,7 +710,7 @@ kbd {
   .elements.paper .scene-body { padding: 18px 10px 22px 18px; }
   /* arken: mindre marginaler så texten får plats, hopfäll-knappen närmare kanten */
   .page { width: 100%; padding: 34px 14px 40px 46px; }
-  .scene-toggle { left: -2.6em; }
+  .scene-toggle { left: -3em; gap: 6px; }
   .fel-scene_heading::after { display: none; }  /* scennumret finns redan i vänsterkanten */
 
   /* större tryckytor i verktygsflikarna */
