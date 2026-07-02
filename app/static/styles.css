@@ -306,8 +306,15 @@ main:has(#view-project:not([hidden])) { max-width: 1340px; }
    runt om, som gjorde att railen såg bortkopplad ut från sin egen ram. Ett
    uttryckligt max-width (i stället för width:fit-content) krymper fortsatt
    fint på smala skärmar – fit-content bryr sig bara om innehållets EGEN
-   önskade bredd och kan då svämma över en trängre grid-cell. */
-.elements-panel { max-width: 966px; margin: 0 auto; }
+   önskade bredd och kan då svämma över en trängre grid-cell.
+   Panelens egen dekorativa bakgrund/kant (från .panel) syntes som en extra,
+   överflödig ram precis runt railerna nu när panelen ligger tight – arket och
+   de små ikonrutorna har redan sina egna kanter, så panelen görs osynlig och
+   fungerar bara som layout-behållare (bredd/centrering). */
+.elements-panel {
+  max-width: 930px; margin: 0 auto;
+  background: none; border: none; box-shadow: none; padding: 0;
+}
 
 /* ---- app-skal: sidomeny + huvudyta ---- */
 .app-shell { display: grid; grid-template-columns: 224px minmax(0, 1fr); gap: 22px; align-items: start; }
