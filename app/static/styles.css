@@ -297,9 +297,17 @@ select { width: auto; min-width: 0; }
 
 /* Projektvyn (app-skal: sidomeny + huvudyta) får mer bredd än övriga vyer. */
 main:has(#view-project:not([hidden])) { max-width: 1340px; }
-/* Sidan (714px, se .page) + kontrollrailen på ömse sidor centreras som en enhet
-   i huvudytan, så manuset inte hänger i vänsterkanten med tom yta till höger. */
-.elements { width: 890px; max-width: 100%; margin: 0 auto; }
+/* Bredden räcker precis till sidan (714px) + railen på ömse sidor (typknappen
+   till vänster, verktygen till höger) med en liten marginal – .page har
+   margin-left som gör exakt plats för vänsterrailen, se ovan. */
+.elements { width: 930px; max-width: 100%; }
+/* Panelen runt manuset ska krympa efter innehållet (sida + rail) i stället för
+   att sträcka ut sig över hela huvudytan – annars blir det en stor tom gråyta
+   runt om, som gjorde att railen såg bortkopplad ut från sin egen ram. Ett
+   uttryckligt max-width (i stället för width:fit-content) krymper fortsatt
+   fint på smala skärmar – fit-content bryr sig bara om innehållets EGEN
+   önskade bredd och kan då svämma över en trängre grid-cell. */
+.elements-panel { max-width: 966px; margin: 0 auto; }
 
 /* ---- app-skal: sidomeny + huvudyta ---- */
 .app-shell { display: grid; grid-template-columns: 224px minmax(0, 1fr); gap: 22px; align-items: start; }
@@ -334,7 +342,11 @@ main:has(#view-project:not([hidden])) { max-width: 1340px; }
    den ena såg ut som ett fokus-/aktivt tillstånd i stället för en vanlig knapp. */
 .side-file-btn { flex: 1; min-width: 0; font-size: 13px; padding: 8px 6px; justify-content: center; white-space: normal; text-align: center; }
 .side-file-btn.full { width: 100%; }
-.app-main { min-width: 0; }
+/* Radrailen (utanför själva arket) skalar inte ner med fönstret (fast pixel-
+   offset) – på smala skrivbordsfönster (mellan mobil-brytpunkten och där allt
+   får plats) får manusytan hellre en egen horisontell rullist än att hela
+   sidan (inklusive sidopanelen) blir bredare än fönstret. */
+.app-main { min-width: 0; overflow-x: auto; }
 .section-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
 .section-title { font-size: 18px; text-transform: none; letter-spacing: 0; color: var(--ink); margin: 0; font-weight: 680; }
 .side-toggle { display: none; }
@@ -464,7 +476,7 @@ main:has(#view-project:not([hidden])) { max-width: 1340px; }
    enkelradigt manus) i stället för den lite luftigare redigeringshöjden – annars
    blir en full sida (~55 rader) mycket högre än ett riktigt pappersark. */
 .page {
-  position: relative; width: 714px; max-width: 100%;
+  position: relative; width: 714px; max-width: 100%; margin-left: 47px;
   border: 1px solid var(--line); border-radius: 4px; background: #0c0e13;
   padding: 48px 84px 60px 126px; overflow: visible;
   font: 14px/1.2 "Courier Prime", "Courier New", ui-monospace, monospace;
@@ -593,8 +605,12 @@ main:has(#view-project:not([hidden])) { max-width: 1340px; }
 /* Radverktygen (kategorins ev. extrafunktion + infoga/flytta/ta bort) sitter i
    högerrailen (utanför sidtexten) och visas bara när "Visa kontroller" är på
    (se #controlsToggle) – annars blir manuset snabbt rörigt av ikoner på varje rad. */
+/* margin-left måste vara minst .page's padding-right (84px, se .page ovan) för
+   att railen ska hamna UTANFÖR arkets kant i stället för att flyta inne i dess
+   egen högermarginal (vilket hände efter att marginalerna gjordes om till
+   riktiga tumbaserade mått). */
 .fel-tools {
-  position: absolute; left: 100%; margin-left: 30px; top: 0; display: none; gap: 3px; align-items: center;
+  position: absolute; left: 100%; margin-left: 88px; top: 0; display: none; gap: 3px; align-items: center;
   background: rgba(12, 14, 19, .92); padding: 3px; border-radius: 7px; border: 1px solid var(--line);
 }
 .elements.show-controls .fel-tools { display: flex; }
@@ -817,7 +833,7 @@ kbd {
   .scene-body { padding: 12px 8px 16px 14px; }
   .elements.paper .scene-body { padding: 18px 10px 22px 18px; }
   /* arken: mindre marginaler så texten får plats, hopfäll-knappen närmare kanten */
-  .page { width: 100%; padding: 34px 14px 40px 46px; }
+  .page { width: 100%; margin-left: 0; padding: 34px 14px 40px 46px; }
   .scene-toggle { left: -3em; gap: 6px; }
   .fel-scene_heading::after { display: none; }  /* scennumret finns redan i vänsterkanten */
 
